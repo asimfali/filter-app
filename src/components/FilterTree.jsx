@@ -94,17 +94,11 @@ const FilterTreeGraph = () => {
     if (loading) return;
     if (!pendingGraphData.current) return;
     if (!cyRef.current) return;
-
+  
     const { nodes, edges } = pendingGraphData.current;
     pendingGraphData.current = null;
-    initCytoscape(nodes, edges);
-  }, [loading]);
-
-  // ── Инициализация Cytoscape ────────────────────────────────────────────────
-
-  const initCytoscape = (nodes, edges) => {
-    if (!cyRef.current) return;
-
+  
+    // Считаем нужную высоту ДО инициализации
     const valueNodes = nodes.filter(n => n.data.type === 'value');
     const byOrder = {};
     valueNodes.forEach(n => {
@@ -112,9 +106,35 @@ const FilterTreeGraph = () => {
       if (!byOrder[o]) byOrder[o] = [];
       byOrder[o].push(n.data.id);
     });
+    const maxNodes = Object.values(byOrder).reduce((m, ids) => Math.max(m, ids.length), 0);
+    const neededHeight = Math.max(600, maxNodes * 50 + 150);
+    setGraphHeight(neededHeight);
+  
+    // Инициализируем граф только после установки высоты
+    // requestAnimationFrame гарантирует что DOM обновился
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        initCytoscape(nodes, edges, byOrder);
+      });
+    });
+  }, [loading]);
 
+  // ── Инициализация Cytoscape ────────────────────────────────────────────────
+
+  const initCytoscape = (nodes, edges, byOrder) => {
+    if (!cyRef.current) return;
+
+    if (!byOrder) {
+      byOrder = {};
+      nodes.filter(n => n.data.type === 'value').forEach(n => {
+        const o = n.data.order;
+        if (!byOrder[o]) byOrder[o] = [];
+        byOrder[o].push(n.data.id);
+      });
+    }
+  
     const positions = {};
-    const COL_W = 160, ROW_H = 65;
+    const COL_W = 200, ROW_H = 50;
     Object.entries(byOrder).forEach(([order, ids]) => {
       ids.forEach((id, i) => {
         positions[id] = { x: parseInt(order) * COL_W + 100, y: i * ROW_H + 60 };
@@ -193,6 +213,12 @@ const FilterTreeGraph = () => {
       selectionType: 'additive',
       boxSelectionEnabled: true,
     });
+    setTimeout(() => {
+      cy.resize();
+      cy.fit(undefined, 40);
+      cy.minZoom(0.3);
+      cy.maxZoom(3);
+    }, 100);
 
     const updateSelection = () => {
       const selected = cy.nodes('[type="value"]:selected');
@@ -286,6 +312,7 @@ const FilterTreeGraph = () => {
   const [detaching, setDetaching] = useState(false);
   const [detachResult, setDetachResult] = useState(null);
   const [attachedValueIds, setAttachedValueIds] = useState([]);
+  const [graphHeight, setGraphHeight] = useState(500);
 
   const handleAxisChange = async (axisId) => {
     setAttachAxis(axisId);
@@ -315,31 +342,31 @@ const FilterTreeGraph = () => {
     }));
 
     try {
-      const res2  = await fetch(`${API_BASE}/products/current-parameters/`, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ filters, axis_id: axisId }),
+      const res2 = await fetch(`${API_BASE}/products/current-parameters/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filters, axis_id: axisId }),
       });
       const data2 = await res2.json();
       console.log('current-parameters response:', data2);  // ← добавить
 
       if (data2.success && data2.data.value_ids.length > 0) {
-          const ids = data2.data.value_ids;
-          console.log('value_ids:', ids);  // ← добавить
+        const ids = data2.data.value_ids;
+        console.log('value_ids:', ids);  // ← добавить
 
-          const cy = cyInstanceRef.current;
-          ids.forEach(vid => {
-              const node = cy.getElementById(`value-${vid}`);
-              console.log(`node value-${vid}:`, node.length);  // ← добавить
-              if (node.length) {
-                  node.removeClass('dimmed');
-                  node.addClass('attached');
-              }
-          });
+        const cy = cyInstanceRef.current;
+        ids.forEach(vid => {
+          const node = cy.getElementById(`value-${vid}`);
+          console.log(`node value-${vid}:`, node.length);  // ← добавить
+          if (node.length) {
+            node.removeClass('dimmed');
+            node.addClass('attached');
+          }
+        });
       }
-  } catch (e) {
+    } catch (e) {
       console.error(e);
-  }
+    }
   };
 
   // Отвязка
@@ -414,21 +441,25 @@ const FilterTreeGraph = () => {
 
       {/* Граф + панель — показываем только когда загружено */}
       {selectedTypeId && !loading && !error && (
-        <div className="flex gap-4">
+        <div className="flex gap-4 w-full">
 
           {/* Граф */}
-          <div className="bg-white rounded-lg shadow p-4 flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-2">
+          <div className="bg-white rounded-lg shadow p-4 flex-1 min-w-0 flex flex-col">
+            <div className="flex items-center justify-between mb-2 shrink-0">
               <span className="text-sm font-medium text-gray-700">{productType?.name}</span>
               <span className="text-xs text-gray-400">
                 Клик — выделить · Shift+клик — добавить · Drag — область
               </span>
             </div>
-            <div ref={cyRef} className="border border-gray-200 rounded-lg" style={{ height: 500 }} />
+            <div
+              ref={cyRef}
+              className="border border-gray-200 rounded-lg"
+              style={{ height: graphHeight }}
+            />
           </div>
 
           {/* Панель привязки — без изменений */}
-          <div className="bg-white rounded-lg shadow p-4 w-72 shrink-0 flex flex-col gap-4">
+          <div className="bg-white rounded-lg shadow p-4 w-72 shrink-0 flex flex-col gap-4 self-start sticky top-4">
             <div>
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                 Фильтр
