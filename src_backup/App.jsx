@@ -9,8 +9,6 @@ import TwoFAForm from './components/auth/TwoFAForm';
 import FilterTreeGraph from './components/FilterTree';
 import ParameterEditorPage from './pages/ParameterEditorPage';
 import StaffPage from './pages/StaffPage';
-import DocumentsPage from './pages/DocumentsPage';
-import SpecEditorPage from './pages/SpecEditorPage';
 
 // Страница авторизации — объединяет все auth-экраны
 function AuthPage() {
@@ -21,14 +19,14 @@ function AuthPage() {
   const [successMsg, setSuccessMsg] = useState('');
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 dark:bg-gray-950 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 dark:bg-gray-900 rounded-xl shadow-sm
-                      border border-gray-200 dark:border-gray-700 dark:border-gray-700 w-full max-w-md p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm
+                      border border-gray-200 dark:border-gray-700 w-full max-w-md p-8">
 
         {/* Лого / заголовок */}
         <div className="text-center mb-6">
-          <div className="text-2xl font-bold text-gray-900 dark:text-white dark:text-white">Теплообменное оборудование</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Корпоративный портал</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">Теплообменное оборудование</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">Корпоративный портал</div>
         </div>
 
         {/* Успешное сообщение */}
@@ -41,7 +39,7 @@ function AuthPage() {
 
         {screen === 'login' && (
           <>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Вход</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Вход</h2>
             <LoginForm
               onSuccess={() => {/* AuthContext обновит user → App перерендерится */ }}
               onNeed2fa={(email, method, message) => {
@@ -54,7 +52,7 @@ function AuthPage() {
                 setScreen('activate');
               }}
             />
-            <p className="text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-4">
+            <p className="text-center text-sm text-gray-500 mt-4">
               Нет аккаунта?{' '}
               <button onClick={() => { setScreen('register'); setSuccessMsg(''); }}
                 className="text-blue-600 hover:underline font-medium">
@@ -66,7 +64,7 @@ function AuthPage() {
 
         {screen === 'register' && (
           <>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Регистрация</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Регистрация</h2>
             <RegisterForm
               onSuccess={(email) => {
                 setPendingEmail(email);
@@ -74,7 +72,7 @@ function AuthPage() {
                 setScreen('activate');
               }}
             />
-            <p className="text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-4">
+            <p className="text-center text-sm text-gray-500 mt-4">
               Уже есть аккаунт?{' '}
               <button onClick={() => setScreen('login')}
                 className="text-blue-600 hover:underline font-medium">
@@ -86,7 +84,7 @@ function AuthPage() {
 
         {screen === 'activate' && (
           <>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Активация аккаунта</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Активация аккаунта</h2>
             <ActivateForm
               email={pendingEmail}
               onSuccess={() => {
@@ -96,7 +94,7 @@ function AuthPage() {
             />
             <button
               onClick={() => setScreen('login')}
-              className="w-full text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:text-gray-300 mt-3"
+              className="w-full text-center text-sm text-gray-500 hover:text-gray-700 mt-3"
             >
               ← Назад к входу
             </button>
@@ -105,7 +103,7 @@ function AuthPage() {
 
         {screen === '2fa' && (
           <>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Двухфакторная аутентификация</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Двухфакторная аутентификация</h2>
             <TwoFAForm
               email={pendingEmail}
               method={twoFA.method}
@@ -120,25 +118,15 @@ function AuthPage() {
   );
 }
 
-import ProductPage from './pages/ProductPage';
-
 // Основное приложение (после входа)
 function MainApp() {
   const [page, setPage] = useState('configurator');
-  const [selectedProductId, setSelectedProductId] = useState(null);
   const { user } = useAuth();
-  const [specEditorProductIds, setSpecEditorProductIds] = useState([]);
   const showWarning = user && !user.is_confirmed;
-
-  const handleNavigate = (newPage, payload = null) => {
-    setPage(newPage);
-    if (newPage === 'product') setSelectedProductId(payload);
-    if (newPage === 'spec-editor') setSpecEditorProductIds(payload || []);
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
-      <Header currentPage={page} onNavigate={handleNavigate} />
+      <Header currentPage={page} onNavigate={setPage} />
 
       {showWarning && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-sm
@@ -148,22 +136,9 @@ function MainApp() {
       )}
 
       <main className="flex-1 px-4 py-6">
-        {page === 'configurator' && <FilterTreeGraph onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)} />}
+        {page === 'configurator' && <FilterTreeGraph />}
         {page === 'parameters' && <ParameterEditorPage />}
-        {page === 'staff' && <StaffPage />}
-        {page === 'documents' && <DocumentsPage />}
-        {page === 'product' && (
-          <ProductPage
-            productId={selectedProductId}
-            onBack={() => handleNavigate('configurator')}
-          />
-        )}
-        {page === 'spec-editor' && (
-          <SpecEditorPage
-            productIds={specEditorProductIds}
-            onBack={() => handleNavigate('configurator')}
-          />
-        )}
+        {page === 'staff' && <StaffPage />}  {/* ← внутри return! */}
       </main>
     </div>
   );
@@ -175,8 +150,8 @@ function AppInner() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <div className="text-gray-400 dark:text-gray-500 text-sm">Загрузка...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-400 text-sm">Загрузка...</div>
       </div>
     );
   }

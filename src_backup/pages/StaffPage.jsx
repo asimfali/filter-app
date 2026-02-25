@@ -62,11 +62,11 @@ function useUsers(search = '') {
 function Modal({ title, onClose, children, wide }) {
     return (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className={`bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+            <div className={`bg-white rounded-xl shadow-xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                    <h3 className="font-semibold text-gray-900">{title}</h3>
                     <button onClick={onClose}
-                        className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 text-xl leading-none">✕</button>
+                        className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
                 </div>
                 <div className="px-5 py-4">{children}</div>
             </div>
@@ -109,13 +109,13 @@ function AssignRoleForm({ userId, departments, roles, existingRoles, onSave, onC
         }
     };
 
-    const sel = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-        "focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white dark:border-gray-600";
+    const sel = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm " +
+        "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
     return (
         <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">Подразделение</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Подразделение</label>
                 <select required value={form.department}
                     onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
                     className={sel}>
@@ -126,7 +126,7 @@ function AssignRoleForm({ userId, departments, roles, existingRoles, onSave, onC
                 </select>
             </div>
             <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">Роль</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Роль</label>
                 <select required value={form.role}
                     onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
                     className={sel}>
@@ -147,7 +147,7 @@ function AssignRoleForm({ userId, departments, roles, existingRoles, onSave, onC
 
             <div className="flex gap-2 pt-1">
                 <button type="button" onClick={onClose}
-                    className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
+                    className="flex-1 border border-gray-300 text-gray-700 text-sm py-2 rounded-lg hover:bg-gray-50">
                     Отмена
                 </button>
                 <button type="submit" disabled={loading}
@@ -178,10 +178,10 @@ function UserCard({ user, departments, roles, onUpdate }) {
     const deptRoles = user.department_roles || [];
 
     return (
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             {/* Шапка карточки */}
             <div
-                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950"
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50"
                 onClick={() => setExpanded(e => !e)}
             >
                 <div className="flex items-center gap-3">
@@ -191,8 +191,8 @@ function UserCard({ user, departments, roles, onUpdate }) {
                         {(user.first_name?.[0] || user.username?.[0] || '?').toUpperCase()}
                     </div>
                     <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{user.full_name}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">{user.email}</div>
+                        <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
+                        <div className="text-xs text-gray-500">{user.email}</div>
                     </div>
                 </div>
 
@@ -200,7 +200,7 @@ function UserCard({ user, departments, roles, onUpdate }) {
                     {/* Бейджи ролей */}
                     <div className="flex gap-1 flex-wrap justify-end">
                         {deptRoles.length === 0 ? (
-                            <span className="text-xs text-gray-400 dark:text-gray-500 italic">нет ролей</span>
+                            <span className="text-xs text-gray-400 italic">нет ролей</span>
                         ) : (
                             deptRoles.slice(0, 2).map(dr => (
                                 <span key={dr.id}
@@ -210,7 +210,7 @@ function UserCard({ user, departments, roles, onUpdate }) {
                             ))
                         )}
                         {deptRoles.length > 2 && (
-                            <span className="text-xs text-gray-400 dark:text-gray-500">+{deptRoles.length - 2}</span>
+                            <span className="text-xs text-gray-400">+{deptRoles.length - 2}</span>
                         )}
                     </div>
 
@@ -222,15 +222,15 @@ function UserCard({ user, departments, roles, onUpdate }) {
                         {user.is_confirmed ? 'активен' : 'ожидает'}
                     </span>
 
-                    <span className="text-gray-400 dark:text-gray-500 text-sm">{expanded ? '▲' : '▼'}</span>
+                    <span className="text-gray-400 text-sm">{expanded ? '▲' : '▼'}</span>
                 </div>
             </div>
 
             {/* Раскрытая часть */}
             {expanded && (
-                <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3 bg-gray-50 dark:bg-gray-950">
+                <div className="border-t border-gray-100 px-4 py-3 bg-gray-50">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                        <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
                             Роли в подразделениях
                         </span>
                         <button
@@ -242,22 +242,22 @@ function UserCard({ user, departments, roles, onUpdate }) {
                     </div>
 
                     {deptRoles.length === 0 ? (
-                        <p className="text-xs text-gray-400 dark:text-gray-500 py-2">
+                        <p className="text-xs text-gray-400 py-2">
                             Роли не назначены. Пользователь не может работать в системе.
                         </p>
                     ) : (
                         <div className="space-y-1.5">
                             {deptRoles.map(dr => (
                                 <div key={dr.id}
-                                    className="flex items-center justify-between bg-white dark:bg-gray-900 border
-                             border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+                                    className="flex items-center justify-between bg-white border
+                             border-gray-200 rounded-lg px-3 py-2">
                                     <div className="flex items-center gap-3">
                                         <div>
-                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                            <span className="text-sm font-medium text-gray-800">
                                                 {dr.department_name}
                                             </span>
-                                            <span className="text-gray-400 dark:text-gray-500 mx-1.5">→</span>
-                                            <span className="text-sm text-gray-700 dark:text-gray-300">{dr.role_name}</span>
+                                            <span className="text-gray-400 mx-1.5">→</span>
+                                            <span className="text-sm text-gray-700">{dr.role_name}</span>
                                             {dr.can_approve && (
                                                 <span className="ml-2 text-xs bg-amber-50 text-amber-700
                                          px-1.5 py-0.5 rounded">
@@ -279,7 +279,7 @@ function UserCard({ user, departments, roles, onUpdate }) {
                     )}
 
                     {/* Дата регистрации */}
-                    <div className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                    <div className="mt-2 text-xs text-gray-400">
                         Зарегистрирован: {new Date(user.date_joined).toLocaleDateString('ru-RU')}
                     </div>
                 </div>
@@ -311,14 +311,14 @@ function DepartmentTree({ departments, level = 0, onEdit, onAdd }) {
         <div key={dept.id}>
           <div
             className="flex items-center justify-between px-3 py-2 rounded-lg
-                       hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 group"
+                       hover:bg-gray-50 group"
             style={{ paddingLeft: `${level * 20 + 12}px` }}
           >
             <div className="flex items-center gap-2">
               {level > 0 && <span className="text-gray-300 text-xs">└</span>}
               <div>
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{dept.name}</span>
-                <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{dept.code}</span>
+                <span className="text-sm font-medium text-gray-800">{dept.name}</span>
+                <span className="ml-2 text-xs text-gray-400">{dept.code}</span>
                 {dept.members_count > 0 && (
                   <span className="ml-2 text-xs bg-blue-50 text-blue-600
                                    px-1.5 py-0.5 rounded-full">
@@ -397,8 +397,8 @@ function DepartmentsPanel({ departments, reload }) {
         }
     };
 
-    const inp = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-        "focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white dark:border-gray-600";
+    const inp = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm " +
+        "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
     const modalTitle = modal?.id
         ? `Редактировать: ${modal.name}`
@@ -407,9 +407,9 @@ function DepartmentsPanel({ departments, reload }) {
             : 'Новое корневое подразделение';
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
+        <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Структура подразделений</span>
+                <span className="text-sm font-semibold text-gray-800">Структура подразделений</span>
                 <button onClick={() => openAdd(null)}
                     className="bg-blue-600 hover:bg-blue-700 text-white text-xs
                        px-2.5 py-1.5 rounded-lg transition-colors">
@@ -418,7 +418,7 @@ function DepartmentsPanel({ departments, reload }) {
             </div>
 
             {departments.length === 0 ? (
-                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-6">Нет подразделений</p>
+                <p className="text-xs text-gray-400 text-center py-6">Нет подразделений</p>
             ) : (
                 <DepartmentTree departments={departments} onEdit={openEdit} onAdd={openAdd} />
             )}
@@ -432,21 +432,21 @@ function DepartmentsPanel({ departments, reload }) {
                             </div>
                         )}
                         <div>
-                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">Название</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Название</label>
                             <input required value={form.name}
                                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                                 placeholder="Бюро автоматики" className={inp} />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">
-                                Код <span className="text-gray-400 dark:text-gray-500 font-normal">(латиница)</span>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                                Код <span className="text-gray-400 font-normal">(латиница)</span>
                             </label>
                             <input required value={form.code}
                                 onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
                                 placeholder="ba" className={inp} />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">Описание</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Описание</label>
                             <input value={form.description}
                                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                                 placeholder="Необязательно" className={inp} />
@@ -457,8 +457,8 @@ function DepartmentsPanel({ departments, reload }) {
                         )}
                         <div className="flex gap-2">
                             <button type="button" onClick={() => setModal(null)}
-                                className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm
-                             py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">Отмена</button>
+                                className="flex-1 border border-gray-300 text-gray-700 text-sm
+                             py-2 rounded-lg hover:bg-gray-50">Отмена</button>
                             <button type="submit" disabled={loading}
                                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50
                              text-white text-sm py-2 rounded-lg">
@@ -483,22 +483,22 @@ export default function StaffPage() {
 
     return (
         <div className="space-y-4">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4 flex items-center justify-between">
+            <div className="bg-white rounded-lg shadow px-5 py-4 flex items-center justify-between">
                 <div>
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-white dark:text-white">Управление персоналом</h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">Управление персоналом</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
                         Назначайте сотрудников в подразделения и управляйте ролями
                     </p>
                 </div>
-                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
                     {[
                         { id: 'users', label: 'Сотрудники' },
                         { id: 'departments', label: 'Подразделения' },
                     ].map(t => (
                         <button key={t.id} onClick={() => setTab(t.id)}
                             className={`px-4 py-1.5 rounded text-sm transition-colors ${tab === t.id
-                                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                                    : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200'
+                                    ? 'bg-white text-gray-900 shadow-sm font-medium'
+                                    : 'text-gray-600 hover:text-gray-800'
                                 }`}>
                             {t.label}
                         </button>
@@ -508,25 +508,25 @@ export default function StaffPage() {
 
             {tab === 'users' && (
                 <>
-                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-4 py-3">
+                    <div className="bg-white rounded-lg shadow px-4 py-3">
                         <input type="search" value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder="Поиск по имени, фамилии, email..."
-                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
 
                     {loading ? (
-                        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center text-gray-400 dark:text-gray-500 text-sm">
+                        <div className="bg-white rounded-lg shadow p-8 text-center text-gray-400 text-sm">
                             Загрузка...
                         </div>
                     ) : users.length === 0 ? (
-                        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center text-gray-400 dark:text-gray-500 text-sm">
+                        <div className="bg-white rounded-lg shadow p-8 text-center text-gray-400 text-sm">
                             {search ? 'Ничего не найдено' : 'Нет пользователей'}
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 px-1">
+                            <div className="text-xs text-gray-500 px-1">
                                 Найдено: {users.length} сотрудников
                             </div>
                             {users.map(user => (
