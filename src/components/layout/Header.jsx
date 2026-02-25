@@ -15,7 +15,7 @@ function useDebounce(value, delay) {
 }
 
 export default function Header({ currentPage, onNavigate }) {
-  const { user, logout } = useAuth();
+  const { user, logout, activeSession } = useAuth();
   const { dark, toggle } = useTheme();
 
   const [query, setQuery] = useState('');
@@ -47,7 +47,7 @@ export default function Header({ currentPage, onNavigate }) {
           setOpen(true);
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setSearching(false));
   }, [debouncedQuery]);
 
@@ -89,21 +89,39 @@ export default function Header({ currentPage, onNavigate }) {
         </span>
         {user && (
           <nav className="flex gap-1">
-            {[
-              { id: 'configurator', label: 'Конфигуратор' },
-              { id: 'parameters',   label: 'Параметры' },
-              { id: 'staff',        label: 'Персонал' },
-              { id: 'documents',    label: 'Документы' },
-            ].map(item => (
-              <button key={item.id} onClick={() => onNavigate(item.id)}
-                className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                  currentPage === item.id
-                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
-                }`}>
-                {item.label}
-              </button>
-            ))}
+            {/* БЫЛО: хардкод массива */}
+            {/* СТАЛО: фильтрация по правам */}
+
+            {(() => {
+              const ALL_PAGES = [
+                { id: 'configurator', label: 'Конфигуратор' },
+                { id: 'parameters', label: 'Параметры' },
+                { id: 'staff', label: 'Персонал' },
+                { id: 'documents', label: 'Документы' },
+              ];
+
+              const visiblePages = user?.pages
+                ? ALL_PAGES.filter(p => user.pages.includes(p.id))
+                : ALL_PAGES;
+
+              const navItems = [
+                ...visiblePages,
+                ...(activeSession?.data?.page === 'spec-editor'
+                  ? [{ id: 'spec-editor', label: '✎ Редактор' }]
+                  : []
+                ),
+              ];
+
+              return navItems.map(item => (
+                <button key={item.id} onClick={() => onNavigate(item.id)}
+                  className={`px-3 py-1.5 rounded text-sm transition-colors ${currentPage === item.id
+                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}>
+                  {item.label}
+                </button>
+              ));
+            })()}
           </nav>
         )}
       </div>
