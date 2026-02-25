@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Header from './components/layout/Header';
 import LoginForm from './components/auth/LoginForm';
@@ -7,6 +8,7 @@ import ActivateForm from './components/auth/ActivateForm';
 import TwoFAForm from './components/auth/TwoFAForm';
 import FilterTreeGraph from './components/FilterTree';
 import ParameterEditorPage from './pages/ParameterEditorPage';
+import StaffPage from './pages/StaffPage';
 
 // Страница авторизации — объединяет все auth-экраны
 function AuthPage() {
@@ -132,10 +134,10 @@ function MainApp() {
         </div>
       )}
 
-      {/* Убрали max-w-7xl и overflow-y-auto — контент на всю ширину */}
       <main className="flex-1 px-4 py-6">
         {page === 'configurator' && <FilterTreeGraph />}
         {page === 'parameters'   && <ParameterEditorPage />}
+        {page === 'staff'        && <StaffPage />}  {/* ← внутри return! */}
       </main>
     </div>
   );
@@ -158,8 +160,10 @@ function AppInner() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppInner />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppInner />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

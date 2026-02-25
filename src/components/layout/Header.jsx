@@ -13,6 +13,7 @@ export default function Header({ currentPage, onNavigate }) {
             {[
               { id: 'configurator', label: 'Конфигуратор' },
               { id: 'parameters',   label: 'Параметры' },
+              { id: 'staff',        label: 'Персонал' },
             ].map(item => (
               <button
                 key={item.id}
