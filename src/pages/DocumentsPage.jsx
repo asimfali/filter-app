@@ -67,10 +67,27 @@ function useFormData() {
 // ── Строка файла ─────────────────────────────────────────────────────────
 
 function FileRow({ file, dimmed = false }) {
+  const token = localStorage.getItem('access_token');
+
+  const handleClick = async (e) => {
+    e.preventDefault();
+    // Получаем файл через fetch с токеном
+    const res = await fetch(`/api/v1/media/download/?path=${encodeURIComponent(file.rel_path)}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+
+    // Открываем в новой вкладке
+    window.open(url, '_blank');
+
+    // Освобождаем память через 60 сек
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
   return (
-    <a href={`/api/v1/media/download/?path=${encodeURIComponent(file.rel_path)}`}
-      className={`flex items-center justify-between py-2 px-3 rounded-lg
-                  hover:bg-gray-50 dark:hover:bg-gray-800 group transition-colors`}>
+    <a href="#" onClick={handleClick}
+      className="flex items-center justify-between py-2 px-3 rounded-lg
+                 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-colors">
       <div className="flex items-center gap-2">
         <PdfIcon className={`w-5 h-5 shrink-0 ${dimmed ? 'text-gray-300 dark:text-gray-600' : 'text-red-400'}`} />
         <span className={`text-sm ${dimmed ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>
