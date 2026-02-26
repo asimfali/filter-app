@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { IssuesProvider } from './contexts/IssuesContext.jsx';
 import Header from './components/layout/Header';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
@@ -12,6 +13,8 @@ import StaffPage from './pages/StaffPage';
 import DocumentsPage from './pages/DocumentsPage';
 import ProductPage from './pages/ProductPage';
 import SpecEditorPage from './pages/SpecEditorPage';
+import IssuesPage from './pages/IssuesPage.jsx';
+import IssueThreadPage from './pages/IssueThreadPage.jsx';
 
 // AuthPage без изменений — твой существующий код
 function AuthPage() {
@@ -44,7 +47,7 @@ function AuthPage() {
           <>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Вход</h2>
             <LoginForm
-              onSuccess={() => {}}
+              onSuccess={() => { }}
               onNeed2fa={(email, method, message) => {
                 setPendingEmail(email);
                 setTwoFA({ method, message });
@@ -116,7 +119,7 @@ function AuthPage() {
               email={pendingEmail}
               method={twoFA.method}
               message={twoFA.message}
-              onSuccess={() => {}}
+              onSuccess={() => { }}
               onBack={() => setScreen('login')}
             />
           </>
@@ -128,11 +131,12 @@ function AuthPage() {
 
 function MainApp() {
   const { user, activeSession, setActiveSession } = useAuth();
-  const [page, setPage]                           = useState('configurator');
+  const [page, setPage] = useState('configurator');
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [specEditorProductIds, setSpecEditorProductIds] = useState([]);
-  const [specEditorSessionId, setSpecEditorSessionId]   = useState(null);
+  const [specEditorSessionId, setSpecEditorSessionId] = useState(null);
   const [specEditorInitialChanges, setSpecEditorInitialChanges] = useState({});
+  const [selectedThreadId, setSelectedThreadId] = useState(null);
   const showWarning = user && !user.is_confirmed;
 
   // Restore активной сессии при входе
@@ -153,58 +157,66 @@ function MainApp() {
 
   const handleNavigate = (newPage, payload = null) => {
     setPage(newPage);
-    if (newPage === 'product') {
-      setSelectedProductId(payload);
-    }
+    if (newPage === 'product') setSelectedProductId(payload);
+    if (newPage === 'issue-thread') setSelectedThreadId(payload);   // 👈
     if (newPage === 'spec-editor' && payload !== null) {
-      // Только если явно переданы новые ids — сбрасываем
       setSpecEditorProductIds(payload);
       setSpecEditorSessionId(null);
       setSpecEditorInitialChanges({});
     }
-    // Если payload === null (переход из меню) — не трогаем существующее состояние
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
-      <Header currentPage={page} onNavigate={handleNavigate} />
+    <IssuesProvider>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+        <Header currentPage={page} onNavigate={handleNavigate} />
 
-      {showWarning && (
-        <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-sm
+        {showWarning && (
+          <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-sm
                         px-6 py-2 text-center">
-          Ваш аккаунт ожидает назначения роли администратором. Некоторые функции недоступны.
-        </div>
-      )}
+            Ваш аккаунт ожидает назначения роли администратором. Некоторые функции недоступны.
+          </div>
+        )}
 
-      <main className="flex-1 px-4 py-6">
-        {page === 'configurator' && (
-          <FilterTreeGraph
-            onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
-          />
-        )}
-        {page === 'parameters'  && <ParameterEditorPage />}
-        {page === 'staff'       && <StaffPage />}
-        {page === 'documents'   && <DocumentsPage />}
-        {page === 'product'     && (
-          <ProductPage
-            productId={selectedProductId}
-            onBack={() => handleNavigate('configurator')}
-          />
-        )}
-        {page === 'spec-editor' && (
-          <SpecEditorPage
-            productIds={specEditorProductIds}
-            sessionId={specEditorSessionId}
-            initialChanges={specEditorInitialChanges}
-            onBack={() => handleNavigate('configurator')}
-            onSessionSaved={(id) => {
-              setSpecEditorSessionId(id);
-              setActiveSession(prev => prev ? { ...prev, id } : null);
-            }}
-          />
-        )}
-      </main>
-    </div>
+        <main className="flex-1 px-4 py-6">
+          {page === 'configurator' && (
+            <FilterTreeGraph
+              onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
+            />
+          )}
+          {page === 'parameters' && <ParameterEditorPage />}
+          {page === 'staff' && <StaffPage />}
+          {page === 'documents' && <DocumentsPage />}
+          {page === 'product' && (
+            <ProductPage
+              productId={selectedProductId}
+              onBack={() => handleNavigate('configurator')}
+            />
+          )}
+          {page === 'spec-editor' && (
+            <SpecEditorPage
+              productIds={specEditorProductIds}
+              sessionId={specEditorSessionId}
+              initialChanges={specEditorInitialChanges}
+              onBack={() => handleNavigate('configurator')}
+              onSessionSaved={(id) => {
+                setSpecEditorSessionId(id);
+                setActiveSession(prev => prev ? { ...prev, id } : null);
+              }}
+            />
+          )}
+          {page === 'issues' && (
+            <IssuesPage onOpenThread={(id) => handleNavigate('issue-thread', id)} />
+          )}
+          {page === 'issue-thread' && (
+            <IssueThreadPage
+              threadId={selectedThreadId}
+              onBack={() => handleNavigate('issues')}
+            />
+          )}
+        </main>
+      </div>
+    </IssuesProvider>
   );
 }
 

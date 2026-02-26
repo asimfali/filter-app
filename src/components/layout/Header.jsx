@@ -98,6 +98,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'parameters', label: 'Параметры' },
                 { id: 'staff', label: 'Персонал' },
                 { id: 'documents', label: 'Документы' },
+                { id: 'issues', label: 'Замечания' },
               ];
 
               const visiblePages = user?.pages
@@ -115,8 +116,8 @@ export default function Header({ currentPage, onNavigate }) {
               return navItems.map(item => (
                 <button key={item.id} onClick={() => onNavigate(item.id)}
                   className={`px-3 py-1.5 rounded text-sm transition-colors ${currentPage === item.id
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}>
                   {item.label}
                 </button>
