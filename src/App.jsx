@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { IssuesProvider } from './contexts/IssuesContext.jsx';
+import { NotificationsProvider } from './contexts/NotificationsContext.jsx';
 import Header from './components/layout/Header';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
@@ -167,56 +168,59 @@ function MainApp() {
   };
 
   return (
-    <IssuesProvider>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
-        <Header currentPage={page} onNavigate={handleNavigate} />
+    <NotificationsProvider>
+      <IssuesProvider>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+          <Header currentPage={page} onNavigate={handleNavigate} />
 
-        {showWarning && (
-          <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-sm
+          {showWarning && (
+            <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-sm
                         px-6 py-2 text-center">
-            Ваш аккаунт ожидает назначения роли администратором. Некоторые функции недоступны.
-          </div>
-        )}
+              Ваш аккаунт ожидает назначения роли администратором. Некоторые функции недоступны.
+            </div>
+          )}
 
-        <main className="flex-1 px-4 py-6">
-          {page === 'configurator' && (
-            <FilterTreeGraph
-              onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
-            />
-          )}
-          {page === 'parameters' && <ParameterEditorPage />}
-          {page === 'staff' && <StaffPage />}
-          {page === 'documents' && <DocumentsPage />}
-          {page === 'product' && (
-            <ProductPage
-              productId={selectedProductId}
-              onBack={() => handleNavigate('configurator')}
-            />
-          )}
-          {page === 'spec-editor' && (
-            <SpecEditorPage
-              productIds={specEditorProductIds}
-              sessionId={specEditorSessionId}
-              initialChanges={specEditorInitialChanges}
-              onBack={() => handleNavigate('configurator')}
-              onSessionSaved={(id) => {
-                setSpecEditorSessionId(id);
-                setActiveSession(prev => prev ? { ...prev, id } : null);
-              }}
-            />
-          )}
-          {page === 'issues' && (
-            <IssuesPage onOpenThread={(id) => handleNavigate('issue-thread', id)} />
-          )}
-          {page === 'issue-thread' && (
-            <IssueThreadPage
-              threadId={selectedThreadId}
-              onBack={() => handleNavigate('issues')}
-            />
-          )}
-        </main>
-      </div>
-    </IssuesProvider>
+          <main className="flex-1 px-4 py-6">
+            {page === 'configurator' && (
+              <FilterTreeGraph
+                onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
+              />
+            )}
+            {page === 'parameters' && <ParameterEditorPage />}
+            {page === 'staff' && <StaffPage />}
+            {page === 'documents' && <DocumentsPage />}
+            {page === 'product' && (
+              <ProductPage
+                productId={selectedProductId}
+                onBack={() => handleNavigate('configurator')}
+                onOpenThread={(id) => handleNavigate('issue-thread', id)}
+              />
+            )}
+            {page === 'spec-editor' && (
+              <SpecEditorPage
+                productIds={specEditorProductIds}
+                sessionId={specEditorSessionId}
+                initialChanges={specEditorInitialChanges}
+                onBack={() => handleNavigate('configurator')}
+                onSessionSaved={(id) => {
+                  setSpecEditorSessionId(id);
+                  setActiveSession(prev => prev ? { ...prev, id } : null);
+                }}
+              />
+            )}
+            {page === 'issues' && (
+              <IssuesPage onOpenThread={(id) => handleNavigate('issue-thread', id)} />
+            )}
+            {page === 'issue-thread' && (
+              <IssueThreadPage
+                threadId={selectedThreadId}
+                onBack={() => handleNavigate('issues')}
+              />
+            )}
+          </main>
+        </div>
+      </IssuesProvider>
+    </NotificationsProvider>
   );
 }
 

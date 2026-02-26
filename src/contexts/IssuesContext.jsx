@@ -1,136 +1,138 @@
 import { createContext, useContext, useState, useCallback } from 'react';
 import { useIssuesSocket } from '../hooks/useIssuesSocket.js';
+import { useNotifications } from './NotificationsContext.jsx';
 import * as issuesApi from '../api/issues.js';
 
 const IssuesContext = createContext(null);
 
 export function IssuesProvider({ children }) {
-  const socket = useIssuesSocket();
+    const { addNotification } = useNotifications();
+    const socket = useIssuesSocket({ onNotification: addNotification });
 
-  // Загруженные треды (список)
-  const [threadList, setThreadList] = useState([]);
-  const [threadListLoading, setThreadListLoading] = useState(false);
+    // Загруженные треды (список)
+    const [threadList, setThreadList] = useState([]);
+    const [threadListLoading, setThreadListLoading] = useState(false);
 
-  // Текущий открытый тред
-  const [currentThread, setCurrentThread] = useState(null);
-  const [currentThreadLoading, setCurrentThreadLoading] = useState(false);
+    // Текущий открытый тред
+    const [currentThread, setCurrentThread] = useState(null);
+    const [currentThreadLoading, setCurrentThreadLoading] = useState(false);
 
-  const [error, setError] = useState(null);
+    const [error, setError] = useState(null);
 
-  // ─── Треды ──────────────────────────────────────────────────────────────
+    // ─── Треды ──────────────────────────────────────────────────────────────
 
-  const fetchThreads = useCallback(async () => {
-    setThreadListLoading(true);
-    setError(null);
-    try {
-      const data = await issuesApi.getThreads();
-      setThreadList(data?.results ?? data ?? []);
-    } catch (e) {
-      setError(e);
-    } finally {
-      setThreadListLoading(false);
-    }
-  }, []);
+    const fetchThreads = useCallback(async () => {
+        setThreadListLoading(true);
+        setError(null);
+        try {
+            const data = await issuesApi.getThreads();
+            setThreadList(data?.results ?? data ?? []);
+        } catch (e) {
+            setError(e);
+        } finally {
+            setThreadListLoading(false);
+        }
+    }, []);
 
-  const fetchThread = useCallback(async (threadId) => {
-    setCurrentThreadLoading(true);
-    setError(null);
-    try {
-      const data = await issuesApi.getThread(threadId);
-      setCurrentThread(data);
-      socket.joinThread(threadId);
-    } catch (e) {
-      setError(e);
-    } finally {
-      setCurrentThreadLoading(false);
-    }
-  }, [socket]);
+    const fetchThread = useCallback(async (threadId) => {
+        setCurrentThreadLoading(true);
+        setError(null);
+        try {
+            const data = await issuesApi.getThread(threadId);
+            setCurrentThread(data);
+            socket.joinThread(threadId);
+        } catch (e) {
+            setError(e);
+        } finally {
+            setCurrentThreadLoading(false);
+        }
+    }, [socket]);
 
-  const leaveThread = useCallback((threadId) => {
-    socket.leaveThread(threadId);
-    setCurrentThread(null);
-  }, [socket]);
+    const leaveThread = useCallback((threadId) => {
+        socket.leaveThread(threadId);
+        setCurrentThread(null);
+    }, [socket]);
 
-  const createThread = useCallback(async (payload) => {
-    const data = await issuesApi.createThread(payload);
-    setThreadList((prev) => [data, ...prev]);
-    return data;
-  }, []);
+    const createThread = useCallback(async (payload) => {
+        const data = await issuesApi.createThread(payload);
+        setThreadList((prev) => [data, ...prev]);
+        return data;
+    }, []);
 
-  // ─── Замечания ──────────────────────────────────────────────────────────
+    // ─── Замечания ──────────────────────────────────────────────────────────
 
-  const createIssue = useCallback(async (threadId, payload) => {
-    return await issuesApi.createIssue(threadId, payload);
-    // issue_created придёт через WS и обновит socket.threads
-  }, []);
+    const createIssue = useCallback(async (threadId, payload) => {
+        return await issuesApi.createIssue(threadId, payload);
+        // issue_created придёт через WS и обновит socket.threads
+    }, []);
 
-  const changeStatus = useCallback((issueId, status) => {
-    socket.changeStatus(issueId, status);
-    // issue_status_changed придёт через WS
-  }, [socket]);
+    const changeStatus = useCallback((issueId, status) => {
+        socket.changeStatus(issueId, status);
+        // issue_status_changed придёт через WS
+    }, [socket]);
 
-  // ─── Сообщения ──────────────────────────────────────────────────────────
+    // ─── Сообщения ──────────────────────────────────────────────────────────
 
-  const sendMessage = useCallback((issueId, text) => {
-    socket.sendMessage(issueId, text);
-    // new_message придёт через WS
-  }, [socket]);
+    const sendMessage = useCallback((issueId, text) => {
+        socket.sendMessage(issueId, text);
+        // new_message придёт через WS
+    }, [socket]);
 
-  const markRead = useCallback((messageIds) => {
-    socket.markRead(messageIds);
-  }, [socket]);
+    const markRead = useCallback((messageIds) => {
+        socket.markRead(messageIds);
+    }, [socket]);
 
-  // ─── Уведомления ────────────────────────────────────────────────────────
+    // ─── Уведомления ────────────────────────────────────────────────────────
 
-  const dismissNotifications = useCallback(() => {
-    socket.clearNotifications();
-    issuesApi.markAllNotificationsRead().catch(() => {});
-  }, [socket]);
+    const dismissNotifications = useCallback(() => {
+        socket.clearNotifications();
+        issuesApi.markAllNotificationsRead().catch(() => { });
+    }, [socket]);
 
-  const value = {
-    // Состояние сокета
-    connected: socket.connected,
-    wsError: socket.error,
+    const value = {
+        // Состояние сокета
+        connected: socket.connected,
+        wsError: socket.error,
 
-    // Треды
-    threadList,
-    threadListLoading,
-    fetchThreads,
-    createThread,
+        // Треды
+        threadList,
+        threadListLoading,
+        fetchThreads,
+        createThread,
 
-    // Текущий тред
-    currentThread,
-    currentThreadLoading,
-    fetchThread,
-    leaveThread,
+        // Текущий тред
+        currentThread,
+        currentThreadLoading,
+        fetchThread,
+        leaveThread,
 
-    // WS-данные по тредам: { [thread_id]: { messages, issues } }
-    threadData: socket.threads,
+        // WS-данные по тредам: { [thread_id]: { messages, issues } }
+        threadData: socket.threads,
 
-    // Замечания
-    createIssue,
-    changeStatus,
+        // Замечания
+        createIssue,
+        changeStatus,
 
-    // Сообщения
-    sendMessage,
-    markRead,
+        // Сообщения
+        sendMessage,
+        markRead,
 
-    // Уведомления
-    notifications: socket.notifications,
-    dismissNotifications,
+        // Уведомления
+        notifications: socket.notifications,
+        dismissNotifications,
 
-    error,
-  };
+        error,
+    };
 
-  return (
-    <IssuesContext.Provider value={value}>
-      {children}
-    </IssuesContext.Provider>
-  );
+    return (
+        <IssuesContext.Provider value={value}>
+            {children}
+        </IssuesContext.Provider>
+    );
 }
 
 export function useIssues() {
-  const ctx = useContext(IssuesContext);
-  if (!ctx) throw new Error('useIssues must be used inside <IssuesProvider>');
-  return ctx;
+    const ctx = useContext(IssuesContext);
+    if (!ctx) throw new Error('useIssues must be used inside <IssuesProvider>');
+    return ctx;
 }

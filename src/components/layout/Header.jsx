@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationsContext.jsx';
 
 const API_BASE = '/api/v1/catalog';
+
+const NOTIFICATION_LABEL = {
+  new_issue:      'Новое замечание',
+  new_message:    'Новое сообщение',
+  status_changed: 'Статус изменён',
+  assigned:       'Назначен исполнитель',
+};
 
 // Debounce hook
 function useDebounce(value, delay) {
@@ -12,6 +20,124 @@ function useDebounce(value, delay) {
     return () => clearTimeout(timer);
   }, [value, delay]);
   return debounced;
+}
+
+// ─── Колокольчик ─────────────────────────────────────────────────────────────
+
+function NotificationBell({ onNavigate }) {
+  const { notifications, unreadCount, markAllRead, dismiss } = useNotifications();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // Закрытие по клику вне
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleOpen = () => {
+    setOpen((v) => !v);
+    if (!open && unreadCount > 0) markAllRead();
+  };
+
+  const handleClick = (n) => {
+    dismiss(n.id);
+    setOpen(false);
+    if (n.thread_id) onNavigate('issue-thread', n.thread_id);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Кнопка */}
+      <button
+        onClick={handleOpen}
+        className="relative w-9 h-9 flex items-center justify-center rounded-lg
+                   text-gray-500 dark:text-gray-400
+                   hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        title="Уведомления"
+      >
+        🔔
+        {unreadCount > 0 && (
+          <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white
+                           text-[10px] font-bold rounded-full flex items-center justify-center
+                           leading-none">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {/* Дропдаун */}
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-80 z-50
+                        bg-white dark:bg-gray-900
+                        border border-gray-200 dark:border-gray-700
+                        rounded-xl shadow-xl overflow-hidden">
+
+          {/* Шапка */}
+          <div className="flex items-center justify-between px-4 py-3
+                          border-b border-gray-100 dark:border-gray-800">
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Уведомления
+            </span>
+            {notifications.length > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-xs text-blue-500 hover:text-blue-600 transition-colors"
+              >
+                Прочитать все
+              </button>
+            )}
+          </div>
+
+          {/* Список */}
+          <ul className="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+            {notifications.length === 0 ? (
+              <li className="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+                Нет уведомлений
+              </li>
+            ) : (
+              notifications.slice(0, 20).map((n) => (
+                <li key={n.id}>
+                  <button
+                    onClick={() => handleClick(n)}
+                    className={`w-full text-left px-4 py-3 transition-colors
+                      hover:bg-gray-50 dark:hover:bg-gray-800
+                      ${!n.is_delivered ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {/* Индикатор непрочитанного */}
+                      <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0
+                        ${!n.is_delivered ? 'bg-blue-500' : 'bg-transparent'}`}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {NOTIFICATION_LABEL[n.notification_type] ?? n.notification_type}
+                        </p>
+                        {n.text && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                            {n.payload.text}
+                          </p>
+                        )}
+                        <p className="text-[11px] text-gray-300 dark:text-gray-600 mt-1">
+                          {new Date(n.created_at).toLocaleString('ru-RU', {
+                            day: 'numeric', month: 'short',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Header({ currentPage, onNavigate }) {
@@ -26,58 +152,42 @@ export default function Header({ currentPage, onNavigate }) {
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Поиск при изменении query
   useEffect(() => {
     if (debouncedQuery.length < 2) {
       setResults([]);
       setOpen(false);
       return;
     }
-
     setSearching(true);
     fetch(`${API_BASE}/products/search/?q=${encodeURIComponent(debouncedQuery)}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('access_token')}`,
-      },
+      headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
     })
       .then(r => r.json())
       .then(data => {
-        if (data.success) {
-          setResults(data.data);
-          setOpen(true);
-        }
+        if (data.success) { setResults(data.data); setOpen(true); }
       })
-      .catch(() => { })
+      .catch(() => {})
       .finally(() => setSearching(false));
   }, [debouncedQuery]);
 
-  // Закрытие по клику вне
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
         dropdownRef.current && !dropdownRef.current.contains(e.target) &&
         inputRef.current && !inputRef.current.contains(e.target)
-      ) {
-        setOpen(false);
-      }
+      ) setOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSelect = (product) => {
-    setQuery('');
-    setResults([]);
-    setOpen(false);
+    setQuery(''); setResults([]); setOpen(false);
     onNavigate('product', product.id);
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      setOpen(false);
-      setQuery('');
-      inputRef.current?.blur();
-    }
+    if (e.key === 'Escape') { setOpen(false); setQuery(''); inputRef.current?.blur(); }
   };
 
   return (
@@ -89,35 +199,29 @@ export default function Header({ currentPage, onNavigate }) {
         </span>
         {user && (
           <nav className="flex gap-1">
-            {/* БЫЛО: хардкод массива */}
-            {/* СТАЛО: фильтрация по правам */}
-
             {(() => {
               const ALL_PAGES = [
                 { id: 'configurator', label: 'Конфигуратор' },
-                { id: 'parameters', label: 'Параметры' },
-                { id: 'staff', label: 'Персонал' },
-                { id: 'documents', label: 'Документы' },
-                { id: 'issues', label: 'Замечания' },
+                { id: 'parameters',   label: 'Параметры' },
+                { id: 'staff',        label: 'Персонал' },
+                { id: 'documents',    label: 'Документы' },
+                { id: 'issues',       label: 'Замечания' },
               ];
-
               const visiblePages = user?.pages
                 ? ALL_PAGES.filter(p => user.pages.includes(p.id))
                 : ALL_PAGES;
-
               const navItems = [
                 ...visiblePages,
                 ...(activeSession?.data?.page === 'spec-editor'
                   ? [{ id: 'spec-editor', label: '✎ Редактор' }]
-                  : []
-                ),
+                  : []),
               ];
-
               return navItems.map(item => (
                 <button key={item.id} onClick={() => onNavigate(item.id)}
-                  className={`px-3 py-1.5 rounded text-sm transition-colors ${currentPage === item.id
-                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                  className={`px-3 py-1.5 rounded text-sm transition-colors
+                    ${currentPage === item.id
+                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}>
                   {item.label}
                 </button>
@@ -155,16 +259,12 @@ export default function Header({ currentPage, onNavigate }) {
               </span>
             )}
           </div>
-
-          {/* Дропдаун с результатами */}
           {open && (
-            <div
-              ref={dropdownRef}
+            <div ref={dropdownRef}
               className="absolute top-full left-0 right-0 mt-1 z-50
                          bg-white dark:bg-gray-900
                          border border-gray-200 dark:border-gray-700
-                         rounded-lg shadow-lg overflow-hidden"
-            >
+                         rounded-lg shadow-lg overflow-hidden">
               {results.length === 0 ? (
                 <div className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500">
                   Ничего не найдено
@@ -173,13 +273,11 @@ export default function Header({ currentPage, onNavigate }) {
                 <ul>
                   {results.map(product => (
                     <li key={product.id}>
-                      <button
-                        onClick={() => handleSelect(product)}
+                      <button onClick={() => handleSelect(product)}
                         className="w-full text-left px-4 py-2.5 text-sm
                                    hover:bg-gray-50 dark:hover:bg-gray-800
                                    transition-colors border-b border-gray-100
-                                   dark:border-gray-800 last:border-0"
-                      >
+                                   dark:border-gray-800 last:border-0">
                         <div className="text-gray-900 dark:text-white font-medium">
                           {product.name}
                         </div>
@@ -198,6 +296,9 @@ export default function Header({ currentPage, onNavigate }) {
       )}
 
       <div className="flex items-center gap-3 shrink-0">
+        {/* Колокольчик */}
+        {user && <NotificationBell onNavigate={onNavigate} />}
+
         <button onClick={toggle}
           className="w-9 h-9 flex items-center justify-center rounded-lg
                      text-gray-500 dark:text-gray-400

@@ -47,7 +47,7 @@ export const getThread = (threadId) =>
  * POST /api/v1/issues/threads/
  * @param {Object} payload
  * @param {string}   payload.title
- * @param {string[]} payload.product_ids        — UUID изделий из фильтра
+ * @param {string[]} payload.product_external_ids  — external_id из 1С
  * @param {Object}   payload.graph_context      — сохранённый фильтр для восстановления
  * @param {'PUBLIC'|'RESTRICTED'} payload.visibility
  * @param {string[]} [payload.department_ids]   — для RESTRICTED
@@ -64,6 +64,9 @@ export const createThread = (payload) =>
  */
 export const closeThread = (threadId) =>
   apiFetch(`${API_BASE}/threads/${threadId}/close/`, { method: 'POST' });
+
+export const getThreadsByProduct = (externalId) =>
+    apiFetch(`${API_BASE}/threads/?product_external_id=${externalId}`);
 
 /**
  * Переоткрыть тред.

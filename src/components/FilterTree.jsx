@@ -1,6 +1,7 @@
 // src/components/FilterTree.jsx
 
 import React, { useState, useEffect, useRef } from 'react';
+import CreateThreadModal from './issues/CreateThreadModal.jsx';
 import cytoscape from 'cytoscape';
 
 const API_BASE = '/api/v1/catalog';
@@ -28,6 +29,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
   const [detachResult, setDetachResult] = useState(null);
   const [attachedValueIds, setAttachedValueIds] = useState([]);
   const [graphHeight, setGraphHeight] = useState(500);
+  const [showCreateThread, setShowCreateThread] = useState(false);
 
   // ── Теги ──────────────────────────────────────────────────────────────────
   const [tagValues, setTagValues] = useState([]);        // все доступные теги
@@ -673,14 +675,36 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
                 <button
                   onClick={() => onOpenSpecEditor(filterResult.product_ids)}
                   className="w-full bg-violet-600 hover:bg-violet-700 text-white
-                text-sm py-2 rounded-lg transition-colors"
+                 text-sm py-2 rounded-lg transition-colors"
                 >
                   Редактировать характеристики ({filterResult.count})
                 </button>
+                <button
+                  onClick={() => setShowCreateThread(true)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white
+                 text-sm py-2 rounded-lg transition-colors"
+                >
+                  Создать тред ({filterResult.count})
+                </button>
+                {showCreateThread && (
+                  <CreateThreadModal
+                    productIds={filterResult.product_external_ids}
+                    graphContext={{
+                      filters: selectedNodes.map(n => ({ axis_id: n.axisId, value_id: n.valueId })),
+                      tags: selectedTags,
+                    }}
+                    onClose={() => setShowCreateThread(false)}
+                    onCreated={(thread) => {
+                      setShowCreateThread(false);
+                      // thread создан — можно перейти к нему
+                    }}
+                  />
+                )}
                 <div className="text-xs font-medium text-gray-500 dark:text-gray-400
                                 uppercase tracking-wide mb-3">
                   Привязать ось
                 </div>
+
 
                 <div className="mb-2">
                   <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ось</label>
