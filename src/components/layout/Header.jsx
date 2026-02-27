@@ -6,10 +6,14 @@ import { useNotifications } from '../../contexts/NotificationsContext.jsx';
 const API_BASE = '/api/v1/catalog';
 
 const NOTIFICATION_LABEL = {
-  new_issue:      'Новое замечание',
-  new_message:    'Новое сообщение',
-  status_changed: 'Статус изменён',
-  assigned:       'Назначен исполнитель',
+  // issues
+  'issues.new_issue':      'Новое замечание',
+  'issues.new_message':    'Новое сообщение',
+  'issues.status_changed': 'Статус изменён',
+  'issues.assigned':       'Назначен исполнитель',
+  // authority
+  'authority.new_staff_request':      'Новая заявка сотрудника',
+  'authority.staff_request_resolved': 'Заявка рассмотрена',
 };
 
 // Debounce hook
@@ -46,7 +50,22 @@ function NotificationBell({ onNavigate }) {
   const handleClick = (n) => {
     dismiss(n.id);
     setOpen(false);
-    if (n.thread_id) onNavigate('issue-thread', n.thread_id);
+  
+    const type = n.notification_type;
+  
+    if (type === 'authority.new_staff_request') {
+      onNavigate('staff');
+      return;
+    }
+    if (type === 'authority.staff_request_resolved') {
+      // Сотрудник получает это — просто закрываем, 
+      // или можно показать модалку. Пока просто закрываем.
+      return;
+    }
+    // issues — старое поведение
+    if (n.payload?.thread_id) {
+      onNavigate('issue-thread', n.payload.thread_id);
+    }
   };
 
   return (

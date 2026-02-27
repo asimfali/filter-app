@@ -104,4 +104,14 @@ export const authApi = {
     });
     tokenStorage.clear();
   },
+
+  async departments() {
+    const res = await apiFetch(`${BASE}/departments/?root_only=false`);
+    return { ok: res.ok, data: await res.json() };
+  },
+  
+  async roles() {
+    const res = await apiFetch(`${BASE}/roles/`);
+    return { ok: res.ok, data: await res.json() };
+  },
 };
