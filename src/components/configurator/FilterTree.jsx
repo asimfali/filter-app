@@ -40,6 +40,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
   const [selectedTags, setSelectedTags] = useState([]);  // выбранные tag value_ids
   const [bindingTags, setBindingTags] = useState([]);
   const [bindingMode, setBindingMode] = useState('attach');
+  const [bindingTagValues, setBindingTagValues] = useState([]);
 
   const axisValues = useRef({});
   const pendingGraphData = useRef(null);
@@ -79,11 +80,17 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
 
     const load = async () => {
       try {
-        // Теги
+        // Теги для фильтра графа — только первые две оси
         const { ok: ok1, data: data1 } = await catalogApi.filteredConfiguration(selectedTypeId);
         if (!ok1 || !data1.success) throw new Error('API error');
         setProductType(data1.data.product_type);
-        setTagValues(data1.data.tag_values || []);
+        setTagValues(data1.data.tag_values || []);  // ← для фильтра графа
+
+        // Теги для редактора привязок — все оси
+        const { ok: ok3, data: data3 } = await catalogApi.filteredConfiguration(selectedTypeId, [], true);
+        if (ok3 && data3.success) {
+          setBindingTagValues(data3.data.tag_values || []);  // ← для редактора
+        }
 
         // Оси
         const { ok: ok2, data: data2 } = await catalogApi.configuration(selectedTypeId);
@@ -396,14 +403,22 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
     setSelectedTags([]);
   };
 
-  // Группируем теги по оси для отображения
   const tagsByAxis = tagValues.reduce((acc, tag) => {
     if (!acc[tag.axis_id]) {
-      acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [] };
+        acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [] };
     }
     acc[tag.axis_id].tags.push(tag);
     return acc;
-  }, {});
+}, {});
+
+  // Группируем теги по оси для отображения
+  const bindingTagsByAxis = bindingTagValues.reduce((acc, tag) => {
+    if (!acc[tag.axis_id]) {
+        acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [] };
+    }
+    acc[tag.axis_id].tags.push(tag);
+    return acc;
+}, {});
 
   // ── Остальные handlers (без изменений) ────────────────────────────────────
 
@@ -509,6 +524,32 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
         </select>
       </div>
 
+      {/* ── Переключатель режимов (показываем если тип выбран) ── */}
+      {selectedTypeId && !loading && (
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-3">
+          <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
+            <button
+              onClick={() => setMode('filter')}
+              className={`px-4 py-1.5 rounded text-sm transition-colors ${mode === 'filter'
+                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
+                }`}
+            >
+              Фильтр графа
+            </button>
+            <button
+              onClick={() => setMode('binding')}
+              className={`px-4 py-1.5 rounded text-sm transition-colors ${mode === 'binding'
+                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
+                }`}
+            >
+              Редактор привязок 🔧
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Загрузка типа */}
       {selectedTypeId && loading && (
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center
@@ -524,8 +565,10 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
         </div>
       )}
 
+            
+
       {/* Теги — показываем сразу после загрузки типа */}
-      {selectedTypeId && !loading && tagValues.length > 0 && (
+      {mode === 'filter' && selectedTypeId && !loading && tagValues.length > 0 && (
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -791,31 +834,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
           )}
         </>
       )}
-      {/* ── Переключатель режимов (показываем если тип выбран) ── */}
-      {selectedTypeId && !loading && (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-3">
-          <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
-            <button
-              onClick={() => setMode('filter')}
-              className={`px-4 py-1.5 rounded text-sm transition-colors ${mode === 'filter'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
-                }`}
-            >
-              Фильтр графа
-            </button>
-            <button
-              onClick={() => setMode('binding')}
-              className={`px-4 py-1.5 rounded text-sm transition-colors ${mode === 'binding'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
-                }`}
-            >
-              Редактор привязок 🔧
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── Редактор привязок ── */}
       {mode === 'binding' && selectedTypeId && !loading && (
@@ -836,7 +854,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
               )}
             </div>
             <div className="space-y-3">
-              {Object.entries(tagsByAxis).map(([axisId, { axis_name, tags }]) => (
+              {Object.entries(bindingTagsByAxis).map(([axisId, { axis_name, tags }]) => (
                 <div key={axisId}>
                   <div className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">
                     {axis_name}
@@ -939,6 +957,15 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
                   if (ok && data.success) {
                     removeEdge();
                   }
+                  setTimeout(() => setDropResult(null), 3000);
+                }}
+                onDropBulk={async (productIds, valueIds) => {
+                  const { ok, data } = await catalogApi.attachByIdsBulk(productIds, valueIds);
+                  setDropResult(
+                    ok && data.success
+                      ? { ok: true, message: `✓ Привязано к ${data.data.axes} осям: создано ${data.data.created}, обновлено ${data.data.updated}` }
+                      : { ok: false, message: data.error || 'Ошибка' }
+                  );
                   setTimeout(() => setDropResult(null), 3000);
                 }}
               />

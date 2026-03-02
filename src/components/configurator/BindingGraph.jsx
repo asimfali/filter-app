@@ -11,9 +11,10 @@ import { catalogApi } from '../../api/catalog';
  * 
  * При drop вызывает onDrop(productIds, valueId).
  */
-const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedTagIds, onDrop, onConnect, onDisconnect, mode = 'attach' }, ref) {
+const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedTagIds, onDrop, onDropBulk, onConnect, onDisconnect, mode = 'attach' }, ref) {
     const cyRef = useRef(null);
     const cyInstanceRef = useRef(null);
+    const selectedChainRef = useRef([]);
 
     const modeRef = useRef(mode);
     useEffect(() => { modeRef.current = mode; }, [mode]);
@@ -156,6 +157,21 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                         color: '#fff',
                     },
                 },
+                {
+                    selector: 'node.chain-selected',
+                    style: {
+                        'background-color': '#3b82f6',
+                        'border-color': '#1d4ed8',
+                        'border-width': 2,
+                        color: '#ffffff',
+                    },
+                },
+                {
+                    selector: 'node.chain-dimmed',
+                    style: {
+                        opacity: 0.35,
+                    },
+                },
             ],
             userZoomingEnabled: true,
             userPanningEnabled: true,
@@ -240,6 +256,40 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             }
         });
 
+        cy.on('tap', 'node[type="value"]', (e) => {
+            if (modeRef.current !== 'attach') return;
+        
+            const node = e.target;
+        
+            // Если кликнули на уже выделенный — сбрасываем
+            if (node.hasClass('chain-selected')) {
+                cy.nodes().removeClass('chain-selected chain-dimmed');
+                selectedChainRef.current = [];
+                return;
+            }
+        
+            // Собираем цепочку: сам узел + все predecessors + successors
+            const chain = cy.collection();
+            chain.merge(node);
+            chain.merge(node.successors('[type="value"]'));
+            chain.merge(node.predecessors('[type="value"]'));
+        
+            // Подсвечиваем цепочку, остальные димим
+            cy.nodes('[type="value"]').removeClass('chain-selected chain-dimmed');
+            chain.addClass('chain-selected');
+            cy.nodes('[type="value"]').not(chain).addClass('chain-dimmed');
+        
+            // Сохраняем value_ids цепочки
+            selectedChainRef.current = chain.map(n => n.id().replace('value-', ''));
+        });
+        
+        // Клик на пустое место — сброс
+        cy.on('tap', (e) => {
+            if (e.target !== cy) return;
+            cy.nodes().removeClass('chain-selected chain-dimmed');
+            selectedChainRef.current = [];
+        });
+
         cy.nodes().ungrabify();
         cyInstanceRef.current = cy;
     };
@@ -287,31 +337,33 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         e.preventDefault();
         const cy = cyInstanceRef.current;
         if (!cy) return;
-
-        // Находим узел под курсором
+    
         const rect = cyRef.current.getBoundingClientRect();
         const targetNode = cy.nodes('[type="value"].drop-target').first();
         cy.nodes().removeClass('drop-target');
-
+    
         if (!targetNode.length) return;
-
-        // Получаем productIds из dataTransfer
+    
         let productIds = [];
         try {
             productIds = JSON.parse(e.dataTransfer.getData('productIds'));
-        } catch {
-            return;
-        }
-
+        } catch { return; }
         if (!productIds.length) return;
-
+    
         const valueId = targetNode.id().replace('value-', '');
-
+        const chain = selectedChainRef.current;
+    
         // Анимация успеха
         targetNode.addClass('drop-success');
         setTimeout(() => targetNode.removeClass('drop-success'), 1500);
-
-        onDrop?.(productIds, valueId, targetNode.data('label'));
+    
+        if (chain.length > 1) {
+            // Цепочка выделена — привязываем ко всем узлам
+            onDropBulk?.(productIds, chain);
+        } else {
+            // Обычный режим — только целевой узел
+            onDrop?.(productIds, valueId, targetNode.data('label'));
+        }
     };
 
     return (
