@@ -8,7 +8,7 @@ import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import ActivateForm from './components/auth/ActivateForm';
 import TwoFAForm from './components/auth/TwoFAForm';
-import FilterTreeGraph from './components/FilterTree';
+import FilterTreeGraph from './components/configurator/FilterTree';
 import ParameterEditorPage from './pages/ParameterEditorPage';
 import StaffPage from './pages/StaffPage';
 import DocumentsPage from './pages/DocumentsPage';
@@ -138,7 +138,26 @@ function MainApp() {
   const [specEditorSessionId, setSpecEditorSessionId] = useState(null);
   const [specEditorInitialChanges, setSpecEditorInitialChanges] = useState({});
   const [selectedThreadId, setSelectedThreadId] = useState(null);
-  const showWarning = user && !user.is_confirmed;
+
+  if (!user.is_confirmed) {
+    return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+            <Header currentPage={page} onNavigate={handleNavigate} />
+            <div className="flex-1 flex items-center justify-center">
+                <div className="text-center max-w-sm">
+                    <div className="text-4xl mb-4">⏳</div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                        Ожидание подтверждения
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Ваша заявка на вступление в подразделение отправлена руководителю.
+                        Доступ к порталу будет открыт после подтверждения.
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
 
   // Restore активной сессии при входе
   useEffect(() => {
@@ -172,13 +191,6 @@ function MainApp() {
       <IssuesProvider>
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
           <Header currentPage={page} onNavigate={handleNavigate} />
-
-          {showWarning && (
-            <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-sm
-                        px-6 py-2 text-center">
-              Ваш аккаунт ожидает назначения роли администратором. Некоторые функции недоступны.
-            </div>
-          )}
 
           <main className="flex-1 px-4 py-6">
             {page === 'configurator' && (

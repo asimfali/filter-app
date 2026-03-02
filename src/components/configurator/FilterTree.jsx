@@ -1,8 +1,7 @@
-// src/components/FilterTree.jsx
-
 import React, { useState, useEffect, useRef } from 'react';
-import CreateThreadModal from './issues/CreateThreadModal.jsx';
+import CreateThreadModal from '../issues/CreateThreadModal.jsx';
 import cytoscape from 'cytoscape';
+import ProductBindingPanel from './ProductBindingPanel.jsx';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -30,6 +29,9 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
   const [attachedValueIds, setAttachedValueIds] = useState([]);
   const [graphHeight, setGraphHeight] = useState(500);
   const [showCreateThread, setShowCreateThread] = useState(false);
+  // ── Редактор привязок ──────────────────────────────────────────────────────
+  const [mode, setMode] = useState('filter');
+  const [pendingAssignments, setPendingAssignments] = useState({});
 
   // ── Теги ──────────────────────────────────────────────────────────────────
   const [tagValues, setTagValues] = useState([]);        // все доступные теги
@@ -795,6 +797,53 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
           </div>
         </div>
       )}
+      {/* ── Переключатель режимов (показываем если тип выбран) ── */}
+      {selectedTypeId && !loading && (
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-3">
+          <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
+            <button
+              onClick={() => setMode('filter')}
+              className={`px-4 py-1.5 rounded text-sm transition-colors ${
+                mode === 'filter'
+                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
+              }`}
+            >
+              Фильтр графа
+            </button>
+            <button
+              onClick={() => setMode('binding')}
+              className={`px-4 py-1.5 rounded text-sm transition-colors ${
+                mode === 'binding'
+                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
+              }`}
+            >
+              Редактор привязок 🔧
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Редактор привязок ── */}
+      {mode === 'binding' && selectedTypeId && !loading && (
+        <div className="flex gap-4">
+          <div className="flex-1 bg-white dark:bg-gray-900 rounded-lg shadow p-4
+                          min-h-96 flex items-center justify-center text-gray-400 text-sm">
+            Граф редактора — следующий шаг
+          </div>
+          <div className="w-72 shrink-0" style={{ height: 600 }}>
+            <ProductBindingPanel
+              productTypeId={selectedTypeId}
+              filterValueIds={[]}
+              pendingAssignments={pendingAssignments}
+              onDragStart={(ids) => console.log('drag:', ids)}
+              onSelectionChange={(ids) => console.log('selected:', ids)}
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

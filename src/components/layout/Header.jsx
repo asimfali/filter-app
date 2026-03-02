@@ -2,17 +2,18 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext.jsx';
+import { can } from '../../utils/permissions';
 
 const API_BASE = '/api/v1/catalog';
 
 const NOTIFICATION_LABEL = {
   // issues
-  'issues.new_issue':      'Новое замечание',
-  'issues.new_message':    'Новое сообщение',
+  'issues.new_issue': 'Новое замечание',
+  'issues.new_message': 'Новое сообщение',
   'issues.status_changed': 'Статус изменён',
-  'issues.assigned':       'Назначен исполнитель',
+  'issues.assigned': 'Назначен исполнитель',
   // authority
-  'authority.new_staff_request':      'Новая заявка сотрудника',
+  'authority.new_staff_request': 'Новая заявка сотрудника',
   'authority.staff_request_resolved': 'Заявка рассмотрена',
 };
 
@@ -50,9 +51,9 @@ function NotificationBell({ onNavigate }) {
   const handleClick = (n) => {
     dismiss(n.id);
     setOpen(false);
-  
+
     const type = n.notification_type;
-  
+
     if (type === 'authority.new_staff_request') {
       onNavigate('staff');
       return;
@@ -185,7 +186,7 @@ export default function Header({ currentPage, onNavigate }) {
       .then(data => {
         if (data.success) { setResults(data.data); setOpen(true); }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setSearching(false));
   }, [debouncedQuery]);
 
@@ -220,15 +221,13 @@ export default function Header({ currentPage, onNavigate }) {
           <nav className="flex gap-1">
             {(() => {
               const ALL_PAGES = [
-                { id: 'configurator', label: 'Конфигуратор' },
-                { id: 'parameters',   label: 'Параметры' },
-                { id: 'staff',        label: 'Персонал' },
-                { id: 'documents',    label: 'Документы' },
-                { id: 'issues',       label: 'Замечания' },
+                { id: 'configurator', label: 'Конфигуратор', code: 'portal.page.configurator' },
+                { id: 'parameters', label: 'Параметры', code: 'portal.page.parameters' },
+                { id: 'staff', label: 'Персонал', code: 'portal.page.staff' },
+                { id: 'documents', label: 'Документы', code: 'portal.page.documents' },
+                { id: 'issues', label: 'Замечания', code: 'portal.page.issues' },
               ];
-              const visiblePages = user?.pages
-                ? ALL_PAGES.filter(p => user.pages.includes(p.id))
-                : ALL_PAGES;
+              const visiblePages = ALL_PAGES.filter(p => can(user, p.code));
               const navItems = [
                 ...visiblePages,
                 ...(activeSession?.data?.page === 'spec-editor'

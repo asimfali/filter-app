@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../api/auth';
+import { can } from '../utils/permissions';
+import { useAuth } from '../contexts/AuthContext';
 
 const API = '/api/v1/auth';
 
@@ -59,12 +61,12 @@ function useUsers(search = '') {
 
 function useStaffRequests() {
     const [requests, setRequests] = useState([]);
-    const [loading, setLoading]   = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const load = useCallback(async (status = 'pending') => {
         setLoading(true);
         try {
-            const res  = await apiFetch(`${API}/staff-requests/?status=${status}`);
+            const res = await apiFetch(`${API}/staff-requests/?status=${status}`);
             const data = await res.json();
             setRequests(Array.isArray(data) ? data : (data.results || []));
         } finally {
@@ -325,53 +327,53 @@ function UserCard({ user, departments, roles, onUpdate }) {
 // ── Дерево подразделений ──────────────────────────────────────────────────
 
 function DepartmentTree({ departments, level = 0, onEdit, onAdd }) {
-  return (
-    <div>
-      {departments.map(dept => (
-        <div key={dept.id}>
-          <div
-            className="flex items-center justify-between px-3 py-2 rounded-lg
+    return (
+        <div>
+            {departments.map(dept => (
+                <div key={dept.id}>
+                    <div
+                        className="flex items-center justify-between px-3 py-2 rounded-lg
                        hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 group"
-            style={{ paddingLeft: `${level * 20 + 12}px` }}
-          >
-            <div className="flex items-center gap-2">
-              {level > 0 && <span className="text-gray-300 text-xs">└</span>}
-              <div>
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{dept.name}</span>
-                <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{dept.code}</span>
-                {dept.members_count > 0 && (
-                  <span className="ml-2 text-xs bg-blue-50 text-blue-600
+                        style={{ paddingLeft: `${level * 20 + 12}px` }}
+                    >
+                        <div className="flex items-center gap-2">
+                            {level > 0 && <span className="text-gray-300 text-xs">└</span>}
+                            <div>
+                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{dept.name}</span>
+                                <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{dept.code}</span>
+                                {dept.members_count > 0 && (
+                                    <span className="ml-2 text-xs bg-blue-50 text-blue-600
                                    px-1.5 py-0.5 rounded-full">
-                    {dept.members_count} чел.
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => onAdd(dept)}
-                className="text-xs text-emerald-600 hover:text-emerald-800
+                                        {dept.members_count} чел.
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => onAdd(dept)}
+                                className="text-xs text-emerald-600 hover:text-emerald-800
                            px-2 py-1 hover:bg-emerald-50 rounded">
-                + дочернее
-              </button>
-              <button onClick={() => onEdit(dept)}
-                className="text-xs text-blue-600 hover:text-blue-800
+                                + дочернее
+                            </button>
+                            <button onClick={() => onEdit(dept)}
+                                className="text-xs text-blue-600 hover:text-blue-800
                            px-2 py-1 hover:bg-blue-50 rounded">
-                ✎
-              </button>
-            </div>
-          </div>
-          {dept.children?.length > 0 && (
-            <DepartmentTree
-              departments={dept.children}
-              level={level + 1}
-              onEdit={onEdit}
-              onAdd={onAdd}
-            />
-          )}
+                                ✎
+                            </button>
+                        </div>
+                    </div>
+                    {dept.children?.length > 0 && (
+                        <DepartmentTree
+                            departments={dept.children}
+                            level={level + 1}
+                            onEdit={onEdit}
+                            onAdd={onAdd}
+                        />
+                    )}
+                </div>
+            ))}
         </div>
-      ))}
-    </div>
-  );
+    );
 }
 
 // ── Панель подразделений (новая версия с иерархией) ───────────────────────
@@ -495,7 +497,7 @@ function DepartmentsPanel({ departments, reload }) {
 function StaffRequestsPanel({ requests, loading, onReload }) {
     const [processing, setProcessing] = useState(null); // id заявки в процессе
     const [rejectModal, setRejectModal] = useState(null); // { id, userName }
-    const [comment, setComment]         = useState('');
+    const [comment, setComment] = useState('');
     const [statusFilter, setStatusFilter] = useState('pending');
 
     const handleApprove = async (id) => {
@@ -529,13 +531,13 @@ function StaffRequestsPanel({ requests, loading, onReload }) {
     };
 
     const STATUS_LABEL = {
-        pending:  'Ожидают',
+        pending: 'Ожидают',
         approved: 'Одобренные',
         rejected: 'Отклонённые',
     };
 
     const STATUS_BADGE = {
-        pending:  'bg-amber-50 text-amber-700',
+        pending: 'bg-amber-50 text-amber-700',
         approved: 'bg-green-50 text-green-700',
         rejected: 'bg-red-50 text-red-700',
     };
@@ -546,11 +548,10 @@ function StaffRequestsPanel({ requests, loading, onReload }) {
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-4 py-3 flex gap-1">
                 {Object.entries(STATUS_LABEL).map(([s, label]) => (
                     <button key={s} onClick={() => { setStatusFilter(s); onReload(s); }}
-                        className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                            statusFilter === s
+                        className={`px-3 py-1.5 rounded text-sm transition-colors ${statusFilter === s
                                 ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
                                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                        }`}>
+                            }`}>
                         {label}
                     </button>
                 ))}
@@ -619,7 +620,7 @@ function StaffRequestsPanel({ requests, loading, onReload }) {
 
                                 {r.status === 'rejected' && r.comment && (
                                     <span className="text-xs text-gray-400 dark:text-gray-500 italic max-w-32 truncate"
-                                          title={r.comment}>
+                                        title={r.comment}>
                                         {r.comment}
                                     </span>
                                 )}
@@ -632,7 +633,7 @@ function StaffRequestsPanel({ requests, loading, onReload }) {
             {/* Модалка отклонения */}
             {rejectModal && (
                 <Modal title={`Отклонить заявку — ${rejectModal.userName}`}
-                       onClose={() => setRejectModal(null)}>
+                    onClose={() => setRejectModal(null)}>
                     <div className="space-y-3">
                         <p className="text-sm text-gray-600 dark:text-gray-400">
                             Укажите причину отклонения (необязательно):
@@ -668,21 +669,24 @@ function StaffRequestsPanel({ requests, loading, onReload }) {
 // ── Главная страница ──────────────────────────────────────────────────────
 
 export default function StaffPage() {
-    const [search, setSearch]   = useState('');
-    const [tab, setTab]         = useState('users');
+    const [search, setSearch] = useState('');
     const { departments, reload: reloadDepts } = useDepartments();
-    const roles                 = useRoles();
+    const roles = useRoles();
     const { users, loading: usersLoading, reload: reloadUsers } = useUsers(search);
     const { requests, loading: requestsLoading, reload: reloadRequests } = useStaffRequests();
+    const { user } = useAuth();
 
     // Счётчик pending для badge
     const pendingCount = requests.filter(r => r.status === 'pending').length;
 
-    const TABS = [
-        { id: 'users',       label: 'Сотрудники' },
-        { id: 'requests',    label: 'Заявки', badge: pendingCount },
-        { id: 'departments', label: 'Подразделения' },
+    const ALL_TABS = [
+        { id: 'users', label: 'Сотрудники', code: 'portal.staff.users' },
+        { id: 'requests', label: 'Заявки', code: 'portal.staff.requests', badge: pendingCount },
+        { id: 'departments', label: 'Подразделения', code: 'portal.staff.departments' },
     ];
+
+    const visibleTabs = ALL_TABS.filter(t => can(user, t.code));
+    const [tab, setTab] = useState(() => visibleTabs[0]?.id || '');
 
     return (
         <div className="space-y-4">
@@ -696,13 +700,12 @@ export default function StaffPage() {
                     </p>
                 </div>
                 <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-                    {TABS.map(t => (
+                    {visibleTabs.map(t => (
                         <button key={t.id} onClick={() => setTab(t.id)}
-                            className={`relative px-4 py-1.5 rounded text-sm transition-colors ${
-                                tab === t.id
+                            className={`relative px-4 py-1.5 rounded text-sm transition-colors ${tab === t.id
                                     ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
                                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
-                            }`}>
+                                }`}>
                             {t.label}
                             {t.badge > 0 && (
                                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white
