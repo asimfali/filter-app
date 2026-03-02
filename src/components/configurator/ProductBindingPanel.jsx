@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '../../api/auth';
+import { catalogApi } from '../../api/catalog';
 
 const API = '/api/v1/catalog';
 
@@ -26,58 +27,27 @@ export default function ProductBindingPanel({
     const lastClickedIdx = useRef(null);
 
     // ── Загрузка товаров ───────────────────────────────────────────────────
-
-    const loadProducts = useCallback(async () => {
-        if (!productTypeId) return;
-        setLoading(true);
-        try {
-            // Если есть теги — используем filter-count для получения product_ids,
-            // потом загружаем их. Если тегов нет — просто все товары типа.
-            if (filterValueIds.length > 0) {
-                const res = await apiFetch(`${API}/products/filter-count/`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        filters: filterValueIds.map(id => ({ value_id: id })),
-                    }),
-                });
-                const data = await res.json();
-                if (!data.success) return;
-
-                const ids = data.data.product_ids;
-                if (!ids.length) { setProducts([]); return; }
-
-                // Загружаем товары по ids + поиск
-                const q = new URLSearchParams({ ids: ids.join(',') });
-                if (search) q.set('search', search);
-                const r2 = await apiFetch(`${API}/products/by-ids/?${q}`);
-                const d2 = await r2.json();
-                setProducts(Array.isArray(d2) ? d2 : (d2.results || []));
-
-            } else {
-                // Все товары типа
-                const q = new URLSearchParams({ product_type: productTypeId, limit: 200 });
-                if (search) q.set('search', search);
-                const res = await apiFetch(`${API}/products/?${q}`);
-                const data = await res.json();
-                setProducts(Array.isArray(data) ? data : (data.results || []));
-            }
-        } finally {
-            setLoading(false);
+    useEffect(() => {
+        if (search.length < 2) {
+            setProducts([]);
+            return;
         }
-    }, [productTypeId, filterValueIds, search]);
-
-    useEffect(() => {
-        const t = setTimeout(loadProducts, 300);
+    
+        const t = setTimeout(async () => {
+            setLoading(true);
+            try {
+                const { ok, data } = await catalogApi.searchProducts(search, {
+                    productTypeId,
+                    limit: 50,
+                });
+                setProducts(ok && data.success ? data.data : []);
+            } finally {
+                setLoading(false);
+            }
+        }, 300);
+    
         return () => clearTimeout(t);
-    }, [loadProducts]);
-
-    // Сбрасываем выделение при смене фильтра
-    useEffect(() => {
-        setSelected(new Set());
-        onSelectionChange?.([]);
-    }, [filterValueIds]);
-
+    }, [search, productTypeId]);
     // ── Мультиселект ───────────────────────────────────────────────────────
 
     const handleClick = (e, productId, idx) => {
@@ -222,7 +192,7 @@ export default function ProductBindingPanel({
                                 <input
                                     type="checkbox"
                                     checked={isSelected}
-                                    onChange={() => {}}
+                                    onChange={() => { }}
                                     onClick={e => e.stopPropagation()}
                                     className="mt-0.5 rounded shrink-0 pointer-events-none"
                                 />
