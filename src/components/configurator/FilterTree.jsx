@@ -4,10 +4,16 @@ import cytoscape from 'cytoscape';
 import ProductBindingPanel from './ProductBindingPanel.jsx';
 import BindingGraph from './BindingGraph.jsx';
 import { catalogApi } from '../../api/catalog';
+import { useAuth } from '../../contexts/AuthContext';
+import { can } from '../../utils/permissions';
+
 
 const FilterTreeGraph = ({ onOpenSpecEditor }) => {
   const cyRef = useRef(null);
   const cyInstanceRef = useRef(null);
+  const { user } = useAuth();
+  const canViewBinding = can(user, 'portal.page.binding');      // просмотр
+  const canEditBindings = can(user, 'catalog.binding.write');   // редактирование
 
   const [productTypes, setProductTypes] = useState([]);
   const [selectedTypeId, setSelectedTypeId] = useState('');
@@ -405,20 +411,20 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
 
   const tagsByAxis = tagValues.reduce((acc, tag) => {
     if (!acc[tag.axis_id]) {
-        acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [] };
+      acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [] };
     }
     acc[tag.axis_id].tags.push(tag);
     return acc;
-}, {});
+  }, {});
 
   // Группируем теги по оси для отображения
   const bindingTagsByAxis = bindingTagValues.reduce((acc, tag) => {
     if (!acc[tag.axis_id]) {
-        acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [] };
+      acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [] };
     }
     acc[tag.axis_id].tags.push(tag);
     return acc;
-}, {});
+  }, {});
 
   // ── Остальные handlers (без изменений) ────────────────────────────────────
 
@@ -537,15 +543,20 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
             >
               Фильтр графа
             </button>
-            <button
-              onClick={() => setMode('binding')}
-              className={`px-4 py-1.5 rounded text-sm transition-colors ${mode === 'binding'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
-                }`}
-            >
-              Редактор привязок 🔧
-            </button>
+            {canViewBinding && (
+              <button
+                onClick={() => setMode('binding')}
+                className={`px-4 py-1.5 rounded text-sm transition-colors ${mode === 'binding'
+                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
+                  }`}
+              >
+                Редактор привязок 🔧
+                {!canEditBindings && (
+                  <span className="ml-1.5 text-[10px] text-gray-400">(только просмотр)</span>
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -565,7 +576,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
         </div>
       )}
 
-            
+
 
       {/* Теги — показываем сразу после загрузки типа */}
       {mode === 'filter' && selectedTypeId && !loading && tagValues.length > 0 && (
@@ -836,8 +847,17 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
       )}
 
       {/* ── Редактор привязок ── */}
-      {mode === 'binding' && selectedTypeId && !loading && (
+      {mode === 'binding' && canViewBinding && selectedTypeId && !loading && (
         <>
+          {/* 🔐 Показываем предупреждение если нет права на запись */}
+          {!canEditBindings && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 
+                      dark:border-amber-800 rounded-lg px-4 py-2 mb-4">
+              <p className="text-xs text-amber-800 dark:text-amber-400">
+                🔒 Режим только для чтения. У вас нет прав на изменение привязок.
+              </p>
+            </div>
+          )}
           {/* Теги редактора — все оси */}
           <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
             <div className="flex items-center justify-between mb-3">
@@ -895,32 +915,31 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
             <div className="flex-1 bg-white dark:bg-gray-900 rounded-lg shadow p-4">
 
               {/* Переключатель режимов */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Режим:</span>
-                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-                  <button
-                    onClick={() => setBindingMode('attach')}
-                    className={`px-3 py-1 rounded text-xs transition-colors ${bindingMode === 'attach'
-                      ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                      : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                  >
-                    Привязать товар
-                  </button>
-                  <button
-                    onClick={() => setBindingMode('connect')}
-                    className={`px-3 py-1 rounded text-xs transition-colors ${bindingMode === 'connect'
-                      ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                      : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                  >
-                    Связать узлы
-                  </button>
+              {canEditBindings && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Режим:</span>
+                  <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                    <button
+                      onClick={() => setBindingMode('attach')}
+                      className={`px-3 py-1 rounded text-xs transition-colors ${bindingMode === 'attach'
+                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                        : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                      Привязать товар
+                    </button>
+                    <button
+                      onClick={() => setBindingMode('connect')}
+                      className={`px-3 py-1 rounded text-xs transition-colors ${bindingMode === 'connect'
+                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                        : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                      Связать узлы
+                    </button>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-400">
-                  {bindingMode === 'attach' ? 'Перетащи товар на узел' : 'Перетащи узел на узел'}
-                </span>
-              </div>
+              )}
 
               {/* Уведомление */}
               {dropResult && (
@@ -934,6 +953,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
                 productTypeId={selectedTypeId}
                 selectedTagIds={bindingTags}
                 mode={bindingMode}
+                readOnly={!canEditBindings}
                 onDrop={handleBindingDrop}
                 onConnect={async (fromId, toId, addEdge) => {
                   const { ok, data } = await catalogApi.connectValues(fromId, toId);
@@ -974,6 +994,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
               <ProductBindingPanel
                 productTypeId={selectedTypeId}
                 filterValueIds={[]}
+                readOnly={!canEditBindings}
                 pendingAssignments={pendingAssignments}
                 onDragStart={(ids) => console.log('drag:', ids)}
                 onSelectionChange={(ids) => console.log('selected:', ids)}

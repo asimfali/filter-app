@@ -11,7 +11,7 @@ import { catalogApi } from '../../api/catalog';
  * 
  * При drop вызывает onDrop(productIds, valueId).
  */
-const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedTagIds, onDrop, onDropBulk, onConnect, onDisconnect, mode = 'attach' }, ref) {
+const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedTagIds, onDrop, onDropBulk, onConnect, onDisconnect, mode = 'attach', readOnly = false, }, ref) {
     const cyRef = useRef(null);
     const cyInstanceRef = useRef(null);
     const selectedChainRef = useRef([]);
@@ -176,7 +176,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             userZoomingEnabled: true,
             userPanningEnabled: true,
             boxSelectionEnabled: false,
-            selectionType: 'single',
+            selectionType: readOnly ? 'none' : 'single',
         });
 
         setTimeout(() => {
@@ -185,7 +185,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         }, 100);
 
         cy.on('tap', 'edge', (e) => {
-            if (modeRef.current !== 'connect') return;
+            if (modeRef.current !== 'connect' || readOnly) return;
             const edge = e.target;
             const sourceId = edge.data('source').replace('value-', '');
             const targetId = edge.data('target').replace('value-', '');
@@ -196,14 +196,14 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         });
 
         cy.on('mousedown', 'node[type="value"]', (e) => {
-            if (modeRef.current !== 'connect') return;
+            if (modeRef.current !== 'connect' || readOnly) return;
             connectSource = e.target;
             connectSource.addClass('connect-source');
             cy.userPanningEnabled(false); // отключаем панорамирование пока тащим
         });
 
         cy.on('mouseover', 'edge', (e) => {
-            if (modeRef.current !== 'connect') return;
+            if (modeRef.current !== 'connect' || readOnly) return;
             e.target.style({
                 'line-color': '#ef4444',
                 'width': 3,
@@ -211,7 +211,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         });
         
         cy.on('mouseout', 'edge', (e) => {
-            if (modeRef.current !== 'connect') return;
+            if (modeRef.current !== 'connect' || readOnly) return;
             e.target.style({
                 'line-color': '#94a3b8',
                 'width': 2,
@@ -219,7 +219,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         });
 
         cy.on('mouseup', 'node[type="value"]', (e) => {
-            if (modeRef.current !== 'connect' || !connectSource) return;
+            if (modeRef.current !== 'connect' || readOnly || !connectSource) return;
             const target = e.target;
         
             if (target.id() !== connectSource.id()) {
@@ -257,7 +257,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         });
 
         cy.on('tap', 'node[type="value"]', (e) => {
-            if (modeRef.current !== 'attach') return;
+            if (modeRef.current !== 'attach' || readOnly) return;
         
             const node = e.target;
         
@@ -329,6 +329,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
     };
 
     const handleDragLeave = () => {
+        if (readOnly) return;
         cyInstanceRef.current?.nodes().removeClass('drop-target');
     };
 

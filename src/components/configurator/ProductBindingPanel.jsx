@@ -19,6 +19,7 @@ export default function ProductBindingPanel({
     pendingAssignments, // { [productId]: { axisId, valueId, axisName, valueName }[] }
     onDragStart,        // (productIds: string[]) => void — начало drag
     onSelectionChange,  // (productIds: string[]) => void — уведомить родителя
+    readOnly = false,
 }) {
     const [search, setSearch] = useState('');
     const [products, setProducts] = useState([]);
@@ -51,6 +52,7 @@ export default function ProductBindingPanel({
     // ── Мультиселект ───────────────────────────────────────────────────────
 
     const handleClick = (e, productId, idx) => {
+        if (readOnly) return;
         setSelected(prev => {
             const next = new Set(prev);
 
@@ -82,6 +84,7 @@ export default function ProductBindingPanel({
     };
 
     const handleSelectAll = () => {
+        if (readOnly) return;
         if (selected.size === products.length) {
             setSelected(new Set());
             onSelectionChange?.([]);
@@ -95,6 +98,7 @@ export default function ProductBindingPanel({
     // ── Drag ───────────────────────────────────────────────────────────────
 
     const handleDragStart = (e, productId) => {
+        if (readOnly) { e.preventDefault(); return; }
         // Если тащим невыделенный — выделяем только его
         const dragIds = selected.has(productId)
             ? [...selected]
@@ -175,7 +179,7 @@ export default function ProductBindingPanel({
                         return (
                             <div
                                 key={product.id}
-                                draggable
+                                draggable={!readOnly}
                                 onDragStart={e => handleDragStart(e, product.id)}
                                 onClick={e => handleClick(e, product.id, idx)}
                                 className={`
@@ -194,6 +198,7 @@ export default function ProductBindingPanel({
                                     checked={isSelected}
                                     onChange={() => { }}
                                     onClick={e => e.stopPropagation()}
+                                    disabled={readOnly}
                                     className="mt-0.5 rounded shrink-0 pointer-events-none"
                                 />
 
@@ -229,7 +234,7 @@ export default function ProductBindingPanel({
             {/* Подсказка */}
             <div className="px-3 py-2 text-[11px] text-gray-400 dark:text-gray-500
                             border-t border-gray-100 dark:border-gray-800 text-center">
-                Shift+клик — диапазон · Ctrl+клик — добавить
+                {readOnly ? '🔒 Режим только для чтения' : 'Shift+клик — диапазон · Ctrl+клик — добавить'}
             </div>
         </div>
     );
