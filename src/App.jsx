@@ -139,6 +139,17 @@ function MainApp() {
   const [specEditorInitialChanges, setSpecEditorInitialChanges] = useState({});
   const [selectedThreadId, setSelectedThreadId] = useState(null);
 
+  const handleNavigate = (newPage, payload = null) => {
+    setPage(newPage);
+    if (newPage === 'product') setSelectedProductId(payload);
+    if (newPage === 'issue-thread') setSelectedThreadId(payload);   // 👈
+    if (newPage === 'spec-editor' && payload !== null) {
+      setSpecEditorProductIds(payload);
+      setSpecEditorSessionId(null);
+      setSpecEditorInitialChanges({});
+    }
+  };
+
   if (!user.is_confirmed) {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
@@ -174,17 +185,6 @@ function MainApp() {
     }
     // Другие страницы добавляются здесь по мере необходимости
   }, [activeSession]);
-
-  const handleNavigate = (newPage, payload = null) => {
-    setPage(newPage);
-    if (newPage === 'product') setSelectedProductId(payload);
-    if (newPage === 'issue-thread') setSelectedThreadId(payload);   // 👈
-    if (newPage === 'spec-editor' && payload !== null) {
-      setSpecEditorProductIds(payload);
-      setSpecEditorSessionId(null);
-      setSpecEditorInitialChanges({});
-    }
-  };
 
   return (
     <NotificationsProvider>
@@ -247,7 +247,17 @@ function AppInner() {
     );
   }
 
-  return user ? <MainApp /> : <AuthPage />;
+  // Если пользователь залогинен, оборачиваем MainApp в провайдеры данных.
+  // Теперь и "экран ожидания", и "основной экран" будут внутри NotificationsProvider.
+  return user ? (
+    <NotificationsProvider>
+      <IssuesProvider>
+        <MainApp />
+      </IssuesProvider>
+    </NotificationsProvider>
+  ) : (
+    <AuthPage />
+  );
 }
 
 export default function App() {

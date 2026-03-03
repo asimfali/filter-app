@@ -376,23 +376,178 @@ function DepartmentTree({ departments, level = 0, onEdit, onAdd }) {
     );
 }
 
+// ── Хук прав подразделения ────────────────────────────────────────────────
+
+function useDeptPermissions(deptId) {
+    const [perms, setPerms] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    const load = useCallback(async () => {
+        if (!deptId) return;
+        setLoading(true);
+        try {
+            const res = await apiFetch(`${API}/departments/${deptId}/permissions/`);
+            const data = await res.json();
+            setPerms(Array.isArray(data) ? data : (data.results || []));
+        } finally {
+            setLoading(false);
+        }
+    }, [deptId]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const add = async (roleId, permissionId) => {
+        const res = await apiFetch(`${API}/departments/${deptId}/permissions/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: roleId, permission: permissionId }),
+        });
+        if (res.ok) await load();
+        return res;
+    };
+
+    const remove = async (id) => {
+        await apiFetch(`${API}/departments/${deptId}/permissions/${id}/`, {
+            method: 'DELETE',
+        });
+        await load();
+    };
+
+    return { perms, loading, add, reload: load, remove };
+}
+
+// ── Хук всех доступных прав (для дропдауна) ───────────────────────────────
+
+function useAllPermissions() {
+    const [permissions, setPermissions] = useState([]);
+    useEffect(() => {
+        apiFetch(`${API}/permissions/`)
+            .then(r => r.json())
+            .then(data => setPermissions(Array.isArray(data) ? data : (data.results || [])));
+    }, []);
+    return permissions;
+}
+
+// ── Вкладка прав подразделения ────────────────────────────────────────────
+
+function DeptPermissionsTab({ deptId, roles }) {
+    const { perms, loading, add, remove } = useDeptPermissions(deptId);
+    const allPermissions = useAllPermissions();
+    const [busy, setBusy] = useState(null); // 'roleId-permId'
+
+    // Быстрая проверка — есть ли уже такая связка
+    const isEnabled = (roleId, permId) =>
+        perms.some(p => p.role === roleId && p.permission === permId);
+
+    const getPermId = (roleId, permId) =>
+        perms.find(p => p.role === roleId && p.permission === permId)?.id;
+
+    const toggle = async (roleId, permId) => {
+        const key = `${roleId}-${permId}`;
+        setBusy(key);
+        if (isEnabled(roleId, permId)) {
+            await remove(getPermId(roleId, permId));
+        } else {
+            await add(roleId, permId);
+        }
+        setBusy(null);
+    };
+
+    if (loading) return (
+        <div className="text-xs text-gray-400 py-4 text-center">Загрузка...</div>
+    );
+
+    if (!allPermissions.length || !roles.length) return (
+        <div className="text-xs text-gray-400 py-4 text-center">Нет данных</div>
+    );
+
+    return (
+        <div className="overflow-auto max-h-96">
+            <table className="w-full text-xs border-collapse">
+                <thead>
+                    <tr>
+                        {/* Пустая ячейка под названия прав */}
+                        <th className="text-left px-2 py-1.5 text-gray-500 font-medium
+                                       border-b border-gray-200 dark:border-gray-700 sticky top-0
+                                       bg-white dark:bg-gray-900 min-w-48">
+                            Право
+                        </th>
+                        {roles.map(r => (
+                            <th key={r.id}
+                                className="px-2 py-1.5 text-center text-gray-600 dark:text-gray-400
+                                           font-medium border-b border-gray-200 dark:border-gray-700
+                                           sticky top-0 bg-white dark:bg-gray-900 min-w-24">
+                                {r.name}
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {allPermissions.map(perm => (
+                        <tr key={perm.id}
+                            className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <td className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-800">
+                                <div className="font-mono text-gray-700 dark:text-gray-300">
+                                    {perm.code}
+                                </div>
+                                {perm.name && (
+                                    <div className="text-gray-400 dark:text-gray-500 text-[11px]">
+                                        {perm.name}
+                                    </div>
+                                )}
+                            </td>
+                            {roles.map(role => {
+                                const key = `${role.id}-${perm.id}`;
+                                const enabled = isEnabled(role.id, perm.id);
+                                const isBusy = busy === key;
+                                return (
+                                    <td key={role.id}
+                                        className="px-2 py-1.5 text-center border-b
+                                                   border-gray-100 dark:border-gray-800">
+                                        <button
+                                            onClick={() => toggle(role.id, perm.id)}
+                                            disabled={isBusy}
+                                            className={`w-5 h-5 rounded transition-colors mx-auto flex
+                                                        items-center justify-center
+                                                        ${isBusy ? 'opacity-40' : ''}
+                                                        ${enabled
+                                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                    : 'border-2 border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                                                }`}>
+                                            {isBusy ? '·' : enabled ? '✓' : ''}
+                                        </button>
+                                    </td>
+                                );
+                            })}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 // ── Панель подразделений (новая версия с иерархией) ───────────────────────
 
 function DepartmentsPanel({ departments, reload }) {
     const [modal, setModal] = useState(null);
+    const [activeTab, setActiveTab] = useState('main'); // 'main' | 'permissions'
     const [form, setForm] = useState({ name: '', code: '', description: '', parent: null });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const roles = useRoles(); // уже есть в компоненте выше — пробросить или использовать хук
 
     const openAdd = (parentDept = null) => {
         setForm({ name: '', code: '', description: '', parent: parentDept?.id || null });
         setModal({ _parent: parentDept });
+        setActiveTab('main');
         setError('');
     };
 
     const openEdit = (dept) => {
         setForm({ name: dept.name, code: dept.code, description: dept.description || '', parent: dept.parent || null });
         setModal(dept);
+        setActiveTab('main');
         setError('');
     };
 
@@ -420,7 +575,7 @@ function DepartmentsPanel({ departments, reload }) {
     };
 
     const inp = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-        "focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white dark:border-gray-600";
+        "focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white";
 
     const modalTitle = modal?.id
         ? `Редактировать: ${modal.name}`
@@ -428,13 +583,17 @@ function DepartmentsPanel({ departments, reload }) {
             ? `Новое подразделение в «${modal._parent.name}»`
             : 'Новое корневое подразделение';
 
+    const isEdit = modal?.id;
+
     return (
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
             <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Структура подразделений</span>
+                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    Структура подразделений
+                </span>
                 <button onClick={() => openAdd(null)}
                     className="bg-blue-600 hover:bg-blue-700 text-white text-xs
-                       px-2.5 py-1.5 rounded-lg transition-colors">
+                               px-2.5 py-1.5 rounded-lg transition-colors">
                     + Добавить корневое
                 </button>
             </div>
@@ -446,48 +605,82 @@ function DepartmentsPanel({ departments, reload }) {
             )}
 
             {modal !== null && (
-                <Modal title={modalTitle} onClose={() => setModal(null)}>
-                    <form onSubmit={handleSubmit} className="space-y-3">
-                        {form.parent && modal?._parent && (
-                            <div className="bg-blue-50 text-blue-700 text-xs px-3 py-2 rounded-lg">
-                                Родитель: <strong>{modal._parent.name}</strong>
+                <Modal title={modalTitle} onClose={() => setModal(null)} wide={isEdit}>
+                    {/* Вкладки — только для редактирования существующего */}
+                    {isEdit && (
+                        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mb-4">
+                            {[
+                                { id: 'main', label: 'Основное' },
+                                { id: 'permissions', label: 'Права' },
+                            ].map(t => (
+                                <button key={t.id} onClick={() => setActiveTab(t.id)}
+                                    className={`flex-1 py-1.5 rounded text-sm transition-colors ${
+                                        activeTab === t.id
+                                            ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
+                                    }`}>
+                                    {t.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Вкладка Основное */}
+                    {activeTab === 'main' && (
+                        <form onSubmit={handleSubmit} className="space-y-3">
+                            {form.parent && modal?._parent && (
+                                <div className="bg-blue-50 text-blue-700 text-xs px-3 py-2 rounded-lg">
+                                    Родитель: <strong>{modal._parent.name}</strong>
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Название
+                                </label>
+                                <input required value={form.name}
+                                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                                    placeholder="Бюро автоматики" className={inp} />
                             </div>
-                        )}
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">Название</label>
-                            <input required value={form.name}
-                                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                                placeholder="Бюро автоматики" className={inp} />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">
-                                Код <span className="text-gray-400 dark:text-gray-500 font-normal">(латиница)</span>
-                            </label>
-                            <input required value={form.code}
-                                onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
-                                placeholder="ba" className={inp} />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">Описание</label>
-                            <input value={form.description}
-                                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                                placeholder="Необязательно" className={inp} />
-                        </div>
-                        {error && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 text-xs
-                                px-3 py-2 rounded-lg">{error}</div>
-                        )}
-                        <div className="flex gap-2">
-                            <button type="button" onClick={() => setModal(null)}
-                                className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm
-                             py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">Отмена</button>
-                            <button type="submit" disabled={loading}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50
-                             text-white text-sm py-2 rounded-lg">
-                                {loading ? 'Сохранение...' : 'Сохранить'}
-                            </button>
-                        </div>
-                    </form>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Код <span className="text-gray-400 font-normal">(латиница)</span>
+                                </label>
+                                <input required value={form.code}
+                                    onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
+                                    placeholder="ba" className={inp} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Описание
+                                </label>
+                                <input value={form.description}
+                                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                                    placeholder="Необязательно" className={inp} />
+                            </div>
+                            {error && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 text-xs
+                                                px-3 py-2 rounded-lg">{error}</div>
+                            )}
+                            <div className="flex gap-2">
+                                <button type="button" onClick={() => setModal(null)}
+                                    className="flex-1 border border-gray-300 dark:border-gray-600
+                                               text-gray-700 dark:text-gray-300 text-sm py-2 rounded-lg
+                                               hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    Отмена
+                                </button>
+                                <button type="submit" disabled={loading}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50
+                                               text-white text-sm py-2 rounded-lg">
+                                    {loading ? 'Сохранение...' : 'Сохранить'}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+
+                    {/* Вкладка Права — только для существующего подразделения */}
+                    {activeTab === 'permissions' && isEdit && (
+                        <DeptPermissionsTab deptId={modal.id} roles={roles} />
+                    )}
                 </Modal>
             )}
         </div>
