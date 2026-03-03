@@ -11,9 +11,9 @@ import { can } from '../../utils/permissions';
 const FilterTreeGraph = ({ onOpenSpecEditor }) => {
   const cyRef = useRef(null);
   const cyInstanceRef = useRef(null);
-  const { user } = useAuth();
-  const canViewBinding = can(user, 'portal.page.binding');      // просмотр
-  const canEditBindings = can(user, 'catalog.binding.write');   // редактирование
+  const { user, loading: authLoading } = useAuth();
+  const canViewBinding = !authLoading && can(user, 'portal.page.binding');
+  const canEditBindings = !authLoading && can(user, 'catalog.binding.write');
 
   const [productTypes, setProductTypes] = useState([]);
   const [selectedTypeId, setSelectedTypeId] = useState('');
