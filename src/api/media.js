@@ -63,6 +63,55 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    async bulkCreateDocuments(docTypeId, externalIds) {
+        const res = await apiFetch(`${BASE}/documents/bulk-create/`, {
+            method: 'POST',
+            body: JSON.stringify({ doc_type_id: docTypeId, external_ids: externalIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    // ── Фильтры-теги ──────────────────────────────────────────────────────────
+
+    async getFilters(axisId = null) {
+        const params = axisId ? `?axis_id=${axisId}` : '';
+        const res = await apiFetch(`${BASE}/filters/${params}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async createFilter(filterAxisId, valueIds) {
+        const res = await apiFetch(`${BASE}/filters/`, {
+            method: 'POST',
+            body: JSON.stringify({ filter_axis_id: filterAxisId, value_ids: valueIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async getDocumentFilters(docId) {
+        const res = await apiFetch(`${BASE}/documents/${docId}/filters/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async addFilterToDocument(docId, filterId) {
+        const res = await apiFetch(`${BASE}/documents/${docId}/filters/`, {
+            method: 'POST',
+            body: JSON.stringify({ filter_id: filterId }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async removeFilterFromDocument(docId, filterId) {
+        const res = await apiFetch(`${BASE}/documents/${docId}/filters/${filterId}/`, {
+            method: 'DELETE',
+        });
+        return { ok: res.ok, data: res.status !== 204 ? await res.json() : {} };
+    },
+
+    async getAxisValues(axisId) {
+        const res = await apiFetch(`${BASE}/values/${axisId}/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
     // ── Галерея ───────────────────────────────────────────────────────────
 
     async getProductImages(productId) {

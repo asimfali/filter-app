@@ -150,26 +150,6 @@ function MainApp() {
     }
   };
 
-  if (!user.is_confirmed) {
-    return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
-            <Header currentPage={page} onNavigate={handleNavigate} />
-            <div className="flex-1 flex items-center justify-center">
-                <div className="text-center max-w-sm">
-                    <div className="text-4xl mb-4">⏳</div>
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                        Ожидание подтверждения
-                    </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Ваша заявка на вступление в подразделение отправлена руководителю.
-                        Доступ к порталу будет открыт после подтверждения.
-                    </p>
-                </div>
-            </div>
-        </div>
-    );
-}
-
   // Restore активной сессии при входе
   useEffect(() => {
     if (!activeSession) return;
@@ -186,6 +166,7 @@ function MainApp() {
     // Другие страницы добавляются здесь по мере необходимости
   }, [activeSession]);
 
+  const PUBLIC_PAGES = ['configurator', 'product'];
   return (
     <NotificationsProvider>
       <IssuesProvider>
@@ -193,14 +174,26 @@ function MainApp() {
           <Header currentPage={page} onNavigate={handleNavigate} />
 
           <main className="flex-1 px-4 py-6">
+            {/* Баннер — только на закрытых страницах */}
+            {!user.is_confirmed && !PUBLIC_PAGES.includes(page) && (
+              <div className="max-w-sm mx-auto text-center py-16">
+                <div className="text-4xl mb-4">⏳</div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Ожидание подтверждения
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Ваша заявка на вступление в подразделение отправлена руководителю.
+                  Доступ к порталу будет открыт после подтверждения.
+                </p>
+              </div>
+            )}
+
+            {/* Конфигуратор и карточка товара — доступны всем */}
             {page === 'configurator' && (
               <FilterTreeGraph
                 onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
               />
             )}
-            {page === 'parameters' && <ParameterEditorPage />}
-            {page === 'staff' && <StaffPage />}
-            {page === 'documents' && <DocumentsPage />}
             {page === 'product' && (
               <ProductPage
                 productId={selectedProductId}
@@ -208,26 +201,35 @@ function MainApp() {
                 onOpenThread={(id) => handleNavigate('issue-thread', id)}
               />
             )}
-            {page === 'spec-editor' && (
-              <SpecEditorPage
-                productIds={specEditorProductIds}
-                sessionId={specEditorSessionId}
-                initialChanges={specEditorInitialChanges}
-                onBack={() => handleNavigate('configurator')}
-                onSessionSaved={(id) => {
-                  setSpecEditorSessionId(id);
-                  setActiveSession(prev => prev ? { ...prev, id } : null);
-                }}
-              />
-            )}
-            {page === 'issues' && (
-              <IssuesPage onOpenThread={(id) => handleNavigate('issue-thread', id)} />
-            )}
-            {page === 'issue-thread' && (
-              <IssueThreadPage
-                threadId={selectedThreadId}
-                onBack={() => handleNavigate('issues')}
-              />
+
+            {/* Остальные страницы — только для подтверждённых */}
+            {user.is_confirmed && (
+              <>
+                {page === 'parameters' && <ParameterEditorPage />}
+                {page === 'staff' && <StaffPage />}
+                {page === 'documents' && <DocumentsPage />}
+                {page === 'spec-editor' && (
+                  <SpecEditorPage
+                    productIds={specEditorProductIds}
+                    sessionId={specEditorSessionId}
+                    initialChanges={specEditorInitialChanges}
+                    onBack={() => handleNavigate('configurator')}
+                    onSessionSaved={(id) => {
+                      setSpecEditorSessionId(id);
+                      setActiveSession(prev => prev ? { ...prev, id } : null);
+                    }}
+                  />
+                )}
+                {page === 'issues' && (
+                  <IssuesPage onOpenThread={(id) => handleNavigate('issue-thread', id)} />
+                )}
+                {page === 'issue-thread' && (
+                  <IssueThreadPage
+                    threadId={selectedThreadId}
+                    onBack={() => handleNavigate('issues')}
+                  />
+                )}
+              </>
             )}
           </main>
         </div>

@@ -221,13 +221,13 @@ export default function Header({ currentPage, onNavigate }) {
           <nav className="flex gap-1">
             {(() => {
               const ALL_PAGES = [
-                { id: 'configurator', label: 'Конфигуратор', code: 'portal.page.configurator' },
+                { id: 'configurator', label: 'Конфигуратор', code: null },
                 { id: 'parameters', label: 'Параметры', code: 'portal.page.parameters' },
                 { id: 'staff', label: 'Персонал', code: 'portal.page.staff' },
                 { id: 'documents', label: 'Документы', code: 'portal.page.documents' },
                 { id: 'issues', label: 'Замечания', code: 'portal.page.issues' },
               ];
-              const visiblePages = ALL_PAGES.filter(p => can(user, p.code));
+              const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [
                 ...visiblePages,
                 ...(activeSession?.data?.page === 'spec-editor'

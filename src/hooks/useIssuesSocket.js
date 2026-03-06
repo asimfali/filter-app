@@ -147,7 +147,7 @@ export function useIssuesSocket({ onNotification } = {}) {
             wsRef.current?.readyState === WebSocket.CONNECTING) return;
 
         manualClose.current = false;
-        const ws = new WebSocket(`ws://localhost:8001/ws/issues/?token=${token}`);
+        const ws = new WebSocket(`ws://${window.location.host}/ws/issues/?token=${token}`);
         wsRef.current = ws;
 
         ws.onopen = () => {

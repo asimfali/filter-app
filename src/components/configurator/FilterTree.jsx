@@ -59,7 +59,10 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
       if (!ok) return;
       const types = Array.isArray(data) ? data : (data.results || []);
       setProductTypes(types);
-      if (types.length === 1) setSelectedTypeId(types[0].id);
+      if (types.length > 0) {
+        const zavesy = types.find(t => t.name === 'Завесы');
+        setSelectedTypeId(zavesy ? zavesy.id : types[0].id);
+    }
     };
     load();
   }, []);
