@@ -9,6 +9,7 @@ export default function SpecEditorPage({
     sessionId,          // ← если есть — обновляем, если нет — создаём
     initialChanges,     // ← изменения из черновика
     onBack,
+    onReset,
     onSessionSaved,     // ← callback с id созданной/обновлённой сессии
 }) {
     const [data, setData] = useState(null);
@@ -107,6 +108,14 @@ export default function SpecEditorPage({
             [key]: { product_id: productId, definition_id: defId, spec_id: specId, value },
         }));
         setSaveResult(null);
+    };
+
+    const handleReset = async () => {
+        if (!confirm('Сбросить сессию и выйти из редактора?')) return;
+        if (draftSessionId) {
+            await sessionsApi.remove(draftSessionId);
+        }
+        onBack();
     };
 
     // ── Drag для выделения диапазона ─────────────────────────────────────────
@@ -284,6 +293,14 @@ export default function SpecEditorPage({
                        hover:text-gray-700 dark:hover:text-gray-300">
                         ← Назад
                     </button>
+                    {draftSessionId && (
+                        <button
+                            onClick={handleReset}
+                            className="text-sm text-red-400 hover:text-red-600
+                   dark:text-red-500 dark:hover:text-red-400 transition-colors">
+                            ✕ Сбросить сессию
+                        </button>
+                    )}
                     <div>
                         <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
                             Редактор характеристик

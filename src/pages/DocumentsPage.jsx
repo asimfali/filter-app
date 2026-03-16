@@ -568,11 +568,20 @@ function UploadForm({ docTypes, onUploaded }) {
   };
 
   const handleFile = (f) => {
-    const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-    if (!ALLOWED_TYPES.includes(f?.type)) {
-      setResult({ success: false, message: 'Допустимы PDF и изображения (jpg, png, webp)' });
+    const ALLOWED_TYPES = [
+      'application/pdf',
+      'image/jpeg', 'image/png', 'image/webp',
+      'model/stl', 'application/octet-stream',  // бинарный STL
+    ];
+    // STL не имеет стандартного MIME — проверяем расширение
+    const isStl = f?.name?.toLowerCase().endsWith('.stl');
+    const isRvt = f?.name?.toLowerCase().endsWith('.rvt') || 
+              f?.name?.toLowerCase().endsWith('.rfa');
+
+    if (!ALLOWED_TYPES.includes(f?.type) && !isStl && !isRvt) {
+      setResult({ success: false, message: 'Допустимы PDF, изображения, STL и RVT/RFA' });
       return;
-    }
+  }
     setFile(f);
     setResult(null);
   };
@@ -703,7 +712,9 @@ function UploadForm({ docTypes, onUploaded }) {
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
               : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
             }`}>
-          <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="hidden"
+          <input id="fileInput" type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,.stl,.rvt,.rfa"
+            className="hidden"
             onChange={e => handleFile(e.target.files[0])} />
           {file ? (
             <div className="flex items-center justify-center gap-2 text-sm
@@ -718,7 +729,7 @@ function UploadForm({ docTypes, onUploaded }) {
             <>
               <PdfIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-500 dark:text-gray-400">Перетащите файл сюда</p>
-              <p className="text-xs text-gray-400 mt-1">PDF или изображение (jpg, png, webp)</p>
+              <p className="text-xs text-gray-400 mt-1">PDF, изображение, 3D модель (stl) или BIM модель (rvt, rfa)</p>
             </>
           )}
         </div>

@@ -8,7 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { can } from '../../utils/permissions';
 
 
-const FilterTreeGraph = ({ onOpenSpecEditor }) => {
+const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
   const cyRef = useRef(null);
   const cyInstanceRef = useRef(null);
   const { user, loading: authLoading } = useAuth();
@@ -62,7 +62,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
       if (types.length > 0) {
         const zavesy = types.find(t => t.name === 'Завесы');
         setSelectedTypeId(zavesy ? zavesy.id : types[0].id);
-    }
+      }
     };
     load();
   }, []);
@@ -335,18 +335,45 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
         return;
       }
 
-      let reachable = cy.collection();
+      // ── Вспомогательная функция: обход только по реальным рёбрам ──
+      const getReachableNodes = (startNode) => {
+        const visited = new Set();
+        const result = cy.collection();
+
+        const traverse = (node, direction) => {
+          const id = node.id();
+          if (visited.has(id)) return;
+          visited.add(id);
+          result.merge(node);
+
+          if (direction !== 'backward') {
+            node.outgoers('[type="value"]').forEach(n => traverse(n, 'forward'));
+          }
+          if (direction !== 'forward') {
+            node.incomers('[type="value"]').forEach(n => traverse(n, 'backward'));
+          }
+        };
+
+        traverse(startNode, null);
+        return result;
+      };
+
+      // ── Пересечение цепочек всех выбранных узлов ──
+      const allChains = [];
       selected.forEach(node => {
-        reachable = reachable
-          .union(node.successors('[type="value"]'))
-          .union(node.predecessors('[type="value"]'));
+        allChains.push(getReachableNodes(node));
       });
 
-      const allNodes = reachable.union(selected);
-      const connectingEdges = allNodes.edgesWith(allNodes);
+      let intersection = allChains[0];
+      for (let i = 1; i < allChains.length; i++) {
+        intersection = intersection.filter(node => allChains[i].has(node));
+      }
+
+      // ── Подсветка ──
+      const connectingEdges = intersection.edgesWith(intersection);
       connectingEdges.addClass('highlighted');
-      reachable.not(selected).addClass('highlighted');
-      cy.nodes('[type="value"]').not(allNodes).addClass('dimmed');
+      intersection.not(selected).addClass('highlighted');
+      cy.nodes('[type="value"]').not(intersection).addClass('dimmed');
       cy.edges().not(connectingEdges).addClass('dimmed');
 
       setFilterResult(null);
@@ -729,6 +756,14 @@ const FilterTreeGraph = ({ onOpenSpecEditor }) => {
                  text-sm py-2 rounded-lg transition-colors"
                     >
                       Редактировать характеристики ({filterResult.count})
+                    </button>
+                    <button
+                      onClick={() => onOpenSpecPreview(filterResult.product_ids)}
+                      className="w-full bg-gray-100 dark:bg-gray-800
+                       hover:bg-gray-200 dark:hover:bg-gray-700
+                       text-gray-700 dark:text-gray-300
+                       text-sm py-2 rounded-lg transition-colors">
+                      👁 Просмотр ({filterResult.count})
                     </button>
                     <button
                       onClick={() => setShowCreateThread(true)}

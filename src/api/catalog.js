@@ -98,6 +98,14 @@ export const catalogApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    async previewBulk(productIds) {
+        const res = await apiFetch(`${BASE}/products/preview-bulk/`, {
+            method: 'POST',
+            body: JSON.stringify({ product_ids: productIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
     // ── Параметры ─────────────────────────────────────────────────────────
 
     async parameterValues(axisId) {

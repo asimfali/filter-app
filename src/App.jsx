@@ -16,6 +16,7 @@ import ProductPage from './pages/ProductPage';
 import SpecEditorPage from './pages/SpecEditorPage';
 import IssuesPage from './pages/IssuesPage.jsx';
 import IssueThreadPage from './pages/IssueThreadPage.jsx';
+import SpecPreviewPage from './pages/SpecPreviewPage';
 
 // AuthPage без изменений — твой существующий код
 function AuthPage() {
@@ -132,23 +133,52 @@ function AuthPage() {
 
 function MainApp() {
   const { user, activeSession, setActiveSession } = useAuth();
-  const [page, setPage] = useState('configurator');
+  const [page, setPage] = useState(() => {
+    const path = window.location.pathname.slice(1); // 'staff', 'documents', etc.
+    return path || 'configurator';
+  });
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [specEditorProductIds, setSpecEditorProductIds] = useState([]);
   const [specEditorSessionId, setSpecEditorSessionId] = useState(null);
   const [specEditorInitialChanges, setSpecEditorInitialChanges] = useState({});
   const [selectedThreadId, setSelectedThreadId] = useState(null);
+  const [specPreviewProductIds, setSpecPreviewProductIds] = useState([]);
 
   const handleNavigate = (newPage, payload = null) => {
     setPage(newPage);
+    window.history.pushState({ page: newPage, payload }, '', `/${newPage}`);
+
     if (newPage === 'product') setSelectedProductId(payload);
-    if (newPage === 'issue-thread') setSelectedThreadId(payload);   // 👈
+    if (newPage === 'issue-thread') setSelectedThreadId(payload);
+    if (newPage === 'spec-preview' && payload !== null) {
+      setSpecPreviewProductIds(payload);
+    }
     if (newPage === 'spec-editor' && payload !== null) {
       setSpecEditorProductIds(payload);
       setSpecEditorSessionId(null);
       setSpecEditorInitialChanges({});
     }
   };
+
+  useEffect(() => {
+    const handler = (e) => {
+      const newPage = e.state?.page || 'configurator';
+      const payload = e.state?.payload || null;
+      setPage(newPage);
+      if (newPage === 'product') setSelectedProductId(payload);
+      if (newPage === 'issue-thread') setSelectedThreadId(payload);
+    };
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, []);
+
+  useEffect(() => {
+    window.history.replaceState(
+      { page, payload: selectedProductId || selectedThreadId || null },
+      '',
+      `/${page}`
+    );
+  }, []);
 
   // Restore активной сессии при входе
   useEffect(() => {
@@ -191,8 +221,9 @@ function MainApp() {
             {/* Конфигуратор и карточка товара — доступны всем */}
             {page === 'configurator' && (
               <FilterTreeGraph
-                onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
-              />
+              onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
+              onOpenSpecPreview={ids => handleNavigate('spec-preview', ids)}
+          />
             )}
             {page === 'product' && (
               <ProductPage
@@ -208,12 +239,25 @@ function MainApp() {
                 {page === 'parameters' && <ParameterEditorPage />}
                 {page === 'staff' && <StaffPage />}
                 {page === 'documents' && <DocumentsPage />}
+                {page === 'spec-preview' && (
+                  <SpecPreviewPage
+                    productIds={specPreviewProductIds}
+                    onBack={() => handleNavigate('configurator')}
+                    onOpenEditor={(ids) => handleNavigate('spec-editor', ids)}
+                  />
+                )}
                 {page === 'spec-editor' && (
                   <SpecEditorPage
                     productIds={specEditorProductIds}
                     sessionId={specEditorSessionId}
                     initialChanges={specEditorInitialChanges}
                     onBack={() => handleNavigate('configurator')}
+                    onReset={() => {                          // ← добавить
+                      setSpecEditorSessionId(null);
+                      setSpecEditorInitialChanges({});
+                      setActiveSession(null);               // сбрасываем activeSession
+                      handleNavigate('configurator');
+                    }}
                     onSessionSaved={(id) => {
                       setSpecEditorSessionId(id);
                       setActiveSession(prev => prev ? { ...prev, id } : null);

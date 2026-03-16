@@ -283,47 +283,55 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             // 🔥 Подсвечиваем пересечение
             highlightIntersection(cy, selectedNodesRef.current);
         });
-        
-        // 🔥 Функция highlightIntersection должна быть объявлена ДО использования
-        const highlightIntersection = (cy, selectedNodeIds) => {
-            // console.log('🔍 Пересечение для:', selectedNodeIds); // ← для отладки
+
+        const getReachableNodes = (cy, startNode) => {
+            // Только узлы достижимые через реальные рёбра графа от startNode
+            const visited = new Set();
+            const result = cy.collection();
             
+            const traverse = (node, direction) => {
+                const id = node.id();
+                if (visited.has(id)) return;
+                visited.add(id);
+                result.merge(node);
+                
+                if (direction !== 'backward') {
+                    // Идём вперёд (successors — только прямые соседи)
+                    node.outgoers('[type="value"]').forEach(n => traverse(n, 'forward'));
+                }
+                if (direction !== 'forward') {
+                    // Идём назад (predecessors — только прямые соседи)
+                    node.incomers('[type="value"]').forEach(n => traverse(n, 'backward'));
+                }
+            };
+            
+            // Запускаем в обе стороны
+            traverse(startNode, null);
+            return result;
+        };
+        
+        const highlightIntersection = (cy, selectedNodeIds) => {
             if (selectedNodeIds.length === 0) {
                 cy.nodes().removeClass('chain-selected chain-dimmed');
                 return;
             }
         
-            // Собираем все цепочки для каждого выбранного узла
             const allChains = selectedNodeIds.map(id => {
                 const node = cy.getElementById(`value-${id}`);
-                if (!node.length) {
-                    console.warn('⚠️ Узел не найден:', id);
-                    return cy.collection();
-                }
-                
-                const chain = cy.collection();
-                chain.merge(node);
-                chain.merge(node.successors('[type="value"]'));
-                chain.merge(node.predecessors('[type="value"]'));
-                
-                // console.log(`  Узел ${id}: ${chain.length} узлов в цепочке`);
-                return chain;
+                if (!node.length) return cy.collection();
+                return getReachableNodes(cy, node);
             });
         
-            // 🔍 Находим пересечение: узлы которые есть во ВСЕХ цепочках
+            // Пересечение: только узлы присутствующие во ВСЕХ цепочках
             let intersection = allChains[0];
             for (let i = 1; i < allChains.length; i++) {
                 intersection = intersection.filter(node => allChains[i].has(node));
             }
         
-            // console.log(`✅ Пересечение: ${intersection.length} узлов`);
-        
-            // Подсвечиваем пересечение, остальные димим
             cy.nodes('[type="value"]').removeClass('chain-selected chain-dimmed');
             intersection.addClass('chain-selected');
             cy.nodes('[type="value"]').not(intersection).addClass('chain-dimmed');
         
-            // Сохраняем value_ids пересечения для drag & drop
             selectedChainRef.current = intersection.map(n => n.id().replace('value-', ''));
         };
         

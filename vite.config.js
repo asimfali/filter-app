@@ -8,6 +8,7 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: ['lab'],
+    historyApiFallback: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

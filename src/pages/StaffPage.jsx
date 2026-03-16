@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../api/auth';
 import { can } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
+import { authApi } from '../api/auth';
 
 const API = '/api/v1/auth';
 
@@ -14,18 +15,32 @@ function parseError(data, status) {
     return 'Неизвестная ошибка';
 }
 
+function flattenDepartments(departments, level = 0) {
+    const result = [];
+    for (const dept of departments) {
+        result.push({ ...dept, _level: level });
+        if (dept.children?.length) {
+            result.push(...flattenDepartments(dept.children, level + 1));
+        }
+    }
+    return result;
+}
+
 // ── Хуки ─────────────────────────────────────────────────────────────────
 
 function useDepartments() {
     const [departments, setDepartments] = useState([]);
     const load = useCallback(async () => {
-        // root_only=true — бэкенд вернёт корневые с вложенными children
         const res = await apiFetch(`${API}/departments/?root_only=true`);
         const data = await res.json();
         setDepartments(Array.isArray(data) ? data : (data.results || []));
     }, []);
     useEffect(() => { load(); }, [load]);
-    return { departments, reload: load };
+
+    // Дерево для DepartmentTree, плоский список для дропдаунов
+    const flat = flattenDepartments(departments);
+
+    return { departments, flat, reload: load };
 }
 
 function useRoles() {
@@ -376,6 +391,56 @@ function DepartmentTree({ departments, level = 0, onEdit, onAdd }) {
     );
 }
 
+function useSpecMatrix(deptId) {
+    const [matrix, setMatrix] = useState(null); // { roles: [], specs: [] }
+    const [loading, setLoading] = useState(false);
+    const [busy, setBusy] = useState(null); // `${roleId}-${specId}`
+
+    const load = useCallback(async () => {
+        if (!deptId) return;
+        setLoading(true);
+        try {
+            const { ok, data } = await authApi.specMatrix(deptId);
+            if (ok) setMatrix(data);
+        } finally {
+            setLoading(false);
+        }
+    }, [deptId]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const toggle = useCallback(async (roleId, specId) => {
+        const key = `${roleId}-${specId}`;
+        setBusy(key);
+        try {
+            const { ok, data } = await authApi.specToggle(deptId, roleId, specId);
+            if (!ok) return;
+
+            // Оптимистичное обновление матрицы без перезагрузки
+            setMatrix(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    specs: prev.specs.map(spec => {
+                        if (spec.spec_id !== specId) return spec;
+                        return {
+                            ...spec,
+                            roles: {
+                                ...spec.roles,
+                                [String(roleId)]: data.action === 'created' ? data.drp_id : null,
+                            },
+                        };
+                    }),
+                };
+            });
+        } finally {
+            setBusy(null);
+        }
+    }, [deptId]);
+
+    return { matrix, loading, busy, toggle };
+}
+
 // ── Хук прав подразделения ────────────────────────────────────────────────
 
 function useDeptPermissions(deptId) {
@@ -429,6 +494,87 @@ function useAllPermissions() {
 }
 
 // ── Вкладка прав подразделения ────────────────────────────────────────────
+
+function SpecPermissionsTab({ deptId }) {
+    const { matrix, loading, busy, toggle } = useSpecMatrix(deptId);
+
+    if (loading) return (
+        <div className="text-xs text-gray-400 py-4 text-center">Загрузка...</div>
+    );
+    if (!matrix) return null;
+
+    const { roles, specs } = matrix;
+
+    if (!specs.length) return (
+        <div className="text-xs text-gray-400 py-4 text-center">
+            Характеристики не найдены
+        </div>
+    );
+
+    return (
+        <div className="overflow-auto max-h-96">
+            <table className="w-full text-xs border-collapse">
+                <thead>
+                    <tr>
+                        <th className="text-left px-2 py-1.5 text-gray-500 font-medium
+                                       border-b border-gray-200 dark:border-gray-700
+                                       sticky top-0 bg-white dark:bg-gray-900 min-w-48">
+                            Характеристика
+                        </th>
+                        {roles.map(role => (
+                            <th key={role.id}
+                                className="px-2 py-1.5 text-center text-gray-600 dark:text-gray-400
+                                           font-medium border-b border-gray-200 dark:border-gray-700
+                                           sticky top-0 bg-white dark:bg-gray-900 min-w-24">
+                                {role.name}
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {specs.map(spec => (
+                        <tr key={spec.spec_id}
+                            className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <td className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-800">
+                                <div className="font-medium text-gray-700 dark:text-gray-300">
+                                    {spec.spec_name}
+                                </div>
+                                {spec.spec_unit && (
+                                    <div className="text-gray-400 dark:text-gray-500 text-[11px]">
+                                        {spec.spec_unit}
+                                    </div>
+                                )}
+                            </td>
+                            {roles.map(role => {
+                                const key = `${role.id}-${spec.spec_id}`;
+                                const enabled = spec.roles[String(role.id)] != null;
+                                const isBusy = busy === key;
+                                return (
+                                    <td key={role.id}
+                                        className="px-2 py-1.5 text-center border-b
+                                                   border-gray-100 dark:border-gray-800">
+                                        <button
+                                            onClick={() => toggle(role.id, spec.spec_id)}
+                                            disabled={isBusy}
+                                            className={`w-5 h-5 rounded transition-colors mx-auto flex
+                                                        items-center justify-center
+                                                        ${isBusy ? 'opacity-40' : ''}
+                                                        ${enabled
+                                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                    : 'border-2 border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                                                }`}>
+                                            {isBusy ? '·' : enabled ? '✓' : ''}
+                                        </button>
+                                    </td>
+                                );
+                            })}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
 
 function DeptPermissionsTab({ deptId, roles }) {
     const { perms, loading, add, remove } = useDeptPermissions(deptId);
@@ -612,13 +758,13 @@ function DepartmentsPanel({ departments, reload }) {
                             {[
                                 { id: 'main', label: 'Основное' },
                                 { id: 'permissions', label: 'Права' },
+                                { id: 'specs', label: 'Характеристики' },
                             ].map(t => (
                                 <button key={t.id} onClick={() => setActiveTab(t.id)}
-                                    className={`flex-1 py-1.5 rounded text-sm transition-colors ${
-                                        activeTab === t.id
+                                    className={`flex-1 py-1.5 rounded text-sm transition-colors ${activeTab === t.id
                                             ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
                                             : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
-                                    }`}>
+                                        }`}>
                                     {t.label}
                                 </button>
                             ))}
@@ -681,6 +827,9 @@ function DepartmentsPanel({ departments, reload }) {
                     {activeTab === 'permissions' && isEdit && (
                         <DeptPermissionsTab deptId={modal.id} roles={roles} />
                     )}
+                    {activeTab === 'specs' && isEdit && (
+                        <SpecPermissionsTab deptId={modal.id} />
+                    )}
                 </Modal>
             )}
         </div>
@@ -742,8 +891,8 @@ function StaffRequestsPanel({ requests, loading, onReload }) {
                 {Object.entries(STATUS_LABEL).map(([s, label]) => (
                     <button key={s} onClick={() => { setStatusFilter(s); onReload(s); }}
                         className={`px-3 py-1.5 rounded text-sm transition-colors ${statusFilter === s
-                                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                            ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                             }`}>
                         {label}
                     </button>
@@ -863,11 +1012,12 @@ function StaffRequestsPanel({ requests, loading, onReload }) {
 
 export default function StaffPage() {
     const [search, setSearch] = useState('');
-    const { departments, reload: reloadDepts } = useDepartments();
+    const { departments, flat, reload: reloadDepts } = useDepartments();
     const roles = useRoles();
     const { users, loading: usersLoading, reload: reloadUsers } = useUsers(search);
     const { requests, loading: requestsLoading, reload: reloadRequests } = useStaffRequests();
     const { user } = useAuth();
+    
 
     // Счётчик pending для badge
     const pendingCount = requests.filter(r => r.status === 'pending').length;
@@ -896,8 +1046,8 @@ export default function StaffPage() {
                     {visibleTabs.map(t => (
                         <button key={t.id} onClick={() => setTab(t.id)}
                             className={`relative px-4 py-1.5 rounded text-sm transition-colors ${tab === t.id
-                                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
+                                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
                                 }`}>
                             {t.label}
                             {t.badge > 0 && (
@@ -937,8 +1087,9 @@ export default function StaffPage() {
                             </div>
                             {users.map(user => (
                                 <UserCard key={user.id} user={user}
-                                    departments={departments} roles={roles}
-                                    onUpdate={reloadUsers} />
+                                departments={flat}   // ← было departments
+                                roles={roles}
+                                onUpdate={reloadUsers} />
                             ))}
                         </div>
                     )}

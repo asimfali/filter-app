@@ -2,7 +2,7 @@ const BASE = '/api/v1/auth';
 
 // Храним токены в localStorage
 export const tokenStorage = {
-  getAccess:  () => localStorage.getItem('access_token'),
+  getAccess: () => localStorage.getItem('access_token'),
   getRefresh: () => localStorage.getItem('refresh_token'),
   set: (access, refresh) => {
     localStorage.setItem('access_token', access);
@@ -109,9 +109,22 @@ export const authApi = {
     const res = await apiFetch(`${BASE}/departments/?root_only=false`);
     return { ok: res.ok, data: await res.json() };
   },
-  
+
   async roles() {
     const res = await apiFetch(`${BASE}/roles/`);
+    return { ok: res.ok, data: await res.json() };
+  },
+
+  async specMatrix(deptId) {
+    const res = await apiFetch(`${BASE}/departments/${deptId}/permissions/spec-matrix/`);
+    return { ok: res.ok, data: await res.json() };
+  },
+
+  async specToggle(deptId, roleId, specId) {
+    const res = await apiFetch(`${BASE}/departments/${deptId}/permissions/spec-toggle/`, {
+      method: 'POST',
+      body: JSON.stringify({ role_id: roleId, spec_id: specId }),
+    });
     return { ok: res.ok, data: await res.json() };
   },
 };
