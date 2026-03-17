@@ -17,6 +17,7 @@ import SpecEditorPage from './pages/SpecEditorPage';
 import IssuesPage from './pages/IssuesPage.jsx';
 import IssueThreadPage from './pages/IssueThreadPage.jsx';
 import SpecPreviewPage from './pages/SpecPreviewPage';
+import ModelViewerPage from './pages/ModelViewerPage';
 
 // AuthPage без изменений — твой существующий код
 function AuthPage() {
@@ -143,6 +144,7 @@ function MainApp() {
   const [specEditorInitialChanges, setSpecEditorInitialChanges] = useState({});
   const [selectedThreadId, setSelectedThreadId] = useState(null);
   const [specPreviewProductIds, setSpecPreviewProductIds] = useState([]);
+  const [modelViewerFile, setModelViewerFile] = useState(null);
 
   const handleNavigate = (newPage, payload = null) => {
     setPage(newPage);
@@ -152,6 +154,9 @@ function MainApp() {
     if (newPage === 'issue-thread') setSelectedThreadId(payload);
     if (newPage === 'spec-preview' && payload !== null) {
       setSpecPreviewProductIds(payload);
+    }
+    if (newPage === 'model-viewer' && payload !== null) {
+      setModelViewerFile(payload);
     }
     if (newPage === 'spec-editor' && payload !== null) {
       setSpecEditorProductIds(payload);
@@ -221,9 +226,17 @@ function MainApp() {
             {/* Конфигуратор и карточка товара — доступны всем */}
             {page === 'configurator' && (
               <FilterTreeGraph
-              onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
-              onOpenSpecPreview={ids => handleNavigate('spec-preview', ids)}
-          />
+                onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
+                onOpenSpecPreview={ids => handleNavigate('spec-preview', ids)}
+              />
+            )}
+            {page === 'model-viewer' && modelViewerFile && (
+              <ModelViewerPage
+                relPath={modelViewerFile.relPath}
+                fname={modelViewerFile.fname}
+                mtlPath={modelViewerFile.mtlPath || null}
+                onBack={() => handleNavigate('documents')}
+              />
             )}
             {page === 'product' && (
               <ProductPage
@@ -238,7 +251,9 @@ function MainApp() {
               <>
                 {page === 'parameters' && <ParameterEditorPage />}
                 {page === 'staff' && <StaffPage />}
-                {page === 'documents' && <DocumentsPage />}
+                {page === 'documents' && <DocumentsPage
+                  onOpenViewer={payload => handleNavigate('model-viewer', payload)}
+                />}
                 {page === 'spec-preview' && (
                   <SpecPreviewPage
                     productIds={specPreviewProductIds}

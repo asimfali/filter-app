@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { mediaApi } from '../api/media';
 import { can } from '../utils/permissions';
 import CreateFilterModal from '../components/media/CreateFilterModal.jsx';
+import ModelViewer, { canPreview3D } from '../components/viewer3d/ModelViewer';
 
 const MEDIA = '/media';
 
@@ -74,18 +75,138 @@ function useFormData() {
   return { docTypes, axes };   // ← добавить axes
 }
 
-// ── Строка файла ──────────────────────────────────────────────────────────
+function DropZone({ docTypeId, externalId, onUploaded }) {
+  const [draggingOver, setDraggingOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
 
-function FileRow({ file, dimmed = false, canDelete = false, onDeleted }) {
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDraggingOver(false);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingOver(false);
+
+    const dropped = e.dataTransfer.files[0];
+    if (!dropped) return;
+
+    setUploading(true);
+    setUploadResult(null);
+
+    try {
+      const { ok, data } = await mediaApi.uploadDocument(
+        docTypeId, externalId, dropped,
+      );
+      if (ok && data.success) {
+        setUploadResult({ ok: true, message: `✓ ${dropped.name}` });
+        setTimeout(() => { onUploaded?.(); setUploadResult(null); }, 1500);
+      } else {
+        setUploadResult({ ok: false, message: data.error || 'Ошибка' });
+        setTimeout(() => setUploadResult(null), 3000);
+      }
+    } catch {
+      setUploadResult({ ok: false, message: 'Ошибка сети' });
+      setTimeout(() => setUploadResult(null), 3000);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div
+      className={`flex items-center justify-center rounded-lg
+                      border-2 border-dashed py-4 px-3 transition-colors cursor-default
+                      ${draggingOver
+          ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+          : 'border-gray-200 dark:border-gray-700'
+        }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {uploading ? (
+        <span className="text-xs text-gray-400">Загрузка...</span>
+      ) : uploadResult ? (
+        <span className={`text-xs ${uploadResult.ok
+          ? 'text-green-600 dark:text-green-400'
+          : 'text-red-500'}`}>
+          {uploadResult.message}
+        </span>
+      ) : draggingOver ? (
+        <span className="text-xs text-blue-500">Отпустите для загрузки</span>
+      ) : (
+        <span className="text-xs text-gray-300 dark:text-gray-600">
+          Файлов нет — перетащите для загрузки
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Строка файла ──────────────────────────────────────────────────────────
+function FileRow({ file, siblings = [], dimmed = false, canDelete = false,
+  onDeleted, onOpenViewer, docTypeId, externalId }) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [draggingOver, setDraggingOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
+
+  const getMtlPath = () => {
+    if (!file.name.toLowerCase().endsWith('.obj')) return null;
+    const baseName = file.name.replace(/\.obj$/i, '');
+    const mtl = siblings.find(s =>
+      s.name.toLowerCase() === `${baseName.toLowerCase()}.mtl`
+    );
+    return mtl?.rel_path || null;
+  };
 
   const handleClick = async (e) => {
     e.preventDefault();
+
+    const name = file.name.toLowerCase();
+    const isImage = /\.(jpg|jpeg|png|webp)$/.test(name);
+    const isPdf = name.endsWith('.pdf');
+    const is3D = canPreview3D(name);
+
+    if (is3D) {
+      // Открыть в 3D редакторе
+      onOpenViewer?.({
+        relPath: file.rel_path,
+        fname: file.name,
+        mtlPath: getMtlPath(),
+      });
+      return;
+    }
+
+    if (isPdf || isImage) {
+      // Открыть в новой вкладке
+      const res = await mediaApi.downloadFile(file.rel_path);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      return;
+    }
+
+    // Всё остальное — скачать
     const res = await mediaApi.downloadFile(file.rel_path);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    a.click();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
@@ -99,56 +220,135 @@ function FileRow({ file, dimmed = false, canDelete = false, onDeleted }) {
     setConfirming(false);
   };
 
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDraggingOver(false);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingOver(false);
+
+    const dropped = e.dataTransfer.files[0];
+    if (!dropped) return;
+
+    setUploading(true);
+    setUploadResult(null);
+
+    try {
+      const { ok, data } = await mediaApi.uploadDocument(
+        docTypeId,
+        externalId,
+        dropped,
+      );
+      if (ok && data.success) {
+        setUploadResult({ ok: true, message: `✓ ${dropped.name}` });
+        setTimeout(() => { onDeleted?.(); setUploadResult(null); }, 1500);
+      } else {
+        setUploadResult({ ok: false, message: data.error || 'Ошибка' });
+        setTimeout(() => setUploadResult(null), 3000);
+      }
+    } catch {
+      setUploadResult({ ok: false, message: 'Ошибка сети' });
+      setTimeout(() => setUploadResult(null), 3000);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
-    <div className="flex items-center justify-between py-2 px-3 rounded-lg
-                    hover:bg-gray-50 dark:hover:bg-gray-800 group transition-colors">
-      {/* Ссылка на скачивание */}
-      <a href="#" onClick={handleClick} className="flex items-center gap-2 flex-1 min-w-0">
-        <PdfIcon className={`w-5 h-5 shrink-0 ${dimmed ? 'text-gray-300 dark:text-gray-600' : 'text-red-400'}`} />
-        <span className={`text-sm truncate ${dimmed ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>
-          {file.name}
-        </span>
-      </a>
+    <div
+      className={`flex flex-col py-2 px-3 rounded-lg transition-colors group
+       ${draggingOver
+          ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-400'
+          : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+        }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <div className="flex items-center justify-between">
+        <a href="#" onClick={handleClick} className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Иконка зависит от типа */}
+          {(() => {
+            const name = file.name.toLowerCase();
+            if (canPreview3D(name)) return <span className="text-violet-400 shrink-0">◈</span>;
+            if (/\.(jpg|jpeg|png|webp)$/.test(name)) return <span className="text-green-400 shrink-0">🖼</span>;
+            if (name.endsWith('.pdf')) return <PdfIcon className={`w-5 h-5 shrink-0 ${dimmed ? 'text-gray-300 dark:text-gray-600' : 'text-red-400'}`} />;
+            return <span className="text-gray-400 shrink-0">📄</span>;
+          })()}
+          <span className={`text-sm truncate ${dimmed
+            ? 'text-gray-400 dark:text-gray-500'
+            : 'text-gray-700 dark:text-gray-300'}`}>
+            {file.name}
+          </span>
+        </a>
 
-      {/* Размер + удаление */}
-      <div className="flex items-center gap-3 shrink-0 ml-3">
-        <span className="text-xs text-gray-400 dark:text-gray-500">{file.size}</span>
-        <span className="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
-          Скачать ↓
-        </span>
-
-        {canDelete && (
-          confirming ? (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="text-xs text-red-600 hover:text-red-800 font-medium transition-colors">
-                {deleting ? '···' : 'Удалить?'}
-              </button>
-              <button
-                onClick={() => setConfirming(false)}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-                Отмена
-              </button>
-            </div>
+        <div className="flex items-center gap-3 shrink-0 ml-3">
+          {uploading ? (
+            <span className="text-xs text-gray-400">···</span>
           ) : (
-            <button
-              onClick={handleDelete}
-              className="text-xs text-gray-300 hover:text-red-500
-                         opacity-0 group-hover:opacity-100 transition-all">
-              ✕
-            </button>
-          )
-        )}
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {file.size}
+            </span>
+          )}
+          <span className="text-xs text-blue-500
+                    opacity-0 group-hover:opacity-100 transition-opacity">
+            Скачать ↓
+          </span>
+          {canDelete && (
+            confirming ? (
+              <div className="flex items-center gap-1">
+                <button onClick={handleDelete} disabled={deleting}
+                  className="text-xs text-red-600 hover:text-red-800
+                              font-medium transition-colors">
+                  {deleting ? '···' : 'Удалить?'}
+                </button>
+                <button onClick={() => setConfirming(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600
+                              transition-colors">
+                  Отмена
+                </button>
+              </div>
+            ) : (
+              <button onClick={handleDelete}
+                className="text-xs text-gray-300 hover:text-red-500
+                          opacity-0 group-hover:opacity-100 transition-all">
+                ✕
+              </button>
+            )
+          )}
+        </div>
       </div>
+
+      {uploadResult && (
+        <div className={`mt-1 text-xs px-1 ${uploadResult.ok
+          ? 'text-green-600 dark:text-green-400'
+          : 'text-red-500 dark:text-red-400'}`}>
+          {uploadResult.message}
+        </div>
+      )}
+
+      {draggingOver && (
+        <div className="mt-1 text-xs text-blue-500 dark:text-blue-400 px-1">
+          Отпустите для добавления файла
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Карточка документа ────────────────────────────────────────────────────
 
-function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted }) {
+function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOpenViewer }) {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState(item.filters || []);
@@ -314,13 +514,23 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted }) {
       {/* Файлы */}
       <div className="px-5 py-3 space-y-1">
         {item.current.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 py-2 px-3">
-            Файлов нет
-          </p>
+          <DropZone
+            docTypeId={item.doc_type.id}
+            externalId={item.external_id}
+            onUploaded={onDeleted}
+          />
         ) : (
           item.current.map(f =>
-            <FileRow key={f.rel_path} file={f}
-              canDelete={canDelete} onDeleted={onDeleted} />
+            <FileRow
+              key={f.rel_path}
+              file={f}
+              siblings={item.current}
+              docTypeId={item.doc_type.id}
+              externalId={item.external_id}
+              canDelete={canDelete}
+              onDeleted={onDeleted}
+              onOpenViewer={onOpenViewer}
+            />
           )
         )}
 
@@ -344,8 +554,17 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted }) {
                       {date}
                     </div>
                     {files.map(f =>
-                      <FileRow key={f.rel_path} file={f} dimmed
-                        canDelete={canDelete} onDeleted={onDeleted} />
+                      <FileRow
+                        key={f.rel_path}
+                        file={f}
+                        siblings={[]}
+                        docTypeId={item.doc_type.id}
+                        externalId={item.external_id}
+                        dimmed
+                        canDelete={canDelete}
+                        onDeleted={onDeleted}
+                        onOpenViewer={onOpenViewer}
+                      />
                     )}
                   </div>
                 ))}
@@ -371,7 +590,7 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted }) {
 
 // ── Группа документов одного типа ─────────────────────────────────────────
 
-function DocumentGroup({ typeName, items, canDelete, canManageFilters, axes, onDeleted }) {
+function DocumentGroup({ typeName, items, canDelete, canManageFilters, axes, onDeleted, onOpenViewer }) {
   const [collapsed, setCollapsed] = useState(false);
   return (
     <div className="space-y-2">
@@ -398,6 +617,7 @@ function DocumentGroup({ typeName, items, canDelete, canManageFilters, axes, onD
               canManageFilters={canManageFilters}
               axes={axes}
               onDeleted={onDeleted}
+              onOpenViewer={onOpenViewer}
             />
           )}
         </div>
@@ -571,17 +791,26 @@ function UploadForm({ docTypes, onUploaded }) {
     const ALLOWED_TYPES = [
       'application/pdf',
       'image/jpeg', 'image/png', 'image/webp',
-      'model/stl', 'application/octet-stream',  // бинарный STL
+      'model/stl', 'application/octet-stream',
+      'model/gltf+json', 'model/gltf-binary',
+      'text/plain',
+      'application/step', 'application/stp', // STEP MIME (редко)
     ];
-    // STL не имеет стандартного MIME — проверяем расширение
-    const isStl = f?.name?.toLowerCase().endsWith('.stl');
-    const isRvt = f?.name?.toLowerCase().endsWith('.rvt') || 
-              f?.name?.toLowerCase().endsWith('.rfa');
 
-    if (!ALLOWED_TYPES.includes(f?.type) && !isStl && !isRvt) {
-      setResult({ success: false, message: 'Допустимы PDF, изображения, STL и RVT/RFA' });
+    const name = f?.name?.toLowerCase() || '';
+    const isStl = name.endsWith('.stl');  // ← S заглавная
+    const isObj = name.endsWith('.obj');
+    const isMtl = name.endsWith('.mtl');
+    const isGltf = name.endsWith('.gltf');
+    const isGlb = name.endsWith('.glb');
+    const isStep = name.endsWith('.step') || name.endsWith('.stp');
+    const isRvt = name.endsWith('.rvt') || name.endsWith('.rfa');
+
+    if (!ALLOWED_TYPES.includes(f?.type) && !isStl && !isObj && !isMtl
+      && !isGltf && !isGlb && !isStep && !isRvt) {
+      setResult({ success: false, message: 'Допустимы PDF, изображения, STL, OBJ, GLTF, GLB, STEP и RVT/RFA' });
       return;
-  }
+    }
     setFile(f);
     setResult(null);
   };
@@ -607,7 +836,15 @@ function UploadForm({ docTypes, onUploaded }) {
     );
 
     if (ok && data.success) {
-      setResult({ success: true, message: `Загружен: ${data.path}` });
+      // ← заменить блок с setResult
+      if (data.converting) {
+        setResult({
+          success: true,
+          message: `STEP загружен — конвертация в GLB ~30 сек, обновите страницу позже`
+        });
+      } else {
+        setResult({ success: true, message: `Загружен: ${data.path}` });
+      }
       setFile(null);
       setForm({ doc_type_id: '', external_id: '' });
       setQuery('');
@@ -713,7 +950,7 @@ function UploadForm({ docTypes, onUploaded }) {
               : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
             }`}>
           <input id="fileInput" type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.webp,.stl,.rvt,.rfa"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,.stl,.obj,.mtl,.gltf,.glb,.step,.stp,.rvt,.rfa"
             className="hidden"
             onChange={e => handleFile(e.target.files[0])} />
           {file ? (
@@ -729,7 +966,7 @@ function UploadForm({ docTypes, onUploaded }) {
             <>
               <PdfIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-500 dark:text-gray-400">Перетащите файл сюда</p>
-              <p className="text-xs text-gray-400 mt-1">PDF, изображение, 3D модель (stl) или BIM модель (rvt, rfa)</p>
+              <p className="text-xs text-gray-400 mt-1">PDF, изображение, 3D модель (stl, glb, obj), STEP (конвертируется в GLB) или BIM модель (rvt, rfa)</p>
             </>
           )}
         </div>
@@ -755,7 +992,7 @@ function UploadForm({ docTypes, onUploaded }) {
 
 // ── Главная страница ──────────────────────────────────────────────────────
 
-export default function DocumentsPage() {
+export default function DocumentsPage({ onOpenViewer }) {
   const { user } = useAuth();
   const canUpload = can(user, 'portal.documents.upload');
   const canDelete = can(user, 'portal.documents.delete');
@@ -918,6 +1155,7 @@ export default function DocumentsPage() {
                   canManageFilters={canManageFilters}
                   axes={axes}
                   onDeleted={reload}
+                  onOpenViewer={onOpenViewer}
                 />
               ))}
             </div>
