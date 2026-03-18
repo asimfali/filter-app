@@ -4,6 +4,7 @@ import { mediaApi } from '../api/media';
 import { can } from '../utils/permissions';
 import CreateFilterModal from '../components/media/CreateFilterModal.jsx';
 import ModelViewer, { canPreview3D } from '../components/viewer3d/ModelViewer';
+import { useCommonDocUpload } from '../hooks/useDocUpload';
 
 const MEDIA = '/media';
 
@@ -77,79 +78,43 @@ function useFormData() {
 
 function DropZone({ docTypeId, externalId, onUploaded }) {
   const [draggingOver, setDraggingOver] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState(null);
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDraggingOver(true);
-  };
-
-  const handleDragLeave = (e) => {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-      setDraggingOver(false);
-    }
-  };
+  const { upload, uploading, uploadResult } = useCommonDocUpload({ onUploaded });
 
   const handleDrop = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDraggingOver(false);
-
-    const dropped = e.dataTransfer.files[0];
-    if (!dropped) return;
-
-    setUploading(true);
-    setUploadResult(null);
-
-    try {
-      const { ok, data } = await mediaApi.uploadDocument(
-        docTypeId, externalId, dropped,
-      );
-      if (ok && data.success) {
-        setUploadResult({ ok: true, message: `✓ ${dropped.name}` });
-        setTimeout(() => { onUploaded?.(); setUploadResult(null); }, 1500);
-      } else {
-        setUploadResult({ ok: false, message: data.error || 'Ошибка' });
-        setTimeout(() => setUploadResult(null), 3000);
-      }
-    } catch {
-      setUploadResult({ ok: false, message: 'Ошибка сети' });
-      setTimeout(() => setUploadResult(null), 3000);
-    } finally {
-      setUploading(false);
-    }
+      e.preventDefault();
+      e.stopPropagation();
+      setDraggingOver(false);
+      await upload(e.dataTransfer.files[0], docTypeId, externalId);
   };
 
   return (
-    <div
-      className={`flex items-center justify-center rounded-lg
+      <div
+          className={`flex items-center justify-center rounded-lg
                       border-2 border-dashed py-4 px-3 transition-colors cursor-default
                       ${draggingOver
-          ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
-          : 'border-gray-200 dark:border-gray-700'
-        }`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {uploading ? (
-        <span className="text-xs text-gray-400">Загрузка...</span>
-      ) : uploadResult ? (
-        <span className={`text-xs ${uploadResult.ok
-          ? 'text-green-600 dark:text-green-400'
-          : 'text-red-500'}`}>
-          {uploadResult.message}
-        </span>
-      ) : draggingOver ? (
-        <span className="text-xs text-blue-500">Отпустите для загрузки</span>
-      ) : (
-        <span className="text-xs text-gray-300 dark:text-gray-600">
-          Файлов нет — перетащите для загрузки
-        </span>
-      )}
-    </div>
+                          ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-700'
+                      }`}
+          onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDraggingOver(true); }}
+          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDraggingOver(false); }}
+          onDrop={handleDrop}
+      >
+          {uploading ? (
+              <span className="text-xs text-gray-400">Загрузка...</span>
+          ) : uploadResult ? (
+              <span className={`text-xs ${uploadResult.ok
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-500'}`}>
+                  {uploadResult.message}
+              </span>
+          ) : draggingOver ? (
+              <span className="text-xs text-blue-500">Отпустите для загрузки</span>
+          ) : (
+              <span className="text-xs text-gray-300 dark:text-gray-600">
+                  Файлов нет — перетащите для загрузки
+              </span>
+          )}
+      </div>
   );
 }
 
@@ -159,8 +124,7 @@ function FileRow({ file, siblings = [], dimmed = false, canDelete = false,
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [draggingOver, setDraggingOver] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState(null);
+  const { upload, uploading, uploadResult } = useCommonDocUpload({ onUploaded: onDeleted });
 
   const getMtlPath = () => {
     if (!file.name.toLowerCase().endsWith('.obj')) return null;
@@ -236,33 +200,8 @@ function FileRow({ file, siblings = [], dimmed = false, canDelete = false,
     e.preventDefault();
     e.stopPropagation();
     setDraggingOver(false);
-
-    const dropped = e.dataTransfer.files[0];
-    if (!dropped) return;
-
-    setUploading(true);
-    setUploadResult(null);
-
-    try {
-      const { ok, data } = await mediaApi.uploadDocument(
-        docTypeId,
-        externalId,
-        dropped,
-      );
-      if (ok && data.success) {
-        setUploadResult({ ok: true, message: `✓ ${dropped.name}` });
-        setTimeout(() => { onDeleted?.(); setUploadResult(null); }, 1500);
-      } else {
-        setUploadResult({ ok: false, message: data.error || 'Ошибка' });
-        setTimeout(() => setUploadResult(null), 3000);
-      }
-    } catch {
-      setUploadResult({ ok: false, message: 'Ошибка сети' });
-      setTimeout(() => setUploadResult(null), 3000);
-    } finally {
-      setUploading(false);
-    }
-  };
+    await upload(e.dataTransfer.files[0], docTypeId, externalId);
+};
 
   return (
     <div

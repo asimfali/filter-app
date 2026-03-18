@@ -1,15 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { catalogApi } from '../api/catalog';
+import { mediaApi } from '../api/media';
+import { useAuth } from '../contexts/AuthContext';
+import { can } from '../utils/permissions';
+import { useDocTypes } from '../hooks/useDocUpload';
+import DocTypeSelector from '../components/media/DocTypeSelector';
+import { canPreview3D } from '../utils/fileUtils';
+import { useProductDocUpload } from '../hooks/useProductDocUpload';
 
-export default function SpecPreviewPage({ productIds, onBack, onOpenEditor }) {
+export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOpenViewer }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const { user } = useAuth();
+    const { docTypes: uploadDocTypes, activeDocType: activeUploadDocType, setActiveDocType: setActiveUploadDocType } = useDocTypes(user);
 
     // Какие группы колонок показывать
     const [showParams, setShowParams] = useState(true);
     const [showSpecs, setShowSpecs] = useState(true);
     const [showDocs, setShowDocs] = useState(true);
+
+    // Кэш частных документов: { [productId]: { [docTypeCode]: [files] } }
+    const [privateDocsCache, setPrivateDocsCache] = useState({});
 
     useEffect(() => {
         if (!productIds?.length) return;
@@ -23,6 +35,16 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor }) {
             .catch(() => setError('Ошибка сети'))
             .finally(() => setLoading(false));
     }, [productIds]);
+
+    const handleProductDocUploaded = (productId, docTypeCode, newFiles) => {
+        setPrivateDocsCache(prev => ({
+            ...prev,
+            [productId]: {
+                ...(prev[productId] || {}),
+                [docTypeCode]: newFiles,
+            },
+        }));
+    };
 
     if (loading) return (
         <div className="flex items-center justify-center py-24
@@ -49,18 +71,6 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor }) {
 
     const { axes, definitions, products } = data;
 
-    // Собираем все типы документов из всех товаров
-    const docTypes = [];
-    const seenDocTypes = new Set();
-    products.forEach(p => {
-        p.documents.forEach(d => {
-            if (!seenDocTypes.has(d.doc_type_code)) {
-                seenDocTypes.add(d.doc_type_code);
-                docTypes.push({ code: d.doc_type_code, name: d.doc_type });
-            }
-        });
-    });
-
     const hasImages = products.some(p => p.images.length > 0);
 
     return (
@@ -86,39 +96,45 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor }) {
                     </div>
                 </div>
 
+                {showDocs && (
+                    <DocTypeSelector
+                        docTypes={uploadDocTypes}
+                        activeDocType={activeUploadDocType}
+                        onSelect={setActiveUploadDocType}
+                        hint="Загрузка в:"
+                    />
+                )}
+
                 <div className="flex items-center gap-3">
                     {/* Переключатели групп колонок */}
                     <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                         {axes.length > 0 && (
                             <button
                                 onClick={() => setShowParams(o => !o)}
-                                className={`px-3 py-1 rounded text-xs transition-colors ${
-                                    showParams
-                                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                                        : 'text-gray-500 dark:text-gray-400'
-                                }`}>
+                                className={`px-3 py-1 rounded text-xs transition-colors ${showParams
+                                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                    : 'text-gray-500 dark:text-gray-400'
+                                    }`}>
                                 Параметры
                             </button>
                         )}
                         {definitions.length > 0 && (
                             <button
                                 onClick={() => setShowSpecs(o => !o)}
-                                className={`px-3 py-1 rounded text-xs transition-colors ${
-                                    showSpecs
-                                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                                        : 'text-gray-500 dark:text-gray-400'
-                                }`}>
+                                className={`px-3 py-1 rounded text-xs transition-colors ${showSpecs
+                                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                    : 'text-gray-500 dark:text-gray-400'
+                                    }`}>
                                 Характеристики
                             </button>
                         )}
-                        {(docTypes.length > 0 || hasImages) && (
+                        {(uploadDocTypes.length > 0 || hasImages) && (
                             <button
                                 onClick={() => setShowDocs(o => !o)}
-                                className={`px-3 py-1 rounded text-xs transition-colors ${
-                                    showDocs
-                                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                                        : 'text-gray-500 dark:text-gray-400'
-                                }`}>
+                                className={`px-3 py-1 rounded text-xs transition-colors ${showDocs
+                                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                    : 'text-gray-500 dark:text-gray-400'
+                                    }`}>
                                 Документы
                             </button>
                         )}
@@ -176,7 +192,7 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor }) {
                             ))}
 
                             {/* Документы */}
-                            {showDocs && docTypes.map(dt => (
+                            {showDocs && uploadDocTypes.map(dt => (
                                 <th key={dt.code}
                                     className="px-3 py-3 text-xs font-medium text-left
                                                text-emerald-600 dark:text-emerald-400
@@ -196,100 +212,23 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor }) {
 
                     <tbody>
                         {products.map((product, idx) => (
-                            <tr key={product.id}
-                                className={`border-b border-gray-100 dark:border-gray-800
-                                    ${idx % 2 === 0
-                                        ? ''
-                                        : 'bg-gray-50/50 dark:bg-gray-800/30'}`}>
-
-                                {/* Название */}
-                                <td className="px-4 py-2 sticky left-0 z-10
-                                               bg-white dark:bg-gray-900
-                                               text-gray-900 dark:text-white font-medium
-                                               border-r border-gray-100 dark:border-gray-800">
-                                    <div>{product.name}</div>
-                                    {product.sku && (
-                                        <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                                            {product.sku}
-                                        </div>
-                                    )}
-                                </td>
-
-                                {/* Параметры */}
-                                {showParams && axes.map(axis => (
-                                    <td key={axis.id}
-                                        className="px-3 py-2 text-gray-700 dark:text-gray-300
-                                                   border-r border-gray-100 dark:border-gray-800">
-                                        {product.params[axis.id] ?? (
-                                            <span className="text-gray-300 dark:text-gray-600">—</span>
-                                        )}
-                                    </td>
-                                ))}
-
-                                {/* Разделитель */}
-                                {showParams && showSpecs && definitions.length > 0 && axes.length > 0 && (
-                                    <td className="w-px bg-gray-200 dark:bg-gray-700 p-0" />
-                                )}
-
-                                {/* Характеристики */}
-                                {showSpecs && definitions.map(def => {
-                                    const spec = product.specs[def.id];
-                                    return (
-                                        <td key={def.id}
-                                            className="px-3 py-2">
-                                            {spec?.value ? (
-                                                <span className={
-                                                    spec.is_manual
-                                                        ? 'text-blue-600 dark:text-blue-400'
-                                                        : 'text-gray-700 dark:text-gray-300'
-                                                }>
-                                                    {spec.value}
-                                                </span>
-                                            ) : (
-                                                <span className="text-gray-300 dark:text-gray-600">—</span>
-                                            )}
-                                        </td>
-                                    );
-                                })}
-
-                                {/* Документы */}
-                                {showDocs && docTypes.map(dt => {
-                                    const doc = product.documents.find(
-                                        d => d.doc_type_code === dt.code
-                                    );
-                                    return (
-                                        <td key={dt.code} className="px-3 py-2">
-                                            {doc?.files.length ? (
-                                                <div className="space-y-0.5">
-                                                    {doc.files.map(fname => (
-                                                        <DocFileLink
-                                                            key={fname}
-                                                            folder={doc.folder_path}
-                                                            fname={fname}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-300 dark:text-gray-600">—</span>
-                                            )}
-                                        </td>
-                                    );
-                                })}
-
-                                {/* Фото */}
-                                {showDocs && hasImages && (
-                                    <td className="px-3 py-2">
-                                        {product.images.length > 0 ? (
-                                            <span className="text-xs text-emerald-600
-                                                             dark:text-emerald-400">
-                                                {product.images.length} фото
-                                            </span>
-                                        ) : (
-                                            <span className="text-gray-300 dark:text-gray-600">—</span>
-                                        )}
-                                    </td>
-                                )}
-                            </tr>
+                            <ProductRow
+                                key={product.id}
+                                product={product}
+                                idx={idx}
+                                axes={axes}
+                                definitions={definitions}
+                                uploadDocTypes={uploadDocTypes}
+                                hasImages={hasImages}
+                                showParams={showParams}
+                                showSpecs={showSpecs}
+                                showDocs={showDocs}
+                                activeUploadDocType={activeUploadDocType}
+                                privateDocsCache={privateDocsCache[product.id] || {}}
+                                onUploaded={handleProductDocUploaded}
+                                user={user}
+                                onOpenViewer={onOpenViewer}
+                            />
                         ))}
                     </tbody>
                 </table>
@@ -310,16 +249,199 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor }) {
     );
 }
 
+function ProductRow({
+    product, idx, axes, definitions, uploadDocTypes, hasImages,
+    showParams, showSpecs, showDocs,
+    activeUploadDocType, privateDocsCache, onUploaded, user, onOpenViewer
+}) {
+    const [draggingOver, setDraggingOver] = useState(false);
+
+    const canUpload = activeUploadDocType
+        ? can(user, activeUploadDocType.upload_permission_code)
+        : false;
+
+    const { upload, uploading, uploadResult } = useProductDocUpload({
+        onUploaded: (productId, code, files) => onUploaded(productId, code, files),
+    });
+
+    const handleDragOver = (e) => {
+        if (!activeUploadDocType || !canUpload) return;
+        e.preventDefault();
+        setDraggingOver(true);
+    };
+
+    const handleDragLeave = (e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setDraggingOver(false);
+    };
+
+    const handleDrop = async (e) => {
+        e.preventDefault();
+        setDraggingOver(false);
+        if (!activeUploadDocType || !canUpload) return;
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        await upload(file, product.id, activeUploadDocType);
+    };
+
+    return (
+        <tr
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-b border-gray-100 dark:border-gray-800 transition-colors
+                ${draggingOver
+                    ? 'bg-emerald-50 dark:bg-emerald-900/20 ring-1 ring-inset ring-emerald-400'
+                    : idx % 2 === 0 ? '' : 'bg-gray-50/50 dark:bg-gray-800/30'
+                }`}
+        >
+            {/* Название */}
+            <td className="px-4 py-2 sticky left-0 z-10
+                           bg-white dark:bg-gray-900
+                           text-gray-900 dark:text-white font-medium
+                           border-r border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                    <div>
+                        <div>{product.name}</div>
+                        {product.sku && (
+                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                {product.sku}
+                            </div>
+                        )}
+                    </div>
+                    {/* Индикатор загрузки/результата */}
+                    {uploading && (
+                        <span className="text-xs text-gray-400 animate-pulse shrink-0">
+                            Загрузка...
+                        </span>
+                    )}
+                    {uploadResult && (
+                        <span className={`text-xs shrink-0 ${uploadResult.ok
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-red-500'
+                            }`}>
+                            {uploadResult.message}
+                        </span>
+                    )}
+                </div>
+            </td>
+
+            {/* Параметры */}
+            {showParams && axes.map(axis => (
+                <td key={axis.id}
+                    className="px-3 py-2 text-gray-700 dark:text-gray-300
+                               border-r border-gray-100 dark:border-gray-800">
+                    {product.params[axis.id] ?? (
+                        <span className="text-gray-300 dark:text-gray-600">—</span>
+                    )}
+                </td>
+            ))}
+
+            {/* Разделитель */}
+            {showParams && showSpecs && definitions.length > 0 && axes.length > 0 && (
+                <td className="w-px bg-gray-200 dark:bg-gray-700 p-0" />
+            )}
+
+            {/* Характеристики */}
+            {showSpecs && definitions.map(def => {
+                const spec = product.specs[def.id];
+                return (
+                    <td key={def.id} className="px-3 py-2">
+                        {spec?.value ? (
+                            <span className={
+                                spec.is_manual
+                                    ? 'text-blue-600 dark:text-blue-400'
+                                    : 'text-gray-700 dark:text-gray-300'
+                            }>
+                                {spec.value}
+                            </span>
+                        ) : (
+                            <span className="text-gray-300 dark:text-gray-600">—</span>
+                        )}
+                    </td>
+                );
+            })}
+
+            {/* Документы — общие + частные */}
+            {showDocs && uploadDocTypes.map(dt => {
+                // Общие документы (из API previewBulk)
+                const commonDoc = product.documents.find(
+                    d => d.doc_type_code === dt.code
+                );
+                // Частные документы (загружены в этой сессии)
+                const privateFiles = privateDocsCache[dt.code] || [];
+
+                const isActiveType = activeUploadDocType?.code === dt.code;
+
+                return (
+                    <td key={dt.code}
+                        className={`px-3 py-2 transition-colors
+                            ${isActiveType && canUpload
+                                ? 'bg-emerald-50/50 dark:bg-emerald-900/10'
+                                : ''
+                            }`}>
+                        <div className="space-y-0.5">
+                            {/* Общие файлы */}
+                            {commonDoc?.files.map(f => (
+                                <DocFileLink key={f.name + f.folder_path} folder={f.folder_path} fname={f.name} onOpenViewer={onOpenViewer} />
+                            ))}
+                            {/* Частные файлы (только что загруженные) */}
+                            {privateFiles.map(f => (
+                                <DocFileLink
+                                    key={f.rel_path}
+                                    folder=""
+                                    fname={f.name}
+                                    relPath={f.rel_path}
+                                    isNew
+                                    onOpenViewer={onOpenViewer}
+                                />
+                            ))}
+                            {/* Зона drop для активного типа */}
+                            {isActiveType && canUpload && !commonDoc?.files.length && !privateFiles.length && (
+                                <span className="text-xs text-emerald-400 dark:text-emerald-600
+                                                 italic">
+                                    ← перетащите
+                                </span>
+                            )}
+                            {!commonDoc?.files.length && !privateFiles.length && !isActiveType && (
+                                <span className="text-gray-300 dark:text-gray-600">—</span>
+                            )}
+                        </div>
+                    </td>
+                );
+            })}
+
+            {/* Фото */}
+            {showDocs && hasImages && (
+                <td className="px-3 py-2">
+                    {product.images.length > 0 ? (
+                        <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                            {product.images.length} фото
+                        </span>
+                    ) : (
+                        <span className="text-gray-300 dark:text-gray-600">—</span>
+                    )}
+                </td>
+            )}
+        </tr>
+    );
+}
+
 // Кнопка скачивания одного файла
-function DocFileLink({ folder, fname }) {
+function DocFileLink({ folder, fname, relPath = null, isNew = false, onOpenViewer }) {
     const [loading, setLoading] = useState(false);
 
     const handleClick = async (e) => {
         e.preventDefault();
+        const path = relPath || `${folder}/${fname}`;
+        
+        if (canPreview3D(fname)) {
+            onOpenViewer?.({ relPath: path, fname, mtlPath: null });
+            return;
+        }
         setLoading(true);
         try {
-            const { mediaApi } = await import('../api/media');
-            const res = await mediaApi.downloadFile(`${folder}/${fname}`);
+            const path = relPath || `${folder}/${fname}`;
+            const res = await mediaApi.downloadFile(path);
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             window.open(url, '_blank');
@@ -333,11 +455,16 @@ function DocFileLink({ folder, fname }) {
         <button
             onClick={handleClick}
             disabled={loading}
-            className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400
+            className={`flex items-center gap-1 text-xs
                        hover:text-blue-800 dark:hover:text-blue-300
-                       disabled:opacity-50 transition-colors">
+                       disabled:opacity-50 transition-colors
+                       ${isNew
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-blue-600 dark:text-blue-400'
+                }`}>
             <span>{loading ? '···' : '↓'}</span>
             <span className="truncate max-w-32" title={fname}>{fname}</span>
+            {isNew && <span className="text-[10px] text-emerald-400">new</span>}
         </button>
     );
 }

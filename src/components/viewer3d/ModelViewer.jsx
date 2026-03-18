@@ -140,6 +140,7 @@ export default function ModelViewer({ relPath, fname, mtlPath, onClose }) {
         };
 
         const ext = getExt(fname);
+        console.log('fname:', fname, 'ext:', ext, 'relPath:', relPath);
 
         if (ext === 'stl') {
             fetch(downloadUrl(relPath), { headers })

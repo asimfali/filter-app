@@ -138,23 +138,40 @@ function MainApp() {
     const path = window.location.pathname.slice(1); // 'staff', 'documents', etc.
     return path || 'configurator';
   });
-  const [selectedProductId, setSelectedProductId] = useState(null);
+  const [selectedProductId, setSelectedProductId] = useState(() => {
+    const path = window.location.pathname.slice(1);
+    if (path === 'product') {
+      return sessionStorage.getItem('selectedProductId') || null;
+    }
+    return null;
+  });
   const [specEditorProductIds, setSpecEditorProductIds] = useState([]);
   const [specEditorSessionId, setSpecEditorSessionId] = useState(null);
   const [specEditorInitialChanges, setSpecEditorInitialChanges] = useState({});
   const [selectedThreadId, setSelectedThreadId] = useState(null);
-  const [specPreviewProductIds, setSpecPreviewProductIds] = useState([]);
+  const [specPreviewProductIds, setSpecPreviewProductIds] = useState(() => {
+    const path = window.location.pathname.slice(1);
+    if (path === 'spec-preview') {
+        const saved = sessionStorage.getItem('specPreviewProductIds');
+        return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+});
   const [modelViewerFile, setModelViewerFile] = useState(null);
 
   const handleNavigate = (newPage, payload = null) => {
     setPage(newPage);
     window.history.pushState({ page: newPage, payload }, '', `/${newPage}`);
 
-    if (newPage === 'product') setSelectedProductId(payload);
+    if (newPage === 'product') {
+      setSelectedProductId(payload);
+      if (payload) sessionStorage.setItem('selectedProductId', payload);  // ← добавить
+    }
     if (newPage === 'issue-thread') setSelectedThreadId(payload);
     if (newPage === 'spec-preview' && payload !== null) {
       setSpecPreviewProductIds(payload);
-    }
+      sessionStorage.setItem('specPreviewProductIds', JSON.stringify(payload));  // ← добавить
+  }
     if (newPage === 'model-viewer' && payload !== null) {
       setModelViewerFile(payload);
     }
@@ -243,6 +260,7 @@ function MainApp() {
                 productId={selectedProductId}
                 onBack={() => handleNavigate('configurator')}
                 onOpenThread={(id) => handleNavigate('issue-thread', id)}
+                onOpenViewer={payload => handleNavigate('model-viewer', payload)}
               />
             )}
 
@@ -259,6 +277,7 @@ function MainApp() {
                     productIds={specPreviewProductIds}
                     onBack={() => handleNavigate('configurator')}
                     onOpenEditor={(ids) => handleNavigate('spec-editor', ids)}
+                    onOpenViewer={payload => handleNavigate('model-viewer', payload)}
                   />
                 )}
                 {page === 'spec-editor' && (

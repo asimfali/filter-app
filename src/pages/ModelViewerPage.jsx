@@ -6,6 +6,7 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader';
 import { tokenStorage } from '../api/auth';
+export { canPreview3D } from '../utils/fileUtils';
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 
@@ -112,16 +113,38 @@ function ContextMenu({ x, y, node, onHide, onShow, onIsolate, onFocus, onClose }
 
 // ── Узел дерева ───────────────────────────────────────────────────────────────
 
-function TreeNode({ node, depth, selectedUuid, onSelect, onContextMenu, objMap }) {
+function TreeNode({ node, depth, selectedUuid, onSelect, onContextMenu, onHover, objMap }) {
     const [expanded, setExpanded] = useState(depth < 2);
+    const [tooltip, setTooltip] = useState(null);
     const hasChildren = node.children.length > 0;
     const isSelected = selectedUuid === node.uuid;
     const obj = objMap[node.uuid];
     const visible = obj?.visible ?? node.visible;
+    const nodeRef = useRef(null);
+
+    const containsSelected = useCallback((n, uuid) => {
+        if (n.uuid === uuid) return true;
+        return n.children.some(child => containsSelected(child, uuid));
+    }, []);
+
+    // Раскрываем если выбранный узел внутри
+    useEffect(() => {
+        if (selectedUuid && !isSelected && containsSelected(node, selectedUuid)) {
+            setExpanded(true);
+        }
+    }, [selectedUuid]);
+
+    // Скролл к выбранному
+    useEffect(() => {
+        if (isSelected && nodeRef.current) {
+            nodeRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }, [isSelected]);
 
     return (
         <div>
             <div
+                ref={nodeRef}
                 className={`flex items-center gap-1 px-2 py-1 rounded cursor-pointer
                             group transition-colors text-xs
                             ${isSelected
@@ -131,42 +154,59 @@ function TreeNode({ node, depth, selectedUuid, onSelect, onContextMenu, objMap }
                             ${!visible ? 'opacity-40' : ''}`}
                 style={{ paddingLeft: `${depth * 14 + 8}px` }}
                 onClick={() => onSelect(node)}
-                onDoubleClick={() => {
-                    if (obj) obj.visible = !obj.visible;
-                    onSelect({ ...node, visible: !visible });
-                }}
+                onMouseEnter={() => onHover?.(node.uuid, true)}
+                onMouseLeave={() => onHover?.(node.uuid, false)}
                 onContextMenu={e => {
                     e.preventDefault();
                     onContextMenu(e, node);
                 }}
             >
-                {/* Стрелка раскрытия */}
                 <span
-                    className="w-3 h-3 shrink-0 flex items-center justify-center
-                               text-gray-400"
+                    className="w-3 h-3 shrink-0 flex items-center justify-center text-gray-400"
                     onClick={e => { e.stopPropagation(); setExpanded(o => !o); }}
                 >
                     {hasChildren ? (expanded ? '▾' : '▸') : '·'}
                 </span>
 
-                {/* Иконка типа */}
                 <span className="shrink-0">
                     {node.isMesh ? '▪' : '▫'}
                 </span>
 
-                {/* Имя */}
-                <span className="truncate flex-1" title={node.name}>
+                {/* Имя с быстрым tooltip */}
+                <span
+                    className="truncate text-xs block"
+                    onMouseEnter={e => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setTooltip({ x: rect.right + 8, y: rect.top, name: node.name });
+                    }}
+                    onMouseLeave={() => setTooltip(null)}
+                >
                     {node.name}
                 </span>
 
-                {/* Кнопка глаз — при hover */}
+                {/* Tooltip рендерится через portal или просто fixed */}
+                {tooltip && (
+                    <div
+                        className="fixed z-[9999] bg-gray-900 text-white text-xs
+                   px-2 py-1 rounded whitespace-nowrap pointer-events-none shadow-lg
+                   border border-gray-700"
+                        style={{ left: tooltip.x, top: tooltip.y }}
+                    >
+                        {tooltip.name}
+                    </div>
+                )}
+
+                {/* Кнопка глаза — всегда видна если скрыто */}
                 <button
-                    className="opacity-0 group-hover:opacity-100 shrink-0
-                               text-gray-400 hover:text-gray-600 transition-all"
+                    className={`shrink-0 text-gray-400 hover:text-gray-200 transition-all
+                        ${visible
+                            ? 'opacity-0 group-hover:opacity-100'
+                            : 'opacity-100'
+                        }`}
                     onClick={e => {
                         e.stopPropagation();
                         if (obj) obj.visible = !obj.visible;
-                        onSelect(node); // обновить state
+                        onSelect(node);
                     }}
                     title={visible ? 'Скрыть' : 'Показать'}
                 >
@@ -184,6 +224,7 @@ function TreeNode({ node, depth, selectedUuid, onSelect, onContextMenu, objMap }
                             selectedUuid={selectedUuid}
                             onSelect={onSelect}
                             onContextMenu={onContextMenu}
+                            onHover={onHover}
                             objMap={objMap}
                         />
                     ))}
@@ -303,8 +344,10 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         const container = mountRef.current;
         if (!container) return;
 
+        const ext = getExt(fname);
+
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xf1f5f9);
+        scene.background = new THREE.Color(0x1a1a2e);
         sceneRef.current = scene;
 
         const w = container.clientWidth;
@@ -313,11 +356,11 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         const orthoSize = 5;
         const camera = new THREE.OrthographicCamera(
             -orthoSize * aspect,
-             orthoSize * aspect,
-             orthoSize,
+            orthoSize * aspect,
+            orthoSize,
             -orthoSize,
             -100000,
-             100000
+            100000
         );
         camera.position.set(0, 0, 10);
         cameraRef.current = camera;
@@ -329,22 +372,16 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         container.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-        const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
-        dir1.position.set(5, 10, 7);
-        scene.add(dir1);
-        const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
-        dir2.position.set(-5, -5, -5);
-        scene.add(dir2);
-
-        // Сетка
-        const grid = new THREE.GridHelper(100, 20, 0xcccccc, 0xe5e5e5);
-        grid.name = '__grid__';
-        scene.add(grid);
+        // scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        // const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
+        // dir1.position.set(5, 10, 7);
+        // scene.add(dir1);
+        // const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
+        // dir2.position.set(-5, -5, -5);
+        // scene.add(dir2);
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
+        controls.enableDamping = false;
         controlsRef.current = controls;
 
         const animate = () => {
@@ -381,23 +418,14 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             root.traverse(child => {
                 if (child.isMesh) {
                     const processMat = (m) => {
-                        const c = m.clone();
-                        c.transparent = true;
-                        c.side = THREE.DoubleSide;
+                        const color = m.color ? m.color.clone() : new THREE.Color(0x888888);
 
-                        // Осветляем цвет — смешиваем с белым
-                        if (c.color) {
-                            const r = c.color.r;
-                            const g = c.color.g;
-                            const b = c.color.b;
-                            // Lerp к белому на 60%
-                            c.color.setRGB(
-                                r + (1 - r) * 0.85,
-                                g + (1 - g) * 0.85,
-                                b + (1 - b) * 0.85,
-                            );
-                        }
-                        return c;
+                        return new THREE.MeshBasicMaterial({
+                            color: color,  // ← без осветления
+                            transparent: true,
+                            opacity: 1.0,
+                            side: THREE.DoubleSide,
+                        });
                     };
 
                     if (Array.isArray(child.material)) {
@@ -415,7 +443,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
 
         const buildEdges = (root) => {
             const edgeMaterial = new THREE.LineBasicMaterial({
-                color: 0xffffff,
+                color: 0x000000,
                 transparent: true,
                 opacity: 0.5,
             });
@@ -440,11 +468,8 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             object.position.sub(center);
 
             // Подбираем размер ortho по bounding box
-            const orthoSize = maxDim * 0.6;
-            camera.left = -orthoSize * aspect;
-            camera.right = orthoSize * aspect;
-            camera.top = orthoSize;
-            camera.bottom = -orthoSize;
+            camera.near = -maxDim * 10;  // отрицательный near для ortho
+            camera.far = maxDim * 10;
             camera.updateProjectionMatrix();
 
             camera.position.set(maxDim, maxDim * 0.7, maxDim * 1.2);
@@ -461,8 +486,6 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             setTree(treeData);
             setLoading(false);
         };
-
-        const ext = getExt(fname);
 
         if (ext === 'glb' || ext === 'gltf') {
             authFetch(relPath)
@@ -545,7 +568,53 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
     const clickCountRef = useRef(0);
     const clickTimerRef = useRef(null);
 
+    // ── На уровне компонента (рядом с другими refs) ───────────────────────
+    const selectedHighlightRef = useRef(null);
+
+    const highlightSelected = useCallback((uuid) => {
+        // Сбросить предыдущую подсветку
+        if (selectedHighlightRef.current) {
+            const prev = objMapRef.current[selectedHighlightRef.current];
+            if (prev) {
+                prev.traverse(child => {
+                    if (!child.isMesh) return;
+                    const orig = originalColorsRef.current[child.uuid];
+                    if (orig !== undefined) {
+                        const setMat = m => m.color.setHex(orig);
+                        if (Array.isArray(child.material)) child.material.forEach(setMat);
+                        else setMat(child.material);
+                        delete originalColorsRef.current[child.uuid];
+                    }
+                });
+            }
+            selectedHighlightRef.current = null;
+        }
+
+        if (!uuid) return;
+
+        const obj = objMapRef.current[uuid];
+        if (obj) {
+            obj.traverse(child => {
+                if (!child.isMesh) return;
+                const mat = Array.isArray(child.material) ? child.material[0] : child.material;
+                if (originalColorsRef.current[child.uuid] === undefined) {
+                    originalColorsRef.current[child.uuid] = mat.color.getHex();
+                }
+                const setMat = m => m.color.setHex(0x4488ff);
+                if (Array.isArray(child.material)) child.material.forEach(setMat);
+                else setMat(child.material);
+            });
+            selectedHighlightRef.current = uuid;
+        }
+    }, []);
+
+    // ── handleCanvasClick — чистый, без хуков внутри ──────────────────────
     const handleCanvasClick = useCallback((e) => {
+        if (mouseDownPosRef.current) {
+            const dx = e.clientX - mouseDownPosRef.current.x;
+            const dy = e.clientY - mouseDownPosRef.current.y;
+            if (Math.sqrt(dx * dx + dy * dy) > 5) return;
+        }
         clickCountRef.current += 1;
 
         clearTimeout(clickTimerRef.current);
@@ -566,15 +635,13 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             raycasterRef.current.setFromCamera(mouse, camera);
 
             if (count === 3) {
-                // ── Тройной клик — показать ближайшее скрытое ────────────
                 const hiddenMeshes = [];
                 scene.traverse(c => {
-                    if (c.isMesh && c.name !== '__grid__' && !c.visible) {
+                    if (c.isMesh && !c.visible) {
                         c.visible = true;
                         hiddenMeshes.push(c);
                     }
                 });
-
                 const hits = raycasterRef.current.intersectObjects(hiddenMeshes, false);
                 hiddenMeshes.forEach(c => { c.visible = false; });
 
@@ -590,24 +657,24 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
                     });
                     refresh();
                 }
+
             } else if (count === 2) {
-                // ── Двойной клик — скрыть ────────────────────────────────────
                 const visibleMeshes = [];
                 scene.traverse(c => {
-                    if (c.isMesh && c.name !== '__grid__' && c.visible) visibleMeshes.push(c);
+                    if (c.isMesh && c.visible) visibleMeshes.push(c);
                 });
                 const hits = raycasterRef.current.intersectObjects(visibleMeshes, false);
 
                 if (hits.length > 0) {
                     hits[0].object.visible = false;
+                    highlightSelected(null); // сбросить подсветку скрытой детали
                     refresh();
                 }
 
             } else if (count === 1) {
-                // ── Одинарный клик — выделить ─────────────────────────────
                 const visibleMeshes = [];
                 scene.traverse(c => {
-                    if (c.isMesh && c.name !== '__grid__' && c.visible) visibleMeshes.push(c);
+                    if (c.isMesh && c.visible) visibleMeshes.push(c);
                 });
                 const hits = raycasterRef.current.intersectObjects(visibleMeshes, false);
 
@@ -621,13 +688,22 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
                         children: [],
                     });
                     setHighlightedUuid(hit.uuid);
+                    highlightSelected(hit.uuid);
+                } else {
+                    // Клик на пустое место — сбросить подсветку
+                    highlightSelected(null);
+                    setSelectedNode(null);
                 }
             }
-            // count === 2 обрабатывается в onDoubleClick — скрытие
-        }, 250); // 250мс окно для определения количества кликов
-    }, [refresh]);
+        }, 250);
+    }, [refresh, highlightSelected]);
+
+    const mouseDownPosRef = useRef(null);
 
     const handleCanvasMouseDown = useCallback((e) => {
+        if (e.button === 0) {
+            mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+        }
         if (e.button !== 1) return; // только средняя кнопка
         e.preventDefault();
 
@@ -645,7 +721,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
 
         raycasterRef.current.setFromCamera(mouse, camera);
         const meshes = [];
-        scene.traverse(c => { if (c.isMesh && c.name !== '__grid__' && c.visible) meshes.push(c); });
+        scene.traverse(c => { if (c.isMesh && c.visible) meshes.push(c); });
         const hits = raycasterRef.current.intersectObjects(meshes, false);
 
         if (hits.length > 0) {
@@ -670,7 +746,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
 
         raycasterRef.current.setFromCamera(mouse, camera);
         const meshes = [];
-        scene.traverse(c => { if (c.isMesh && c.name !== '__grid__' && c.visible) meshes.push(c); });
+        scene.traverse(c => { if (c.isMesh && c.visible) meshes.push(c); });
         const hits = raycasterRef.current.intersectObjects(meshes, false);
 
         if (hits.length > 0) {
@@ -757,6 +833,32 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         refresh();
     }, [refresh]);
 
+    const originalColorsRef = useRef({});
+
+    const highlightMesh = useCallback((uuid, highlight) => {
+        const obj = objMapRef.current[uuid];
+        if (!obj) return;
+
+        obj.traverse(child => {
+            if (!child.isMesh) return;
+            if (highlight) {
+                const mat = Array.isArray(child.material) ? child.material[0] : child.material;
+                originalColorsRef.current[child.uuid] = mat.color.getHex();
+                const setMat = m => m.color.setHex(0xff8c00);
+                if (Array.isArray(child.material)) child.material.forEach(setMat);
+                else setMat(child.material);
+            } else {
+                const orig = originalColorsRef.current[child.uuid];
+                if (orig !== undefined) {
+                    const setMat = m => m.color.setHex(orig);
+                    if (Array.isArray(child.material)) child.material.forEach(setMat);
+                    else setMat(child.material);
+                    delete originalColorsRef.current[child.uuid];
+                }
+            }
+        });
+    }, []);
+
     // ── Рендер ────────────────────────────────────────────────────────────────
 
     return (
@@ -805,11 +907,11 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
                                 onSelect={(node) => {
                                     setSelectedNode(node);
                                     setHighlightedUuid(node.uuid);
-                                    if (node.isMesh) focusOn(node.uuid);
                                 }}
                                 onContextMenu={(e, node) => {
                                     setContextMenu({ x: e.clientX, y: e.clientY, node });
                                 }}
+                                onHover={highlightMesh}
                                 objMap={objMapRef.current}
                             />
                         ) : (

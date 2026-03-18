@@ -1,0 +1,63 @@
+.
+├── public
+│   └── vite.svg
+├── src
+│   ├── api
+│   │   ├── auth.js
+│   │   ├── catalog.js
+│   │   ├── issues.js
+│   │   ├── media.js
+│   │   └── sessions.js
+│   ├── assets
+│   │   └── react.svg
+│   ├── components
+│   │   ├── auth
+│   │   │   ├── ActivateForm.jsx
+│   │   │   ├── LoginForm.jsx
+│   │   │   ├── RegisterForm.jsx
+│   │   │   └── TwoFAForm.jsx
+│   │   ├── configurator
+│   │   │   ├── BindingGraph.jsx
+│   │   │   ├── FilterTree.jsx
+│   │   │   └── ProductBindingPanel.jsx
+│   │   ├── issues
+│   │   │   ├── CreateIssueModal.jsx
+│   │   │   └── CreateThreadModal.jsx
+│   │   ├── layout
+│   │   │   └── Header.jsx
+│   │   └── viewer3d
+│   │       └── ModelViewer.jsx
+│   ├── contexts
+│   │   ├── AuthContext.jsx
+│   │   ├── IssuesContext.jsx
+│   │   ├── NotificationsContext.jsx
+│   │   └── ThemeContext.jsx
+│   ├── hooks
+│   │   └── useIssuesSocket.js
+│   ├── pages
+│   │   ├── DocumentsPage.jsx
+│   │   ├── IssueThreadPage.jsx
+│   │   ├── IssuesPage.jsx
+│   │   ├── ModelViewerPage.jsx
+│   │   ├── ParameterEditorPage.jsx
+│   │   ├── ProductPage.jsx
+│   │   ├── SpecEditorPage.jsx
+│   │   ├── SpecPreviewPage.jsx
+│   │   └── StaffPage.jsx
+│   ├── utils
+│   │   └── permissions.js
+│   ├── App.css
+│   ├── App.jsx
+│   ├── index.css
+│   ├── index.jsx
+│   └── main.jsx
+├── .gitignore
+├── README.md
+├── add-dark-mode.sh
+├── eslint.config.js
+├── index.html
+├── package-lock.json
+├── package.json
+└── vite.config.js
+
+15 directories, 46 files

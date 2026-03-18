@@ -112,6 +112,49 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    async uploadProductDocument(docTypeId, productId, file) {
+        const fd = new FormData();
+        fd.append('doc_type_id', docTypeId);
+        fd.append('product_id', productId);
+        fd.append('file', file);
+    
+        const res = await fetch(`${BASE}/product-documents/upload/`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${tokenStorage.getAccess()}` },
+            body: fd,
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+    
+    async getProductDocuments(productId, docTypeId = null) {
+        const params = new URLSearchParams({ product_id: productId });
+        if (docTypeId) params.append('doc_type_id', docTypeId);
+        const res = await apiFetch(`${BASE}/product-documents/?${params}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async getAccessTokens(productId, docTypeId = null) {
+        const params = new URLSearchParams({ product_id: productId });
+        if (docTypeId) params.append('doc_type_id', docTypeId);
+        const res = await apiFetch(`${BASE}/access-tokens/?${params}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+    
+    async createAccessToken(payload) {
+        const res = await apiFetch(`${BASE}/access-tokens/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+    
+    async revokeAccessToken(id) {
+        const res = await apiFetch(`${BASE}/access-tokens/${id}/revoke/`, {
+            method: 'POST',
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
     // ── Галерея ───────────────────────────────────────────────────────────
 
     async getProductImages(productId) {
