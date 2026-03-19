@@ -156,7 +156,7 @@ export const markMessagesRead = (threadId, issueId, messageIds) =>
  * GET /api/v1/issues/notifications/
  */
 export const getNotifications = () =>
-  apiFetch(`${API_BASE}/notifications/`);
+  apiFetch(`${API_BASE}/notifications/?is_delivered=false`);
 
 /**
  * Отметить все уведомления прочитанными.

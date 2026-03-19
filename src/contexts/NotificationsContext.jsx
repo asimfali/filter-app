@@ -12,12 +12,12 @@ export function NotificationsProvider({ children }) {
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await issuesApi.getNotifications();
-      setNotifications(data?.results ?? data ?? []);
+        const data = await issuesApi.getNotifications();
+        console.log('[fetchNotifications]', data);
+        setNotifications(data?.results ?? data ?? []);
     } catch {
-      // молча — не критично
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   }, []);
 

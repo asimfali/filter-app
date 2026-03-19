@@ -83,7 +83,20 @@ function MessageBubble({ msg, currentUserId }) {
                     )}
                 </div>
                 <span className="text-xs text-gray-300 dark:text-gray-600 px-1">
-                    {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                    {(() => {
+                        const date = new Date(msg.created_at);
+                        const today = new Date();
+                        const isToday = date.toDateString() === today.toDateString();
+                        const isThisYear = date.getFullYear() === today.getFullYear();
+                        
+                        return isToday
+                            ? date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+                            : date.toLocaleDateString('ru-RU', {
+                                day: 'numeric',
+                                month: 'short',
+                                ...(isThisYear ? {} : { year: 'numeric' }),
+                              }) + ' ' + date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                    })()}
                 </span>
             </div>
         </div>
@@ -253,24 +266,26 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
                         </div>
                     )}
 
-                    <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-2
+                    {issue.status !== 'verified' && (
+                        <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-2
                                     bg-white dark:bg-gray-900 flex items-end gap-2">
-                        <input ref={fileRef} type="file" multiple accept="image/*,.pdf"
-                            className="hidden" onChange={handleFileChange} />
-                        <button onClick={() => fileRef.current?.click()}
-                            className="text-gray-400 hover:text-blue-500 transition-colors shrink-0 pb-1">
-                            📎
-                        </button>
-                        <textarea ref={inputRef} rows={1} onKeyDown={handleKeyDown}
-                            placeholder="Написать сообщение… (Enter — отправить)"
-                            className="flex-1 text-sm bg-transparent text-gray-900 dark:text-gray-100
+                            <input ref={fileRef} type="file" multiple accept="image/*,.pdf"
+                                className="hidden" onChange={handleFileChange} />
+                            <button onClick={() => fileRef.current?.click()}
+                                className="text-gray-400 hover:text-blue-500 transition-colors shrink-0 pb-1">
+                                📎
+                            </button>
+                            <textarea ref={inputRef} rows={1} onKeyDown={handleKeyDown}
+                                placeholder="Написать сообщение… (Enter — отправить)"
+                                className="flex-1 text-sm bg-transparent text-gray-900 dark:text-gray-100
                                              placeholder-gray-300 dark:placeholder-gray-600
                                              resize-none focus:outline-none" />
-                        <button onClick={handleSend}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium shrink-0 pb-1">
-                            ↑
-                        </button>
-                    </div>
+                            <button onClick={handleSend}
+                                className="text-blue-600 hover:text-blue-700 text-sm font-medium shrink-0 pb-1">
+                                ↑
+                            </button>
+                        </div>
+                    )}
                 </>
             )}
         </div>
