@@ -164,3 +164,20 @@ export const getNotifications = () =>
  */
 export const markAllNotificationsRead = () =>
   apiFetch(`${API_BASE}/notifications/mark_all_read/`, { method: 'POST' });
+
+/**
+ * Отправить сообщение с вложениями (файлами).
+ * POST /api/v1/issues/issues/{issueId}/messages/
+ */
+export const sendMessageWithFiles = (threadId, issueId, text, files = []) => {
+  const token = tokenStorage.getAccess();
+  const formData = new FormData();
+  if (text) formData.append('text', text);
+  files.forEach(f => formData.append('files', f));
+
+  return fetch(`${API_BASE}/threads/${threadId}/issues/${issueId}/messages/`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  }).then(r => r.json());
+};

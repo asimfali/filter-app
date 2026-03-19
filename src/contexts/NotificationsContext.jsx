@@ -28,12 +28,8 @@ export function NotificationsProvider({ children }) {
   // ─── Добавить из WS (вызывается из IssuesContext) ────────────────────────
 
   const addNotification = useCallback((notification) => {
-    setNotifications((prev) => {
-      // Дедупликация по id
-      if (prev.some((n) => n.id === notification.id)) return prev;
-      return [notification, ...prev];
-    });
-  }, []);
+    setNotifications((prev) => [notification, ...prev]);
+}, []);
 
   // ─── Прочитать все ───────────────────────────────────────────────────────
 

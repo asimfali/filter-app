@@ -82,6 +82,11 @@ export function IssuesProvider({ children }) {
         socket.markRead(messageIds);
     }, [socket]);
 
+
+    const loadIssueMessages = useCallback((issueId) => {
+        socket.loadIssueMessages(issueId);
+    }, [socket]);
+
     // ─── Уведомления ────────────────────────────────────────────────────────
 
     const dismissNotifications = useCallback(() => {
@@ -112,6 +117,7 @@ export function IssuesProvider({ children }) {
         // Замечания
         createIssue,
         changeStatus,
+        loadIssueMessages,
 
         // Сообщения
         sendMessage,

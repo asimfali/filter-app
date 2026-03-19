@@ -220,12 +220,10 @@ function MainApp() {
 
   const PUBLIC_PAGES = ['configurator', 'product'];
   return (
-    <NotificationsProvider>
-      <IssuesProvider>
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
           <Header currentPage={page} onNavigate={handleNavigate} />
 
-          <main className="flex-1 px-4 py-6">
+          <main className={`flex-1 ${page === 'issue-thread' ? 'px-0 py-4' : 'px-4 py-6'}`}>
             {/* Баннер — только на закрытых страницах */}
             {!user.is_confirmed && !PUBLIC_PAGES.includes(page) && (
               <div className="max-w-sm mx-auto text-center py-16">
@@ -311,8 +309,6 @@ function MainApp() {
             )}
           </main>
         </div>
-      </IssuesProvider>
-    </NotificationsProvider>
   );
 }
 

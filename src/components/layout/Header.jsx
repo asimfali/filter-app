@@ -7,15 +7,33 @@ import { can } from '../../utils/permissions';
 const API_BASE = '/api/v1/catalog';
 
 const NOTIFICATION_LABEL = {
-  // issues
   'issues.new_issue': 'Новое замечание',
   'issues.new_message': 'Новое сообщение',
   'issues.status_changed': 'Статус изменён',
   'issues.assigned': 'Назначен исполнитель',
-  // authority
   'authority.new_staff_request': 'Новая заявка сотрудника',
   'authority.staff_request_resolved': 'Заявка рассмотрена',
 };
+
+function notificationSubtitle(n) {
+  const p = n.payload ?? n;
+  switch (p.type) {
+    case 'new_issue':
+      return `${p.thread_title} · #${p.issue_number} ${p.issue_title} — от ${p.created_by}`;
+    case 'new_message':
+      return `${p.thread_title ?? ''} · #${p.issue_number} — ${p.author}: ${p.text}`;
+    case 'status_changed':
+      return `#${p.issue_number} ${p.issue_title} → ${p.new_status}`;
+    case 'assigned':
+      return `#${p.issue_number} ${p.issue_title} — от ${p.assigned_by}`;
+    case 'new_staff_request':
+      return `${p.user_name} → ${p.department_name} (${p.role_name})`;
+    case 'staff_request_resolved':
+      return `${p.department_name}: ${p.approved ? 'одобрено ✓' : 'отклонено ✗'}`;
+    default:
+      return null;
+  }
+}
 
 // Debounce hook
 function useDebounce(value, delay) {
@@ -136,11 +154,14 @@ function NotificationBell({ onNavigate }) {
                         <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
                           {NOTIFICATION_LABEL[n.notification_type] ?? n.notification_type}
                         </p>
-                        {n.text && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-                            {n.payload.text}
-                          </p>
-                        )}
+                        {(() => {
+                          const sub = notificationSubtitle(n);
+                          return sub ? (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                              {sub}
+                            </p>
+                          ) : null;
+                        })()}
                         <p className="text-[11px] text-gray-300 dark:text-gray-600 mt-1">
                           {new Date(n.created_at).toLocaleString('ru-RU', {
                             day: 'numeric', month: 'short',

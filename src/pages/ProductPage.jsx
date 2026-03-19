@@ -122,11 +122,28 @@ function ImageSlider({ images }) {
     );
 }
 
+const STATUS_LABEL = {
+    open: 'Открыто',
+    in_progress: 'В работе',
+    resolved: 'Решено',
+    verified: 'Подтверждено ✓',
+    rejected: 'Отклонено',
+};
+
+const STATUS_COLOR = {
+    open: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+    in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    resolved: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    verified: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    rejected: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+};
+
 // ── Замечания ─────────────────────────────────────────────────────────────
 
 function ProductThreads({ externalId, onOpenThread }) {
     const [threads, setThreads] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [expanded, setExpanded] = useState({}); // { [thread_id]: bool }
 
     useEffect(() => {
         if (!externalId) return;
@@ -136,8 +153,10 @@ function ProductThreads({ externalId, onOpenThread }) {
             .finally(() => setLoading(false));
     }, [externalId]);
 
-    if (loading) return null;
-    if (threads.length === 0) return null;
+    if (loading || threads.length === 0) return null;
+
+    const toggleThread = (id) =>
+        setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
     return (
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
@@ -146,33 +165,98 @@ function ProductThreads({ externalId, onOpenThread }) {
                 Замечания
             </div>
             <div className="flex flex-col gap-2">
-                {threads.map(thread => (
-                    <button
-                        key={thread.id}
-                        onClick={() => onOpenThread(thread.id)}
-                        className="flex items-center justify-between text-left px-3 py-2
-                                   rounded-lg border border-gray-100 dark:border-gray-800
-                                   hover:border-blue-300 dark:hover:border-blue-700
-                                   transition-colors"
-                    >
-                        <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                {thread.title}
-                            </p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                                {thread.open_issues_count > 0
-                                    ? `${thread.open_issues_count} открытых замечаний`
-                                    : 'Замечаний нет'}
-                            </p>
+                {threads.map(thread => {
+                    const isExpanded = expanded[thread.id];
+                    const issues = thread.issues_summary ?? [];
+                    return (
+                        <div key={thread.id}
+                            className="border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden">
+                            {/* Шапка треда */}
+                            <div
+                                className="flex items-center justify-between px-3 py-2.5
+                                           hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                                onClick={() => toggleThread(thread.id)}
+                            >
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-sm font-medium text-gray-900
+                                                     dark:text-gray-100 truncate">
+                                        {thread.title}
+                                    </span>
+                                    {thread.open_issues_count > 0 && (
+                                        <span className="text-xs bg-orange-100 text-orange-600
+                                                         dark:bg-orange-900/40 dark:text-orange-300
+                                                         px-1.5 py-0.5 rounded-full shrink-0">
+                                            {thread.open_issues_count} открытых
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${thread.is_closed
+                                            ? 'bg-gray-100 text-gray-400 dark:bg-gray-800'
+                                            : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                        }`}>
+                                        {thread.is_closed ? 'Закрыт' : 'Активен'}
+                                    </span>
+                                    <button
+                                        onClick={e => { e.stopPropagation(); onOpenThread(thread.id); }}
+                                        className="text-xs text-blue-500 hover:text-blue-600
+                                                   dark:hover:text-blue-400 transition-colors">
+                                        Открыть →
+                                    </button>
+                                    <span className="text-gray-300 dark:text-gray-600 text-xs">
+                                        {isExpanded ? '▲' : '▼'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Список замечаний */}
+                            {isExpanded && (
+                                <div className="border-t border-gray-100 dark:border-gray-800
+                                                divide-y divide-gray-50 dark:divide-gray-800/50">
+                                    {issues.length === 0 ? (
+                                        <p className="text-xs text-gray-400 px-3 py-2">
+                                            Замечаний нет
+                                        </p>
+                                    ) : (
+                                        issues.map(issue => (
+                                            <div key={issue.id}
+                                                className="flex items-center justify-between
+                                                            px-3 py-2 gap-3">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="text-xs font-mono text-gray-400
+                                                                     shrink-0">
+                                                        #{issue.number}
+                                                    </span>
+                                                    <span className="text-sm text-gray-700
+                                                                     dark:text-gray-300 truncate">
+                                                        {issue.title}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {issue.created_by_name && (
+                                                        <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">
+                                                            {issue.created_by_name} →
+                                                        </span>
+                                                    )}
+                                                    {issue.assigned_to_department_name && (
+                                                        <span className="text-xs text-gray-400
+                                                                         dark:text-gray-500 hidden sm:block">
+                                                            → {issue.assigned_to_department_name}
+                                                        </span>
+                                                    )}
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full
+                                                                      font-medium ${STATUS_COLOR[issue.status]}`}>
+                                                        {STATUS_LABEL[issue.status]}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )}
                         </div>
-                        <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ml-3 ${thread.is_closed
-                            ? 'bg-gray-100 text-gray-400 dark:bg-gray-800'
-                            : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                            }`}>
-                            {thread.is_closed ? 'Закрыт' : 'Активен'}
-                        </span>
-                    </button>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
@@ -658,12 +742,12 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
                     <div className="space-y-3 mt-3">
                         {product.documents.map(group => (
                             <ProductDocumentGroup
-                            key={group.doc_type_code}
-                            group={group}
-                            onOpenViewer={onOpenViewer}
-                            product={product}
-                            docTypes={docTypes}
-                        />
+                                key={group.doc_type_code}
+                                group={group}
+                                onOpenViewer={onOpenViewer}
+                                product={product}
+                                docTypes={docTypes}
+                            />
                         ))}
                     </div>
                 ) : (

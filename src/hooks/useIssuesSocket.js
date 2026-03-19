@@ -18,25 +18,46 @@ function reducer(state, action) {
             return { ...state, error: action.payload };
         case 'THREAD_HISTORY': {
             const { thread_id, messages } = action.payload;
+            // messages теперь массив {issue_id, total_messages, preview_message}
+            const previews = [];
+            const issueMeta = {}; // { [issue_id]: { total_messages } }
+        
+            for (const item of messages) {
+                issueMeta[item.issue_id] = { total_messages: item.total_messages };
+                if (item.preview_message) previews.push(item.preview_message);
+            }
+        
+            const existing = state.threads[thread_id]?.messages ?? [];
+            // Оставляем WS-сообщения которых нет в превью
+            const previewIds = new Set(previews.map(m => m.message_id));
+            const wsOnly = existing.filter(m => !previewIds.has(m.message_id));
+            const merged = [...previews, ...wsOnly]
+                .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        
             return {
                 ...state,
                 threads: {
                     ...state.threads,
-                    [thread_id]: { ...state.threads[thread_id], messages },
+                    [thread_id]: {
+                        ...state.threads[thread_id],
+                        messages: merged,
+                        issueMeta, // { [issue_id]: { total_messages } }
+                    },
                 },
             };
         }
         case 'NEW_MESSAGE': {
-            const { thread_id, issue_id, message } = action.payload;
+            const { thread_id, issue_id, message_id, text, author, author_id, created_at, attachments } = action.payload;
             const thread = state.threads[thread_id] ?? { messages: [], issues: [] };
-            if (thread.messages.some((m) => m.id === message.id)) return state;
+            if (thread.messages.some((m) => m.message_id === message_id)) return state;
+            const msg = { message_id, issue_id, text, author_name: author, author_id, created_at, attachments: attachments ?? [] };
             return {
                 ...state,
                 threads: {
                     ...state.threads,
                     [thread_id]: {
                         ...thread,
-                        messages: [...thread.messages, { ...message, issue_id }],
+                        messages: [...thread.messages, msg],
                     },
                 },
             };
@@ -56,21 +77,46 @@ function reducer(state, action) {
             const { thread_id, issue_id, new_status } = action.payload;
             const thread = state.threads[thread_id];
             if (!thread) return state;
+            const exists = thread.issues?.some(i => i.id === issue_id);
             return {
                 ...state,
                 threads: {
                     ...state.threads,
                     [thread_id]: {
                         ...thread,
-                        issues: thread.issues.map((iss) =>
-                            iss.id === issue_id ? { ...iss, status: new_status } : iss
-                        ),
+                        issues: exists
+                            ? thread.issues.map(i => i.id === issue_id ? { ...i, status: new_status } : i)
+                            : [...(thread.issues ?? []), { id: issue_id, status: new_status }],
                     },
                 },
             };
         }
         case 'NOTIFICATION':
             return { ...state, notifications: [action.payload, ...state.notifications] };
+        case 'ISSUE_MESSAGES_LOADED': {
+            const { issue_id, messages } = action.payload;
+            // Найти thread_id по issue_id — ищем в существующих threads
+            const threadEntry = Object.entries(state.threads).find(([, t]) =>
+                t.messages?.some(m => String(m.issue_id) === String(issue_id))
+            );
+            if (!threadEntry) return state;
+            const [thread_id, thread] = threadEntry;
+            const otherMessages = (thread.messages ?? []).filter(
+                m => String(m.issue_id) !== String(issue_id)
+            );
+            return {
+                ...state,
+                threads: {
+                    ...state.threads,
+                    [thread_id]: {
+                        ...thread,
+                        messages: [...otherMessages, ...messages].sort(
+                            (a, b) => new Date(a.created_at) - new Date(b.created_at)
+                        ),
+                    },
+                },
+            };
+        }
         case 'CLEAR_NOTIFICATIONS':
             return { ...state, notifications: [] };
         default:
@@ -104,10 +150,11 @@ export function useIssuesSocket({ onNotification } = {}) {
 
         switch (data.type) {
             case 'thread_history':
+                console.log('[thread_history]', data);
                 dispatch({ type: 'THREAD_HISTORY', payload: { thread_id: data.thread_id, messages: data.messages } });
                 break;
             case 'new_message':
-                dispatch({ type: 'NEW_MESSAGE', payload: { thread_id: data.thread_id, issue_id: data.issue_id, message: data.message } });
+                dispatch({ type: 'NEW_MESSAGE', payload: data });
                 break;
             case 'issue_created':
                 dispatch({
@@ -130,8 +177,20 @@ export function useIssuesSocket({ onNotification } = {}) {
                 dispatch({ type: 'ISSUE_STATUS_CHANGED', payload: { thread_id: data.thread_id, issue_id: data.issue_id, new_status: data.new_status } });
                 break;
             case 'notification':
-                dispatch({ type: 'NOTIFICATION', payload: data });
-                onNotification?.(data);
+                console.log('[notification payload]', data.payload);
+                onNotification?.({
+                    id: Date.now(),
+                    notification_type: data.payload.type,
+                    is_delivered: false,
+                    created_at: new Date().toISOString(),
+                    payload: data.payload,
+                });
+                break;
+            case 'issue_messages_loaded':
+                dispatch({
+                    type: 'ISSUE_MESSAGES_LOADED',
+                    payload: { issue_id: data.issue_id, messages: data.messages },
+                });
                 break;
             case 'error':
                 dispatch({ type: 'ERROR', payload: data.details ?? data.code });
@@ -167,6 +226,7 @@ export function useIssuesSocket({ onNotification } = {}) {
         ws.onmessage = (event) => {
             let data;
             try { data = JSON.parse(event.data); } catch { return; }
+            console.log('[WS incoming]', data);
             handleServerEvent(data);
         };
     }, [scheduleReconnect, handleServerEvent]);
@@ -192,6 +252,10 @@ export function useIssuesSocket({ onNotification } = {}) {
     const changeStatus = useCallback((issueId, status) => send({ action: 'change_status', issue_id: issueId, status }), [send]);
     const markRead = useCallback((messageIds) => send({ action: 'mark_read', message_ids: messageIds }), [send]);
     const clearNotifications = useCallback(() => dispatch({ type: 'CLEAR_NOTIFICATIONS' }), []);
+    const loadIssueMessages = useCallback(
+        (issueId) => send({ action: 'load_issue_messages', issue_id: issueId }),
+        [send]
+    );
 
     return {
         connected: state.connected,
@@ -204,5 +268,6 @@ export function useIssuesSocket({ onNotification } = {}) {
         changeStatus,
         markRead,
         clearNotifications,
+        loadIssueMessages,
     };
 }

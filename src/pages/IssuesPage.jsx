@@ -2,24 +2,24 @@ import { useEffect, useState } from 'react';
 import { useIssues } from '../contexts/IssuesContext.jsx';
 
 const STATUS_LABEL = {
-  open:        'Открыто',
+  open: 'Открыто',
   in_progress: 'В работе',
-  resolved:    'Решено',
-  verified:    'Подтверждено',
-  rejected:    'Отклонено',
+  resolved: 'Решено',
+  verified: 'Подтверждено',
+  rejected: 'Отклонено',
 };
 
 const STATUS_COLOR = {
-  open:        'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  open: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
   in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  resolved:    'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-  verified:    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-  rejected:    'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+  resolved: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  verified: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  rejected: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
 };
 
 function ThreadCard({ thread, onOpen }) {
-  const openCount = thread.issues_summary?.open ?? 0;
-  const totalCount = thread.issues_summary?.total ?? 0;
+  const openCount = thread.open_issues_count ?? 0;
+  const totalCount = thread.issues_count ?? 0;
 
   return (
     <div
@@ -92,7 +92,7 @@ export default function IssuesPage({ onOpenThread }) {
   });
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-5xl mx-auto">
 
       {/* Шапка */}
       <div className="flex items-center justify-between mb-6">
@@ -117,7 +117,7 @@ export default function IssuesPage({ onOpenThread }) {
         {[
           { key: 'active', label: 'Активные' },
           { key: 'closed', label: 'Закрытые' },
-          { key: 'all',    label: 'Все' },
+          { key: 'all', label: 'Все' },
         ].map(({ key, label }) => (
           <button
             key={key}
