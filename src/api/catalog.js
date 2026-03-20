@@ -98,10 +98,13 @@ export const catalogApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    async previewBulk(productIds) {
+    async previewBulk(productIds, stageId = null) {
         const res = await apiFetch(`${BASE}/products/preview-bulk/`, {
             method: 'POST',
-            body: JSON.stringify({ product_ids: productIds }),
+            body: JSON.stringify({
+                product_ids: productIds,
+                ...(stageId && { stage_id: stageId }),
+            }),
         });
         return { ok: res.ok, data: await res.json() };
     },

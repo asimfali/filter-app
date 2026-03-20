@@ -226,7 +226,6 @@ export function useIssuesSocket({ onNotification } = {}) {
         ws.onmessage = (event) => {
             let data;
             try { data = JSON.parse(event.data); } catch { return; }
-            console.log('[WS incoming]', data);
             handleServerEvent(data);
         };
     }, [scheduleReconnect, handleServerEvent]);

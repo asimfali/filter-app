@@ -13,6 +13,9 @@ const NOTIFICATION_LABEL = {
   'issues.assigned': 'Назначен исполнитель',
   'authority.new_staff_request': 'Новая заявка сотрудника',
   'authority.staff_request_resolved': 'Заявка рассмотрена',
+  'plm.stage_submitted': 'Стадия на согласовании',
+  'plm.stage_active': 'Стадия активирована',
+  'plm.stage_rejected': 'Стадия отклонена',
 };
 
 function notificationSubtitle(n) {
@@ -30,6 +33,12 @@ function notificationSubtitle(n) {
       return `${p.user_name} → ${p.department_name} (${p.role_name})`;
     case 'staff_request_resolved':
       return `${p.department_name}: ${p.approved ? 'одобрено ✓' : 'отклонено ✗'}`;
+    case 'plm.stage_submitted':
+      return `${p.product_name} / Лит.${p.litera}`;
+    case 'plm.stage_active':
+      return `${p.product_name} / Лит.${p.litera} — активна ✓`;
+    case 'plm.stage_rejected':
+      return `${p.product_name} / Лит.${p.litera} — ${p.department}: ${p.comment}`;
     default:
       return null;
   }
@@ -79,6 +88,10 @@ function NotificationBell({ onNavigate }) {
     if (type === 'authority.staff_request_resolved') {
       // Сотрудник получает это — просто закрываем, 
       // или можно показать модалку. Пока просто закрываем.
+      return;
+    }
+    if (type === 'plm.stage_submitted' || type === 'plm.stage_active' || type === 'plm.stage_rejected') {
+      onNavigate('plm');
       return;
     }
     // issues — старое поведение
@@ -247,6 +260,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'staff', label: 'Персонал', code: 'portal.page.staff' },
                 { id: 'documents', label: 'Документы', code: 'portal.page.documents' },
                 { id: 'issues', label: 'Замечания', code: 'portal.page.issues' },
+                { id: 'plm', label: 'PLM', code: 'plm.stage.manage' },
               ];
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [

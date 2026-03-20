@@ -8,6 +8,10 @@ import { canPreview3D } from '../utils/fileUtils';
 import { can } from '../utils/permissions';
 import { useDocTypes } from '../hooks/useDocUpload';
 import DocTypeSelector from '../components/media/DocTypeSelector';
+import { plmApi } from '../api/plm';
+import ProductStages from '../components/plm/ProductStages';
+import LiteraSelector from '../components/plm/LiteraSelector';
+import { useProductStages } from '../hooks/useBatchStages';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -192,8 +196,8 @@ function ProductThreads({ externalId, onOpenThread }) {
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <span className={`text-xs px-2 py-0.5 rounded-full ${thread.is_closed
-                                            ? 'bg-gray-100 text-gray-400 dark:bg-gray-800'
-                                            : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                        ? 'bg-gray-100 text-gray-400 dark:bg-gray-800'
+                                        : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
                                         }`}>
                                         {thread.is_closed ? 'Закрыт' : 'Активен'}
                                     </span>
@@ -435,6 +439,7 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
     const [editValue, setEditValue] = useState('');
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState(null);
+    const { stages, selectedStage, setSelectedStage } = useProductStages(productId);
 
     const { user } = useAuth();
     const { docTypes, activeDocType: activeUploadDocType, setActiveDocType: setActiveUploadDocType } = useDocTypes(user);
@@ -590,6 +595,7 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
                                     uppercase tracking-wide mb-3">
                         Статусы подразделений
                     </div>
+
                     <div className="flex flex-wrap gap-2">
                         {product.department_statuses.map(ds => (
                             <span
@@ -602,6 +608,34 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
                             </span>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {stages.length > 0 && (
+                <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400
+                            uppercase tracking-wide">
+                            Стадии (PLM)
+                        </div>
+                        <LiteraSelector
+                            stages={stages}
+                            selected={selectedStage}
+                            onChange={setSelectedStage}
+                            showAll={false}
+                        />
+                    </div>
+                    {selectedStage && (
+                        <ProductStages
+                            stages={[selectedStage]}
+                            productId={productId}
+                            onStageChange={(updated) => {
+                                // Обновляем только выбранную стадию
+                                const updatedStage = updated.find(s => s.id === selectedStage.id);
+                                if (updatedStage) setSelectedStage(updatedStage);
+                            }}
+                        />
+                    )}
                 </div>
             )}
 

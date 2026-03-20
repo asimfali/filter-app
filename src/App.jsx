@@ -18,6 +18,7 @@ import IssuesPage from './pages/IssuesPage.jsx';
 import IssueThreadPage from './pages/IssueThreadPage.jsx';
 import SpecPreviewPage from './pages/SpecPreviewPage';
 import ModelViewerPage from './pages/ModelViewerPage';
+import PLMPage from './pages/PLMPage';
 
 // AuthPage без изменений — твой существующий код
 function AuthPage() {
@@ -152,11 +153,11 @@ function MainApp() {
   const [specPreviewProductIds, setSpecPreviewProductIds] = useState(() => {
     const path = window.location.pathname.slice(1);
     if (path === 'spec-preview') {
-        const saved = sessionStorage.getItem('specPreviewProductIds');
-        return saved ? JSON.parse(saved) : [];
+      const saved = sessionStorage.getItem('specPreviewProductIds');
+      return saved ? JSON.parse(saved) : [];
     }
     return [];
-});
+  });
   const [modelViewerFile, setModelViewerFile] = useState(null);
 
   const handleNavigate = (newPage, payload = null) => {
@@ -171,7 +172,7 @@ function MainApp() {
     if (newPage === 'spec-preview' && payload !== null) {
       setSpecPreviewProductIds(payload);
       sessionStorage.setItem('specPreviewProductIds', JSON.stringify(payload));  // ← добавить
-  }
+    }
     if (newPage === 'model-viewer' && payload !== null) {
       setModelViewerFile(payload);
     }
@@ -220,95 +221,98 @@ function MainApp() {
 
   const PUBLIC_PAGES = ['configurator', 'product'];
   return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
-          <Header currentPage={page} onNavigate={handleNavigate} />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+      <Header currentPage={page} onNavigate={handleNavigate} />
 
-          <main className={`flex-1 ${page === 'issue-thread' ? 'px-0 py-4' : 'px-4 py-6'}`}>
-            {/* Баннер — только на закрытых страницах */}
-            {!user.is_confirmed && !PUBLIC_PAGES.includes(page) && (
-              <div className="max-w-sm mx-auto text-center py-16">
-                <div className="text-4xl mb-4">⏳</div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  Ожидание подтверждения
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Ваша заявка на вступление в подразделение отправлена руководителю.
-                  Доступ к порталу будет открыт после подтверждения.
-                </p>
-              </div>
-            )}
+      <main className={`flex-1 ${page === 'issue-thread' ? 'px-0 py-4' : 'px-4 py-6'}`}>
+        {/* Баннер — только на закрытых страницах */}
+        {!user.is_confirmed && !PUBLIC_PAGES.includes(page) && (
+          <div className="max-w-sm mx-auto text-center py-16">
+            <div className="text-4xl mb-4">⏳</div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Ожидание подтверждения
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Ваша заявка на вступление в подразделение отправлена руководителю.
+              Доступ к порталу будет открыт после подтверждения.
+            </p>
+          </div>
+        )}
+        {page === 'plm' && (
+          <PLMPage onOpenProduct={(id) => handleNavigate('product', id)} />
+        )}
 
-            {/* Конфигуратор и карточка товара — доступны всем */}
-            {page === 'configurator' && (
-              <FilterTreeGraph
-                onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
-                onOpenSpecPreview={ids => handleNavigate('spec-preview', ids)}
-              />
-            )}
-            {page === 'model-viewer' && modelViewerFile && (
-              <ModelViewerPage
-                relPath={modelViewerFile.relPath}
-                fname={modelViewerFile.fname}
-                mtlPath={modelViewerFile.mtlPath || null}
-                onBack={() => handleNavigate('documents')}
-              />
-            )}
-            {page === 'product' && (
-              <ProductPage
-                productId={selectedProductId}
+        {/* Конфигуратор и карточка товара — доступны всем */}
+        {page === 'configurator' && (
+          <FilterTreeGraph
+            onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
+            onOpenSpecPreview={ids => handleNavigate('spec-preview', ids)}
+          />
+        )}
+        {page === 'model-viewer' && modelViewerFile && (
+          <ModelViewerPage
+            relPath={modelViewerFile.relPath}
+            fname={modelViewerFile.fname}
+            mtlPath={modelViewerFile.mtlPath || null}
+            onBack={() => handleNavigate('documents')}
+          />
+        )}
+        {page === 'product' && (
+          <ProductPage
+            productId={selectedProductId}
+            onBack={() => handleNavigate('configurator')}
+            onOpenThread={(id) => handleNavigate('issue-thread', id)}
+            onOpenViewer={payload => handleNavigate('model-viewer', payload)}
+          />
+        )}
+
+        {/* Остальные страницы — только для подтверждённых */}
+        {user.is_confirmed && (
+          <>
+            {page === 'parameters' && <ParameterEditorPage />}
+            {page === 'staff' && <StaffPage />}
+            {page === 'documents' && <DocumentsPage
+              onOpenViewer={payload => handleNavigate('model-viewer', payload)}
+            />}
+            {page === 'spec-preview' && (
+              <SpecPreviewPage
+                productIds={specPreviewProductIds}
                 onBack={() => handleNavigate('configurator')}
-                onOpenThread={(id) => handleNavigate('issue-thread', id)}
+                onOpenEditor={(ids) => handleNavigate('spec-editor', ids)}
                 onOpenViewer={payload => handleNavigate('model-viewer', payload)}
               />
             )}
-
-            {/* Остальные страницы — только для подтверждённых */}
-            {user.is_confirmed && (
-              <>
-                {page === 'parameters' && <ParameterEditorPage />}
-                {page === 'staff' && <StaffPage />}
-                {page === 'documents' && <DocumentsPage
-                  onOpenViewer={payload => handleNavigate('model-viewer', payload)}
-                />}
-                {page === 'spec-preview' && (
-                  <SpecPreviewPage
-                    productIds={specPreviewProductIds}
-                    onBack={() => handleNavigate('configurator')}
-                    onOpenEditor={(ids) => handleNavigate('spec-editor', ids)}
-                    onOpenViewer={payload => handleNavigate('model-viewer', payload)}
-                  />
-                )}
-                {page === 'spec-editor' && (
-                  <SpecEditorPage
-                    productIds={specEditorProductIds}
-                    sessionId={specEditorSessionId}
-                    initialChanges={specEditorInitialChanges}
-                    onBack={() => handleNavigate('configurator')}
-                    onReset={() => {                          // ← добавить
-                      setSpecEditorSessionId(null);
-                      setSpecEditorInitialChanges({});
-                      setActiveSession(null);               // сбрасываем activeSession
-                      handleNavigate('configurator');
-                    }}
-                    onSessionSaved={(id) => {
-                      setSpecEditorSessionId(id);
-                      setActiveSession(prev => prev ? { ...prev, id } : null);
-                    }}
-                  />
-                )}
-                {page === 'issues' && (
-                  <IssuesPage onOpenThread={(id) => handleNavigate('issue-thread', id)} />
-                )}
-                {page === 'issue-thread' && (
-                  <IssueThreadPage
-                    threadId={selectedThreadId}
-                    onBack={() => handleNavigate('issues')}
-                  />
-                )}
-              </>
+            {page === 'spec-editor' && (
+              <SpecEditorPage
+                productIds={specEditorProductIds}
+                sessionId={specEditorSessionId}
+                initialChanges={specEditorInitialChanges}
+                onBack={() => handleNavigate('configurator')}
+                onReset={() => {                          // ← добавить
+                  setSpecEditorSessionId(null);
+                  setSpecEditorInitialChanges({});
+                  setActiveSession(null);               // сбрасываем activeSession
+                  handleNavigate('configurator');
+                }}
+                onSessionSaved={(id) => {
+                  setSpecEditorSessionId(id);
+                  setActiveSession(prev => prev ? { ...prev, id } : null);
+                }}
+              />
             )}
-          </main>
-        </div>
+            {page === 'issues' && (
+              <IssuesPage onOpenThread={(id) => handleNavigate('issue-thread', id)} />
+            )}
+            {page === 'issue-thread' && (
+              <IssueThreadPage
+                threadId={selectedThreadId}
+                onBack={() => handleNavigate('issues')}
+              />
+            )}
+          </>
+        )}
+      </main>
+    </div>
   );
 }
 

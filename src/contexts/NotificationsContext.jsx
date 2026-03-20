@@ -13,7 +13,6 @@ export function NotificationsProvider({ children }) {
     setLoading(true);
     try {
         const data = await issuesApi.getNotifications();
-        console.log('[fetchNotifications]', data);
         setNotifications(data?.results ?? data ?? []);
     } catch {
     } finally {
