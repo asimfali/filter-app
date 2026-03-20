@@ -8,29 +8,29 @@ import BatchCreateForm from '../components/plm/BatchCreateForm';
 const API_BASE = '/api/v1/catalog';
 
 const STATUS_LABEL = {
-    draft:            'Черновик',
+    draft: 'Черновик',
     pending_approval: 'На согласовании',
-    active:           'Активна',
-    archived:         'В архиве',
+    active: 'Активна',
+    archived: 'В архиве',
 };
 
 const STATUS_COLOR = {
-    draft:            'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+    draft: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
     pending_approval: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    active:           'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    archived:         'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+    active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    archived: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
 };
 
-const DECISION_ICON  = { pending: '○', approved: '✓', rejected: '✗' };
+const DECISION_ICON = { pending: '○', approved: '✓', rejected: '✗' };
 const DECISION_COLOR = { pending: 'text-gray-400', approved: 'text-emerald-500', rejected: 'text-red-500' };
 
 // ── Общие утилиты ─────────────────────────────────────────────────────────
 
 function useRefData() {
-    const [literas, setLiteras]     = useState([]);
+    const [literas, setLiteras] = useState([]);
     const [visGroups, setVisGroups] = useState([]);
-    const [presets, setPresets]     = useState([]);
-    const [depts, setDepts]         = useState([]);
+    const [presets, setPresets] = useState([]);
+    const [depts, setDepts] = useState([]);
 
     useEffect(() => {
         plmApi.getLiteras().then(({ data }) => data.success && setLiteras(data.data));
@@ -42,7 +42,7 @@ function useRefData() {
         }).then(r => r.json()).then(data => {
             const list = Array.isArray(data) ? data : (data.results || []);
             setDepts(list);
-        }).catch(() => {});
+        }).catch(() => { });
     }, []);
 
     return { literas, visGroups, presets, depts };
@@ -182,6 +182,53 @@ function GroupsTab({ onOpenProduct, refData }) {
         setActionLoading(false);
     };
 
+    const handleDeleteGroup = async (groupId, groupName) => {
+        if (!window.confirm(`Удалить группу «${groupName}»? Стадии останутся.`)) return;
+        setActionLoading(true);
+        const { ok, data } = await plmApi.deleteGroup(groupId);
+        if (ok && data.success) {
+            setGroups(prev => prev.filter(g => g.id !== groupId));
+        } else {
+            setActionError(prev => ({ ...prev, [groupId]: data.error || 'Ошибка удаления' }));
+        }
+        setActionLoading(false);
+    };
+
+    const handleRemoveFromGroup = async (groupId, stageIds) => {
+        if (!stageIds.length) return;
+        setActionLoading(true);
+        const { ok, data } = await plmApi.removeStagesFromGroup(groupId, stageIds);
+        if (ok && data.success) {
+            await refreshGroup(groupId);
+            // Убираем из выбора
+            setSelectedStages(prev => {
+                const next = new Set(prev[groupId] || []);
+                stageIds.forEach(id => next.delete(id));
+                return { ...prev, [groupId]: next };
+            });
+        } else {
+            setActionError(prev => ({ ...prev, [groupId]: data.error || 'Ошибка' }));
+        }
+        setActionLoading(false);
+    };
+
+    const handleDeleteStage = async (groupId, stageId, stageName) => {
+        if (!window.confirm(`Удалить стадию «${stageName}»? Действие необратимо.`)) return;
+        setActionLoading(true);
+        const { ok, data } = await plmApi.deleteStage(stageId);
+        if (ok && data.success) {
+            await refreshGroup(groupId);
+            setSelectedStages(prev => {
+                const next = new Set(prev[groupId] || []);
+                next.delete(stageId);
+                return { ...prev, [groupId]: next };
+            });
+        } else {
+            setActionError(prev => ({ ...prev, [groupId]: data.error || 'Ошибка удаления' }));
+        }
+        setActionLoading(false);
+    };
+
     const refreshGroup = async (groupId) => {
         const { ok, data } = await plmApi.getGroup(groupId);
         if (ok && data.success) {
@@ -220,7 +267,7 @@ function GroupsTab({ onOpenProduct, refData }) {
                         {/* Шапка группы */}
                         <div
                             className="flex items-center justify-between px-5 py-3.5
-                                       cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+               cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
                             onClick={() => toggleGroup(group.id)}
                         >
                             <div className="flex items-center gap-3">
@@ -230,21 +277,32 @@ function GroupsTab({ onOpenProduct, refData }) {
                                 <span className="text-xs text-gray-400">
                                     {group.stages_count} изд.
                                 </span>
-                                {/* Сводка статусов */}
                                 <div className="flex gap-1">
                                     {Object.entries(group.status_summary || {}).map(([status, count]) => (
                                         <span key={status}
                                             className={`text-xs px-2 py-0.5 rounded-full font-medium
-                                                        ${STATUS_COLOR[status]}`}>
+                                ${STATUS_COLOR[status]}`}>
                                             {STATUS_LABEL[status]}: {count}
                                         </span>
                                     ))}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                                 <span className="text-xs text-gray-400">
                                     {group.created_by_name}
                                 </span>
+                                {canManage && (
+                                    <button
+                                        onClick={e => { e.stopPropagation(); handleDeleteGroup(group.id, group.name); }}
+                                        disabled={actionLoading}
+                                        title="Удалить группу"
+                                        className="text-xs text-red-400 hover:text-red-600
+                           dark:text-red-500 dark:hover:text-red-400
+                           disabled:opacity-50 transition-colors px-1"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
                                 <span className="text-gray-300 dark:text-gray-600 text-xs">
                                     {isExpanded ? '▲' : '▼'}
                                 </span>
@@ -333,6 +391,17 @@ function GroupsTab({ onOpenProduct, refData }) {
                                                     </button>
                                                 </div>
                                             )}
+                                            {selected.size > 0 && canManage && (
+                                                <button
+                                                    onClick={() => handleRemoveFromGroup(group.id, Array.from(selected))}
+                                                    disabled={actionLoading}
+                                                    className="text-xs text-red-500 hover:text-red-600
+                   border border-red-200 dark:border-red-800
+                   px-3 py-1.5 rounded disabled:opacity-50 transition-colors"
+                                                >
+                                                    Исключить из группы ({selected.size})
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -352,6 +421,7 @@ function GroupsTab({ onOpenProduct, refData }) {
                                             onOpenProduct={onOpenProduct}
                                             canManage={canManage}
                                             loading={actionLoading}
+                                            onDelete={() => handleDeleteStage(group.id, stage.id, stage.product_name)}
                                         />
                                     ))}
                                 </div>
@@ -370,7 +440,7 @@ function StageRowInGroup({
     stage, selected, onToggleSelect,
     approvals, onLoadApprovals,
     onApprove, onReject, onOpenProduct,
-    canManage, loading,
+    canManage, loading, onDelete,
 }) {
     const [expanded, setExpanded] = useState(false);
 
@@ -412,6 +482,18 @@ function StageRowInGroup({
                 >
                     →
                 </button>
+                {canManage && (
+                    <button
+                        onClick={e => { e.stopPropagation(); onDelete(); }}
+                        disabled={loading}
+                        title="Удалить стадию"
+                        className="text-xs text-red-400 hover:text-red-600
+                   dark:text-red-500 dark:hover:text-red-400
+                   disabled:opacity-50 transition-colors"
+                    >
+                        ✕
+                    </button>
+                )}
                 <span
                     className="text-gray-300 dark:text-gray-600 text-xs cursor-pointer"
                     onClick={handleExpand}
@@ -613,7 +695,7 @@ export default function PLMPage({ onOpenProduct }) {
     const refData = useRefData();
 
     const tabs = [
-        { id: 'groups',   label: 'Группы' },
+        { id: 'groups', label: 'Группы' },
         { id: 'products', label: 'Изделия' },
     ];
 

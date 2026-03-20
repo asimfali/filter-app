@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { can } from '../../utils/permissions';
 import { useBatchStages } from '../../hooks/useBatchStages';
 import BatchCreateForm from './BatchCreateForm';
+import StageTransferPanel from './StageTransferPanel';
 
 const STATUS_LABEL = {
     draft: 'Черновик',
@@ -30,11 +31,13 @@ const DECISION_COLOR = {
 
 function ProductStageRow({ productId, productName, stages, onReload, canManage, selectedLitera }) {
     const [expanded, setExpanded] = useState(false);
-    const [approvals, setApprovals] = useState({});  // { stageId: [...] }
+    const [approvals, setApprovals] = useState({});
     const [loading, setLoading] = useState(false);
+    // transfer: null | { stage } — какую стадию переносим
+    const [transfer, setTransfer] = useState(null);
 
     const visibleStages = stages.filter(s => {
-        if (!selectedLitera || selectedLitera === 'none') return false; // без литеры — стадий нет
+        if (!selectedLitera || selectedLitera === 'none') return false;
         return s.litera_code === selectedLitera.litera_code;
     });
 
@@ -66,6 +69,57 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
         setLoading(false);
     };
 
+    const handlePromote = async (stage) => {
+        if (!window.confirm(
+            `Перевести в следующую литеру?\n` +
+            `Лит.${stage.litera_code} → следующая\n` +
+            `Характеристики будут скопированы. Текущая стадия архивируется.`
+        )) return;
+
+        setLoading(true);
+        const { ok, data } = await plmApi.promote(stage.id);
+        if (ok && data.success) {
+            onReload();
+        } else {
+            alert(data.error || 'Ошибка перехода');
+        }
+        setLoading(false);
+    };
+
+    const handleRollback = async (stage) => {
+        if (!window.confirm(
+            `Откатить Лит.${stage.litera_code}?\n` +
+            `Стадия и её характеристики будут УДАЛЕНЫ.\n` +
+            `Используйте только если под этим номером выпускается новое изделие.`
+        )) return;
+
+        setLoading(true);
+        const { ok, data } = await plmApi.rollback(stage.id);
+        if (ok && data.success) {
+            onReload();
+        } else {
+            alert(data.error || 'Ошибка отката');
+        }
+        setLoading(false);
+    };
+
+    // Панель переноса поверх строки
+    if (transfer) {
+        return (
+            <div className="border border-violet-200 dark:border-violet-800 rounded-lg overflow-hidden"
+                style={{ minHeight: 200 }}>
+                <StageTransferPanel
+                    stage={transfer}
+                    onClose={() => setTransfer(null)}
+                    onDone={(count) => {
+                        setTransfer(null);
+                        onReload();
+                    }}
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden">
             {/* Шапка */}
@@ -89,7 +143,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
                         visibleStages.map(s => (
                             <span key={s.id}
                                 className={`text-xs px-1.5 py-0.5 rounded-full font-medium
-                            ${STATUS_COLOR[s.status]}`}>
+                                    ${STATUS_COLOR[s.status]}`}>
                                 Лит.{s.litera_code}
                             </span>
                         ))
@@ -108,9 +162,50 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                             Лит.{stage.litera_code} — {stage.litera_name}
                         </span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${STATUS_COLOR[stage.status]}`}>
-                            {STATUS_LABEL[stage.status]}
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${STATUS_COLOR[stage.status]}`}>
+                                {STATUS_LABEL[stage.status]}
+                            </span>
+                            {/* Кнопка переноса — только для ACTIVE и пользователей с manage */}
+                            {stage.status === 'active' && canManage && (
+                                <div className="flex items-center gap-2">
+                                    {/* Перенос характеристик в серийные */}
+                                    <button
+                                        onClick={e => { e.stopPropagation(); setTransfer({ ...stage, product_id: productId }); }}
+                                        title="Перенести характеристики в серийные"
+                                        className="text-xs text-violet-500 hover:text-violet-700
+                       dark:text-violet-400 dark:hover:text-violet-300
+                       transition-colors"
+                                    >
+                                        ↑ Серийные
+                                    </button>
+
+                                    {/* Переход в следующую литеру */}
+                                    <button
+                                        onClick={e => { e.stopPropagation(); handlePromote(stage); }}
+                                        disabled={loading}
+                                        title="Перейти к следующей литере"
+                                        className="text-xs text-emerald-500 hover:text-emerald-700
+                       dark:text-emerald-400 dark:hover:text-emerald-300
+                       disabled:opacity-50 transition-colors"
+                                    >
+                                        → Лит.+1
+                                    </button>
+
+                                    {/* Откат */}
+                                    <button
+                                        onClick={e => { e.stopPropagation(); handleRollback(stage); }}
+                                        disabled={loading}
+                                        title="Откатить литеру (удалить стадию)"
+                                        className="text-xs text-red-400 hover:text-red-600
+                       dark:text-red-500 dark:hover:text-red-400
+                       disabled:opacity-50 transition-colors"
+                                    >
+                                        ← Откат
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Согласования */}
@@ -150,7 +245,6 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
         </div>
     );
 }
-
 // ── Панель batch действий ─────────────────────────────────────────────────
 
 function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
@@ -163,6 +257,7 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
     const allStages = Object.values(stagesByProduct).flat();
     const draftIds = allStages.filter(s => s.status === 'draft').map(s => s.id);
     const pendingIds = allStages.filter(s => s.status === 'pending_approval').map(s => s.id);
+    const activeIds = allStages.filter(s => s.status === 'active').map(s => s.id);
 
     const handleSubmit = async () => {
         if (!draftIds.length) return;
@@ -174,6 +269,39 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
         }
         setLoading(false);
         setTimeout(() => setResult(null), 3000);
+    };
+
+    const handleBatchPromote = async () => {
+        if (!activeIds.length) return;
+        if (!window.confirm(
+            `Перевести ${activeIds.length} изделий в следующую литеру?\n` +
+            `Характеристики будут скопированы. Текущие стадии архивируются.`
+        )) return;
+        setLoading(true);
+        const { ok, data } = await plmApi.batchPromote(activeIds);
+        if (ok && data.success) {
+            setResult(`Переведено: ${data.data.promoted}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
+            onReload();
+        }
+        setLoading(false);
+        setTimeout(() => setResult(null), 4000);
+    };
+
+    const handleBatchRollback = async () => {
+        if (!activeIds.length) return;
+        if (!window.confirm(
+            `Откатить ${activeIds.length} изделий на предыдущую литеру?\n` +
+            `Стадии и их характеристики будут УДАЛЕНЫ.\n` +
+            `Используйте только если выпускается новое изделие под старым номером.`
+        )) return;
+        setLoading(true);
+        const { ok, data } = await plmApi.batchRollback(activeIds);
+        if (ok && data.success) {
+            setResult(`Откатано: ${data.data.rolled_back}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
+            onReload();
+        }
+        setLoading(false);
+        setTimeout(() => setResult(null), 4000);
     };
 
     const handleApprove = async () => {
@@ -188,7 +316,7 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
         setTimeout(() => setResult(null), 3000);
     };
 
-    if (!draftIds.length && !pendingIds.length) return null;
+    if (!draftIds.length && !pendingIds.length && !activeIds.length) return null;
 
     return (
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-3 space-y-2">
@@ -217,6 +345,21 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
                         На согласование ({draftIds.length})
                     </button>
                 </div>
+            )}
+
+            {activeIds.length > 0 && (
+                <div className="flex items-center gap-2">
+                <button onClick={handleBatchPromote} disabled={loading}
+                    className="text-xs bg-violet-600 hover:bg-violet-700 text-white
+                               px-2 py-1 rounded disabled:opacity-50 whitespace-nowrap">
+                    → Следующая литера ({activeIds.length})
+                </button>
+                <button onClick={handleBatchRollback} disabled={loading}
+                    className="text-xs bg-red-500 hover:bg-red-600 text-white
+                               px-2 py-1 rounded disabled:opacity-50 whitespace-nowrap">
+                    ← Откат ({activeIds.length})
+                </button>
+            </div>
             )}
 
             {pendingIds.length > 0 && (

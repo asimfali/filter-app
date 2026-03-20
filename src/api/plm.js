@@ -63,4 +63,32 @@ export const plmApi = {
     // Группы
     getGroups: () => request('GET', `${BASE}/groups/`),
     getGroup: (groupId) => request('GET', `${BASE}/groups/${groupId}/`),
+
+    // Перенос характеристик
+    transferSpecs: (stageId, specIds) =>
+        request('POST', `${BASE}/stages/${stageId}/transfer-specs/`, { spec_ids: specIds }),
+
+    // PLM-характеристики товара
+    getProductSpecs: (productId, stageId = undefined) => {
+        const qs = stageId !== undefined ? `?stage_id=${stageId ?? 'none'}` : '';
+        return request('GET', `${BASE}/products/${productId}/specs/${qs}`);
+    },
+
+    // Группы
+    deleteGroup: (groupId) => request('DELETE', `${BASE}/groups/${groupId}/delete/`),
+    addStagesToGroup: (groupId, stageIds) =>
+        request('POST', `${BASE}/groups/${groupId}/stages/`, { stage_ids: stageIds }),
+    removeStagesFromGroup: (groupId, stageIds) =>
+        request('DELETE', `${BASE}/groups/${groupId}/stages/`, { stage_ids: stageIds }),
+
+    deleteStage: (stageId) => request('DELETE', `${BASE}/stages/${stageId}/delete/`),
+
+    promote: (stageId, payload = {}) =>
+        request('POST', `${BASE}/stages/${stageId}/promote/`, payload),
+    rollback: (stageId) =>
+        request('POST', `${BASE}/stages/${stageId}/rollback/`, {}),
+    batchPromote: (stageIds) =>
+        request('POST', `${BASE}/stages/batch-promote/`, { stage_ids: stageIds }),
+    batchRollback: (stageIds) =>
+        request('POST', `${BASE}/stages/batch-rollback/`, { stage_ids: stageIds }),
 };

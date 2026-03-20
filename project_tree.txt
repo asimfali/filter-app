@@ -7,6 +7,7 @@
 │   │   ├── catalog.js
 │   │   ├── issues.js
 │   │   ├── media.js
+│   │   ├── plm.js
 │   │   └── sessions.js
 │   ├── assets
 │   │   └── react.svg
@@ -25,6 +26,11 @@
 │   │   │   └── CreateThreadModal.jsx
 │   │   ├── layout
 │   │   │   └── Header.jsx
+│   │   ├── plm
+│   │   │   ├── BatchCreateForm.jsx
+│   │   │   ├── LiteraSelector.jsx
+│   │   │   ├── PLMSidePanel.jsx
+│   │   │   └── ProductStages.jsx
 │   │   └── viewer3d
 │   │       └── ModelViewer.jsx
 │   ├── contexts
@@ -33,6 +39,7 @@
 │   │   ├── NotificationsContext.jsx
 │   │   └── ThemeContext.jsx
 │   ├── hooks
+│   │   ├── useBatchStages.js
 │   │   ├── useDocUpload.js
 │   │   ├── useIssuesSocket.js
 │   │   └── useProductDocUpload.js
@@ -41,6 +48,7 @@
 │   │   ├── IssueThreadPage.jsx
 │   │   ├── IssuesPage.jsx
 │   │   ├── ModelViewerPage.jsx
+│   │   ├── PLMPage.jsx
 │   │   ├── ParameterEditorPage.jsx
 │   │   ├── ProductPage.jsx
 │   │   ├── SpecEditorPage.jsx
@@ -64,4 +72,4 @@
 ├── project_tree.txt
 └── vite.config.js
 
-15 directories, 50 files
+16 directories, 57 files
