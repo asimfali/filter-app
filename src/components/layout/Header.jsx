@@ -3,6 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext.jsx';
 import { can } from '../../utils/permissions';
+import ProfileModal from '../auth/ProfileModal';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -205,6 +206,7 @@ export default function Header({ currentPage, onNavigate }) {
   const debouncedQuery = useDebounce(query, 250);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     if (debouncedQuery.length < 2) {
@@ -261,6 +263,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'documents', label: 'Документы', code: 'portal.page.documents' },
                 { id: 'issues', label: 'Замечания', code: 'portal.page.issues' },
                 { id: 'plm', label: 'PLM', code: 'plm.stage.manage' },
+                { id: 'part-editor', label: 'Спецификации', code: 'bom.spec.write' },
               ];
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [
@@ -352,28 +355,51 @@ export default function Header({ currentPage, onNavigate }) {
         {/* Колокольчик */}
         {user && <NotificationBell onNavigate={onNavigate} />}
 
-        <button onClick={toggle}
-          className="w-9 h-9 flex items-center justify-center rounded-lg
-                     text-gray-500 dark:text-gray-400
-                     hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          title={dark ? 'Светлая тема' : 'Тёмная тема'}>
-          {dark ? '☀️' : '🌙'}
-        </button>
-
         {user && (
           <>
-            <div className="text-right">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                {user.full_name || user.username}
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen(v => !v)}
+                className="flex items-center gap-2 hover:opacity-80
+                           transition-opacity cursor-pointer">
+                {/* Аватарка или инициал */}
+                <div className="w-8 h-8 rounded-full overflow-hidden
+                                bg-gray-200 dark:bg-gray-700
+                                flex items-center justify-center shrink-0">
+                  {user.avatar_url ? (
+                    <img src={user.avatar_url} alt=""
+                      className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {user.full_name?.[0] || user.email?.[0] || '?'}
+                    </span>
+                  )}
+                </div>
+                <div className="text-right hidden sm:block">
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    {user.full_name || user.username}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {user.email}
+                  </div>
+                </div>
+              </button>
+
+              {profileOpen && (
+                <ProfileModal
+                  user={user}
+                  onClose={() => setProfileOpen(false)}
+                  onUpdated={() => {/* обновить user если нужно */ }}
+                />
+              )}
             </div>
+
             <button onClick={logout}
               className="text-xs text-gray-500 dark:text-gray-400
-                         hover:text-red-600 dark:hover:text-red-400
-                         border border-gray-200 dark:border-gray-700
-                         hover:border-red-300 dark:hover:border-red-600
-                         px-3 py-1.5 rounded transition-colors">
+                       hover:text-red-600 dark:hover:text-red-400
+                       border border-gray-200 dark:border-gray-700
+                       hover:border-red-300 dark:hover:border-red-600
+                       px-3 py-1.5 rounded transition-colors">
               Выйти
             </button>
           </>

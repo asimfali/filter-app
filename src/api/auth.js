@@ -127,4 +127,28 @@ export const authApi = {
     });
     return { ok: res.ok, data: await res.json() };
   },
+  getPreferences: async () => {
+    const res = await apiFetch('/api/v1/auth/preferences/');
+    return { ok: res.ok, data: await res.json() };
+  },
+  updatePreferences: async (data) => {
+    const res = await apiFetch('/api/v1/auth/preferences/', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    return { ok: res.ok, data: await res.json() };
+  },
+  uploadAvatar: async (file) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const res = await apiFetch('/api/v1/auth/avatar/', {
+      method: 'POST',
+      body: formData,
+    });
+    return { ok: res.ok, data: await res.json() };
+  },
+  deleteAvatar: async () => {
+    const res = await apiFetch('/api/v1/auth/avatar/', { method: 'DELETE' });
+    return { ok: res.ok, data: await res.json() };
+  },
 };

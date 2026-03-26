@@ -2,3 +2,12 @@
 
 /* Добавить для dark mode: */
 @variant dark (&:where(.dark, .dark *));
+
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type=number] {
+    -moz-appearance: textfield;
+}

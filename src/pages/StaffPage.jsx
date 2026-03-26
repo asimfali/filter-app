@@ -111,6 +111,7 @@ function Modal({ title, onClose, children, wide }) {
     );
 }
 
+
 // ── Форма назначения роли ─────────────────────────────────────────────────
 
 function AssignRoleForm({ userId, departments, roles, existingRoles, onSave, onClose }) {

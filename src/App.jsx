@@ -19,6 +19,7 @@ import IssueThreadPage from './pages/IssueThreadPage.jsx';
 import SpecPreviewPage from './pages/SpecPreviewPage';
 import ModelViewerPage from './pages/ModelViewerPage';
 import PLMPage from './pages/PLMPage';
+import PartEditorPage from './pages/PartEditorPage';
 
 // AuthPage без изменений — твой существующий код
 function AuthPage() {
@@ -240,6 +241,9 @@ function MainApp() {
         )}
         {page === 'plm' && (
           <PLMPage onOpenProduct={(id) => handleNavigate('product', id)} />
+        )}
+        {page === 'part-editor' && (
+          <PartEditorPage />
         )}
 
         {/* Конфигуратор и карточка товара — доступны всем */}

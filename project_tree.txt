@@ -4,6 +4,7 @@
 ├── src
 │   ├── api
 │   │   ├── auth.js
+│   │   ├── bom.js
 │   │   ├── catalog.js
 │   │   ├── issues.js
 │   │   ├── media.js
@@ -15,6 +16,7 @@
 │   │   ├── auth
 │   │   │   ├── ActivateForm.jsx
 │   │   │   ├── LoginForm.jsx
+│   │   │   ├── ProfileModal.jsx
 │   │   │   ├── RegisterForm.jsx
 │   │   │   └── TwoFAForm.jsx
 │   │   ├── configurator
@@ -30,7 +32,8 @@
 │   │   │   ├── BatchCreateForm.jsx
 │   │   │   ├── LiteraSelector.jsx
 │   │   │   ├── PLMSidePanel.jsx
-│   │   │   └── ProductStages.jsx
+│   │   │   ├── ProductStages.jsx
+│   │   │   └── StageTransferPanel.jsx
 │   │   └── viewer3d
 │   │       └── ModelViewer.jsx
 │   ├── contexts
@@ -50,6 +53,7 @@
 │   │   ├── ModelViewerPage.jsx
 │   │   ├── PLMPage.jsx
 │   │   ├── ParameterEditorPage.jsx
+│   │   ├── PartEditorPage.jsx
 │   │   ├── ProductPage.jsx
 │   │   ├── SpecEditorPage.jsx
 │   │   ├── SpecPreviewPage.jsx
@@ -72,4 +76,4 @@
 ├── project_tree.txt
 └── vite.config.js
 
-16 directories, 57 files
+16 directories, 61 files
