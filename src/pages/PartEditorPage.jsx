@@ -4,6 +4,7 @@ import { bomApi } from '../api/bom';
 import { useAuth } from '../contexts/AuthContext';
 import { can } from '../utils/permissions';
 import { createPortal } from 'react-dom';
+import { catalogApi } from '../api/catalog';
 
 const SESSION_TYPE = 'bom_editor';
 
@@ -298,6 +299,169 @@ function MaterialGroupsModal({ onClose }) {
     );
 }
 
+function UnitWeightModal({ onClose }) {
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState([]);
+    const [edits, setEdits] = useState({}); // { id: unit_weight }
+    const [searching, setSearching] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        if (query.length < 2) { setResults([]); return; }
+        const t = setTimeout(async () => {
+            setSearching(true);
+            const { ok, data } = await bomApi.searchPartsUnitWeight(query);
+            if (ok && data.success) setResults(data.data);
+            setSearching(false);
+        }, 300);
+        return () => clearTimeout(t);
+    }, [query]);
+
+    const handleChange = (id, value) => {
+        setEdits(e => ({ ...e, [id]: value }));
+        setSaved(false);
+    };
+
+    const handleSave = async () => {
+        const items = Object.entries(edits).map(([id, unit_weight]) => ({
+            id: parseInt(id),
+            unit_weight: unit_weight === '' ? null : parseFloat(unit_weight),
+        }));
+        if (!items.length) return;
+
+        setSaving(true);
+        const { ok, data } = await bomApi.savePartsUnitWeight(items);
+        if (ok && data.success) {
+            setSaved(true);
+            setEdits({});
+            // Обновляем значения в results
+            setResults(r => r.map(p =>
+                edits[p.id] !== undefined
+                    ? { ...p, unit_weight: edits[p.id] || null }
+                    : p
+            ));
+        }
+        setSaving(false);
+    };
+
+    const dirty = Object.keys(edits).length > 0;
+
+    return (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl
+                            max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700">
+                {/* Шапка */}
+                <div className="flex items-center justify-between px-5 py-4
+                                border-b border-gray-200 dark:border-gray-700 shrink-0">
+                    <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                            Масса единицы номенклатуры
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Используется для пересчёта шт → кг при загрузке в 1С
+                        </p>
+                    </div>
+                    <button onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600 text-xl leading-none ml-4">
+                        ✕
+                    </button>
+                </div>
+
+                {/* Поиск */}
+                <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                    <input
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        placeholder="Введите 2+ символа для поиска..."
+                        autoFocus
+                        className={inputCls}
+                    />
+                    {searching && (
+                        <p className="text-xs text-gray-400 mt-1">Поиск...</p>
+                    )}
+                </div>
+
+                {/* Таблица */}
+                <div className="flex-1 overflow-y-auto">
+                    {results.length === 0 && query.length >= 2 && !searching ? (
+                        <p className="text-sm text-gray-400 text-center py-8">Ничего не найдено</p>
+                    ) : results.length === 0 ? (
+                        <p className="text-sm text-gray-400 text-center py-8">
+                            Введите название для поиска
+                        </p>
+                    ) : (
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 bg-white dark:bg-gray-900">
+                                <tr className="text-xs text-gray-400 uppercase border-b
+                                               border-gray-100 dark:border-gray-800">
+                                    <th className="text-left px-5 py-2">Наименование</th>
+                                    <th className="text-left px-3 py-2 w-20">Ед. 1С</th>
+                                    <th className="text-left px-3 py-2 w-36">Масса ед., кг</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {results.map(p => (
+                                    <tr key={p.id}
+                                        className="border-b border-gray-50 dark:border-gray-800
+                                                   hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                        <td className="px-5 py-2 text-gray-800 dark:text-gray-200">
+                                            {p.onec_name}
+                                        </td>
+                                        <td className="px-3 py-2 text-gray-500 text-xs">
+                                            {p.base_unit || p.unit || '—'}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                step="0.000001"
+                                                value={edits[p.id] !== undefined
+                                                    ? edits[p.id]
+                                                    : (p.unit_weight || '')}
+                                                onChange={e => handleChange(p.id, e.target.value)}
+                                                placeholder="0.000000"
+                                                className={inputCls}
+                                            />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+
+                {/* Футер */}
+                <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800
+                                flex items-center justify-between shrink-0">
+                    <span className="text-xs text-gray-400">
+                        {results.length > 0 && `Найдено: ${results.length}`}
+                        {saved && (
+                            <span className="text-emerald-500 ml-3">✓ Сохранено</span>
+                        )}
+                    </span>
+                    <div className="flex gap-2">
+                        <button onClick={onClose}
+                            className="px-4 py-1.5 text-sm border border-gray-200
+                                       dark:border-gray-700 text-gray-600 dark:text-gray-400
+                                       rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                            Закрыть
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving || !dirty}
+                            className="px-4 py-1.5 text-sm rounded-lg bg-blue-600
+                                       hover:bg-blue-700 text-white disabled:opacity-50
+                                       transition-colors">
+                            {saving ? 'Сохранение...' : 'Сохранить'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── GroupForm — создание новой группы ───────────────────────────────────────
 
 function GroupForm({ onSaved, onCancel }) {
@@ -584,6 +748,7 @@ function FolderPicker({ value, onChange, folderType = 'nomenclature', rootPath =
     const [results, setResults] = useState([]);
     const [allFolders, setAllFolders] = useState([]);  // ← кэш для spec
     const [creating, setCreating] = useState(false);
+    const [created, setCreated] = useState(false);
     const [open, setOpen] = useState(false);
     const inputRef = useRef(null);
     const containerRef = useRef(null);
@@ -592,8 +757,11 @@ function FolderPicker({ value, onChange, folderType = 'nomenclature', rootPath =
         if (!open) return;
 
         const handleEvent = (e) => {
+            // e.target может быть window/document при scroll — у них нет closest
+            if (!e.target || typeof e.target.closest !== 'function') return;
+
             const isInsideDropdown = e.target.closest('[data-dropdown="true"]');
-            const isInsideInput = containerRef.current && containerRef.current.contains(e.target);
+            const isInsideInput = containerRef.current?.contains(e.target);
 
             if (!isInsideDropdown && !isInsideInput) {
                 setOpen(false);
@@ -631,6 +799,7 @@ function FolderPicker({ value, onChange, folderType = 'nomenclature', rootPath =
 
     const handleSearch = async (q) => {
         setQuery(q);
+        setCreated(false);
         setOpen(true); // Открываем список при вводе // <---
 
         if (folderType === 'spec') {
@@ -671,7 +840,7 @@ function FolderPicker({ value, onChange, folderType = 'nomenclature', rootPath =
     const handleCreate = async () => {
         if (!query.trim()) return;
         setCreating(true);
-        const parts = query.trim().split(' / ').filter(Boolean);
+        const parts = query.trim().split(/\s*\/\s*/).filter(Boolean);
         const name = parts[parts.length - 1].trim();
         const parentPath = parts.slice(0, -1).join(' / ').trim();
 
@@ -695,8 +864,12 @@ function FolderPicker({ value, onChange, folderType = 'nomenclature', rootPath =
         if (ok && data.success) {
             const folder = data.data;
             setQuery(folder.path);
+            setCreated(true);
             onChange(folder);
             setResults([]);
+            if (folderType === 'spec') {
+                setAllFolders(prev => [...prev, folder]);
+            }
         }
         setCreating(false);
     };
@@ -767,7 +940,7 @@ function FolderPicker({ value, onChange, folderType = 'nomenclature', rootPath =
                 </span>
                 <button
                     onClick={handleCreate}
-                    disabled={creating || !query.trim()}
+                    disabled={creating || !query.trim() || created}
                     className="px-3 py-1 text-xs rounded-lg
                                bg-emerald-600 hover:bg-emerald-700
                                text-white disabled:opacity-50 transition-colors">
@@ -1064,139 +1237,185 @@ function CreateSpecModal({ onClose, onCreated }) {
     );
 }
 
-function ImportExcelModal({ onClose, onImported }) {
+function FileDropZone({ file, onFile, error, accept = ".xlsx", placeholder = "Выберите файл или перетащите сюда", hint }) {
+    return (
+        <>
+            <label
+                className={`flex flex-col items-center justify-center
+                           border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors
+                           ${file
+                        ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                    }`}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const dropped = e.dataTransfer.files[0];
+                    if (dropped) onFile(dropped);
+                }}
+            >
+                <input type="file" accept={accept} className="hidden"
+                    onChange={e => onFile(e.target.files[0] || null)} />
+                {file ? (
+                    <>
+                        <span className="text-2xl mb-1">✓</span>
+                        <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                            {file.name}
+                        </span>
+                        <span className="text-xs text-gray-400 mt-1">
+                            {(file.size / 1024).toFixed(1)} KB
+                        </span>
+                    </>
+                ) : (
+                    <>
+                        <span className="text-2xl mb-1 text-gray-400">📄</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {placeholder}
+                        </span>
+                        {hint && (
+                            <span className="text-xs text-gray-400 mt-1">{hint}</span>
+                        )}
+                    </>
+                )}
+            </label>
+            {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
+        </>
+    );
+}
+
+// Общий хук состояния для Excel модалок
+function useExcelImport(onAction) {
     const [file, setFile] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [warnings, setWarnings] = useState([]);
 
-    const handleImport = async () => {
+    const handleFile = (f) => { setFile(f); setError(''); setWarnings([]); };
+
+    const run = async () => {
         if (!file) return;
         setLoading(true);
         setError('');
         setWarnings([]);
-        const { ok, data } = await bomApi.importFromExcel(file);
-        if (ok && data.success) {
-            if (data.meta?.warnings?.length) {
-                setWarnings(data.meta.warnings);
-                // Показываем предупреждения но не закрываем — даём прочитать
-                setTimeout(() => onImported(data.data), 2000);
-            } else {
-                onImported(data.data);
-            }
-        } else {
-            setError(data.error || 'Ошибка импорта');
-            if (data.data?.errors) {
-                setWarnings(data.data.errors);
-            }
-        }
+        const result = await onAction(file);
+        if (!result.ok) setError(result.error || 'Ошибка');
+        if (result.warnings) setWarnings(result.warnings);
         setLoading(false);
+        return result;
     };
 
+    return { file, handleFile, loading, error, warnings, run };
+}
+
+function ImportExcelModal({ onClose, onImported }) {
+    const { file, handleFile, loading, error, warnings, run } = useExcelImport(
+        async (f) => {
+            const { ok, data } = await bomApi.importFromExcel(f);
+            if (ok && data.success) {
+                if (data.meta?.warnings?.length) {
+                    setTimeout(() => onImported(data.data), 2000);
+                } else {
+                    onImported(data.data);
+                }
+                return { ok: true, warnings: data.meta?.warnings || [] };
+            }
+            return { ok: false, error: data.error, warnings: data.data?.errors || [] };
+        }
+    );
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center
-                        bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
-                            border border-gray-200 dark:border-gray-700
-                            w-full max-w-md p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                         Импорт маршрутной карты
                     </h2>
-                    <button onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600
-                                   dark:hover:text-gray-300 text-xl leading-none">
-                        ×
-                    </button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
                 </div>
-
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Поддерживаются файлы формата .xlsx (маршрутные карты КЭВ).
-                    Спецификация будет создана в статусе «Черновик».
+                    Поддерживаются файлы формата .xlsx. Спецификация будет создана в статусе «Черновик».
                 </p>
+                <FileDropZone file={file} onFile={handleFile} error={error} accept=".xlsx" hint=".xlsx" />
+                {warnings.length > 0 && <WarningsList warnings={warnings} />}
+                <ModalFooter onClose={onClose} onConfirm={run} loading={loading} disabled={!file}
+                    confirmLabel="Импортировать" />
+            </div>
+        </div>
+    );
+}
 
-                {/* Зона загрузки файла */}
-                <label className={`flex flex-col items-center justify-center
-                                   border-2 border-dashed rounded-lg p-6 cursor-pointer
-                                   transition-colors
-                                   ${file
-                        ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
-                        : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
-                    }`}>
-                    <input
-                        type="file"
-                        accept=".xlsx"
-                        className="hidden"
-                        onChange={e => {
-                            setFile(e.target.files[0] || null);
-                            setError('');
-                            setWarnings([]);
-                        }}
-                    />
-                    {file ? (
-                        <>
-                            <span className="text-2xl mb-1">✓</span>
-                            <span className="text-sm font-medium text-emerald-700
-                                             dark:text-emerald-300">
-                                {file.name}
-                            </span>
-                            <span className="text-xs text-gray-400 mt-1">
-                                {(file.size / 1024).toFixed(1)} KB
-                            </span>
-                        </>
-                    ) : (
-                        <>
-                            <span className="text-2xl mb-1 text-gray-400">📄</span>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                                Выберите файл или перетащите сюда
-                            </span>
-                            <span className="text-xs text-gray-400 mt-1">.xlsx</span>
-                        </>
-                    )}
-                </label>
+function MergeExcelModal({ specId, onClose, onMerged }) {
+    const [meta, setMeta] = useState(null);
+    const { file, handleFile, loading, error, warnings, run } = useExcelImport(
+        async (f) => {
+            const { ok, data } = await bomApi.mergeExcel(specId, f);
+            if (ok && data.success) {
+                setMeta(data.meta);
+                setTimeout(() => onMerged(data.data), 1500);
+                return { ok: true, warnings: data.meta?.warnings || [] };
+            }
+            return { ok: false, error: data.error };
+        }
+    );
 
-                {/* Ошибки */}
-                {error && (
-                    <p className="text-xs text-red-500 dark:text-red-400">{error}</p>
-                )}
-
-                {/* Предупреждения */}
-                {warnings.length > 0 && (
-                    <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3
-                                    border border-amber-200 dark:border-amber-800
-                                    max-h-32 overflow-y-auto">
-                        <p className="text-xs font-medium text-amber-700
-                                      dark:text-amber-300 mb-1">
-                            Предупреждения ({warnings.length}):
-                        </p>
-                        {warnings.map((w, i) => (
-                            <p key={i} className="text-xs text-amber-600
-                                                   dark:text-amber-400">
-                                · {w}
-                            </p>
-                        ))}
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                        Обновить из Excel
+                    </h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Новые материалы добавятся, существующие обновятся. Удаления не происходит.
+                </p>
+                <FileDropZone file={file} onFile={handleFile} error={error} accept=".xlsx" hint=".xlsx" />
+                {warnings.length > 0 && <WarningsList warnings={warnings} />}
+                {meta && (
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-3 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-300 space-y-0.5">
+                        <div>✓ Добавлено: {meta.added}</div>
+                        <div>↻ Обновлено: {meta.updated}</div>
+                        <div>— Без изменений: {meta.skipped}</div>
                     </div>
                 )}
-
-                <div className="flex justify-end gap-2">
-                    <button onClick={onClose}
-                        className="px-4 py-2 text-sm rounded-lg border
-                                   border-gray-200 dark:border-gray-700
-                                   text-gray-600 dark:text-gray-400
-                                   hover:bg-gray-50 dark:hover:bg-gray-800
-                                   transition-colors">
-                        Отмена
-                    </button>
-                    <button
-                        onClick={handleImport}
-                        disabled={loading || !file}
-                        className="px-4 py-2 text-sm rounded-lg
-                                   bg-emerald-600 hover:bg-emerald-700
-                                   text-white disabled:opacity-50 transition-colors">
-                        {loading ? 'Импорт...' : 'Импортировать'}
-                    </button>
-                </div>
+                <ModalFooter onClose={onClose} onConfirm={run} loading={loading} disabled={!file}
+                    confirmLabel="Обновить" />
             </div>
+        </div>
+    );
+}
+
+function WarningsList({ warnings }) {
+    return (
+        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 border border-amber-200 dark:border-amber-800 max-h-32 overflow-y-auto">
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">
+                Предупреждения ({warnings.length}):
+            </p>
+            {warnings.map((w, i) => (
+                <p key={i} className="text-xs text-amber-600 dark:text-amber-400">· {w}</p>
+            ))}
+        </div>
+    );
+}
+
+function ModalFooter({ onClose, onConfirm, loading, disabled, confirmLabel, closeLabel = "Отмена" }) {
+    return (
+        <div className="flex justify-end gap-2">
+            <button onClick={onClose}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                           text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800
+                           transition-colors">
+                {closeLabel}
+            </button>
+            {onConfirm && (
+                <button onClick={onConfirm} disabled={loading || disabled}
+                    className="px-4 py-2 text-sm rounded-lg bg-emerald-600
+                               hover:bg-emerald-700 text-white disabled:opacity-50 transition-colors">
+                    {loading ? 'Обработка...' : confirmLabel}
+                </button>
+            )}
         </div>
     );
 }
@@ -1205,13 +1424,68 @@ function ImportExcelModal({ onClose, onImported }) {
 
 function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
     const [pullOpen, setPullOpen] = useState(false);
-    const [syncLoading, setSyncLoading] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
-    const [importPdfOpen, setImportPdfOpen] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
     const [groupsOpen, setGroupsOpen] = useState(false);
     const [syncModalOpen, setSyncModalOpen] = useState(false);
+    const [contextMenu, setContextMenu] = useState(null); // {specId, specName, x, y}
+    const [renameOpen, setRenameOpen] = useState(false);
+    const [renameName, setRenameName] = useState('');
+    const [cloneOpen, setCloneOpen] = useState(false);
+    const [cloneName, setCloneName] = useState('');
+    const [actionSpec, setActionSpec] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [unitWeightOpen, setUnitWeightOpen] = useState(false);
+    const [packagingOpen, setPackagingOpen] = useState(false);
 
+    useEffect(() => {
+        if (!contextMenu) return;
+        const close = () => setContextMenu(null);
+        document.addEventListener('mousedown', close);
+        return () => document.removeEventListener('mousedown', close);
+    }, [contextMenu]);
+
+    const handleContextMenu = (e, spec) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ specId: spec.id, specName: spec.onec_name, x: e.clientX, y: e.clientY });
+    };
+
+    const handleRename = async () => {
+        if (!renameName.trim()) return;
+        setActionLoading(true);
+        const { ok, data } = await bomApi.updateSpec(actionSpec.specId, { onec_name: renameName.trim() });
+        if (ok && data.success) {
+            setRenameOpen(false);
+            onRefresh();
+        } else {
+            alert(data.error || 'Ошибка переименования');
+        }
+        setActionLoading(false);
+    };
+
+    const handleClone = async () => {
+        if (!cloneName.trim()) return;
+        setActionLoading(true);
+        const { ok, data } = await bomApi.cloneSpec(actionSpec.specId, cloneName.trim());
+        if (ok && data.success) {
+            setCloneOpen(false);
+            onRefresh();
+        } else {
+            alert(data.error || 'Ошибка копирования');
+        }
+        setActionLoading(false);
+    };
+
+    const handleDelete = async (specId) => {
+        if (!confirm('Удалить спецификацию?')) return;
+        const { ok, data } = await bomApi.deleteSpec(specId);
+        if (ok && data.success) {
+            onRefresh();
+        } else {
+            alert(data.error || 'Ошибка удаления');
+        }
+    };
 
     return (
         <div className="max-w-5xl mx-auto space-y-4">
@@ -1256,7 +1530,28 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             ⚙ Группы материалов
                         </button>
 
+                        <button
+                            onClick={() => setPackagingOpen(true)}
+                            className="px-3 py-1.5 text-sm rounded-lg border
+               border-gray-200 dark:border-gray-700
+               text-gray-600 dark:text-gray-400
+               hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            📦 Пак Тара
+                        </button>
+
+                        {packagingOpen && <PackagingModal onClose={() => setPackagingOpen(false)} />}
+
                         {groupsOpen && <MaterialGroupsModal onClose={() => setGroupsOpen(false)} />}
+                        <button
+                            onClick={() => setUnitWeightOpen(true)}
+                            className="px-3 py-1.5 text-sm rounded-lg border
+               border-gray-200 dark:border-gray-700
+               text-gray-600 dark:text-gray-400
+               hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            ⚖ Масса единицы
+                        </button>
+
+                        {unitWeightOpen && <UnitWeightModal onClose={() => setUnitWeightOpen(false)} />}
                     </div>
 
                 )}
@@ -1290,25 +1585,10 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                 ↑ Импорт из Excel
             </button>
 
-            <button
-                onClick={() => setImportPdfOpen(true)} // создайте такой state
-                className="px-3 py-1.5 text-sm rounded-lg
-                        bg-orange-600 hover:bg-orange-700
-                        text-white transition-colors">
-                📄 Импорт из PDF (спецификация)
-            </button>
-
             {importOpen && (
                 <ImportExcelModal
                     onClose={() => setImportOpen(false)}
                     onImported={() => { setImportOpen(false); onRefresh(); }}
-                />
-            )}
-
-            {importPdfOpen && (
-                <ImportPdfModal
-                    onClose={() => setImportPdfOpen(false)}
-                    onImported={() => { setImportPdfOpen(false); onRefresh(); }}
                 />
             )}
 
@@ -1366,6 +1646,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             {specs.map((spec, idx) => (
                                 <tr key={spec.id}
                                     onClick={() => onOpen(spec.id)}
+                                    onContextMenu={e => handleContextMenu(e, spec)}
                                     className={`border-b border-gray-50 dark:border-gray-800
                                             hover:bg-gray-50 dark:hover:bg-gray-800/50 
                                             transition-colors cursor-pointer
@@ -1403,6 +1684,124 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                     </table>
                 )}
             </div>
+            {/* Контекстное меню */}
+            {contextMenu && createPortal(
+                <div
+                    style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x, zIndex: 9999 }}
+                    className="bg-white dark:bg-gray-900 rounded-lg shadow-xl
+                   border border-gray-200 dark:border-gray-700
+                   py-1 min-w-40"
+                    onMouseDown={e => e.stopPropagation()}
+                >
+                    <button
+                        onClick={() => {
+                            setActionSpec(contextMenu);
+                            setCloneName(contextMenu.specName + ' (копия)');
+                            setCloneOpen(true);
+                            setContextMenu(null);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm
+                       text-gray-700 dark:text-gray-300
+                       hover:bg-gray-50 dark:hover:bg-gray-800">
+                        ⎘ Копировать
+                    </button>
+                    <button
+                        onClick={() => {
+                            setActionSpec(contextMenu);
+                            setRenameName(contextMenu.specName);
+                            setRenameOpen(true);
+                            setContextMenu(null);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm
+                       text-gray-700 dark:text-gray-300
+                       hover:bg-gray-50 dark:hover:bg-gray-800">
+                        ✎ Переименовать
+                    </button>
+                    {canWrite && (
+                        <button
+                            onClick={() => {
+                                setContextMenu(null);
+                                handleDelete(contextMenu.specId);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm
+                           text-red-600 dark:text-red-400
+                           hover:bg-red-50 dark:hover:bg-red-900/20">
+                            ✕ Удалить
+                        </button>
+                    )}
+                </div>,
+                document.body
+            )}
+
+            {/* Модалка переименования */}
+            {renameOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
+                        border border-gray-200 dark:border-gray-700
+                        w-full max-w-md p-6 space-y-4">
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                            Переименовать спецификацию
+                        </h2>
+                        <input
+                            value={renameName}
+                            onChange={e => setRenameName(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleRename()}
+                            className="w-full px-3 py-1.5 text-sm rounded-lg
+                           bg-gray-50 dark:bg-gray-800
+                           border border-gray-200 dark:border-gray-700
+                           text-gray-900 dark:text-white
+                           focus:outline-none focus:border-blue-500"
+                            autoFocus
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setRenameOpen(false)}
+                                className="px-4 py-2 text-sm text-gray-500">Отмена</button>
+                            <button onClick={handleRename} disabled={actionLoading || !renameName.trim()}
+                                className="px-4 py-2 text-sm rounded-lg bg-blue-600
+                               hover:bg-blue-700 text-white disabled:opacity-50">
+                                {actionLoading ? '...' : 'Сохранить'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Модалка копирования */}
+            {cloneOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
+                        border border-gray-200 dark:border-gray-700
+                        w-full max-w-md p-6 space-y-4">
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                            Копировать спецификацию
+                        </h2>
+                        <p className="text-xs text-gray-500">
+                            Копия: <span className="font-medium">{actionSpec?.specName}</span>
+                        </p>
+                        <input
+                            value={cloneName}
+                            onChange={e => setCloneName(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleClone()}
+                            placeholder="Название новой спецификации"
+                            className="w-full px-3 py-1.5 text-sm rounded-lg
+                           bg-gray-50 dark:bg-gray-800
+                           border border-gray-200 dark:border-gray-700
+                           text-gray-900 dark:text-white
+                           focus:outline-none focus:border-blue-500"
+                            autoFocus
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setCloneOpen(false)}
+                                className="px-4 py-2 text-sm text-gray-500">Отмена</button>
+                            <button onClick={handleClone} disabled={actionLoading || !cloneName.trim()}
+                                className="px-4 py-2 text-sm rounded-lg bg-emerald-600
+                               hover:bg-emerald-700 text-white disabled:opacity-50">
+                                {actionLoading ? '...' : 'Создать копию'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -1417,6 +1816,12 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
     const [validation, setValidation] = useState(null);
     const [presets, setPresets] = useState([]);
     const [sheetMappings, setSheetMappings] = useState([]);
+    const [cloneOpen, setCloneOpen] = useState(false);
+    const [cloneName, setCloneName] = useState('');
+    const [cloning, setCloning] = useState(false);
+    const [headerDirty, setHeaderDirty] = useState(false);
+    const [mergeOpen, setMergeOpen] = useState(false);
+    const [importJsonOpen, setImportJsonOpen] = useState(false);
 
     useEffect(() => {
         bomApi.getStagePresets().then(({ ok, data }) => {
@@ -1497,6 +1902,31 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
         setPushing(false);
     };
 
+    const handleUpdateDetails = async () => {
+        setPushing(true);
+        setValidation(null);
+        const { ok, data } = await bomApi.updateDetails(spec.id);
+        if (!data.success && data.data?.errors?.length) {
+            setValidation({ is_valid: false, errors: data.data.errors, warnings: [] });
+        }
+        await reload();
+        setPushing(false);
+    };
+
+    const handleClone = async () => {
+        if (!cloneName.trim()) return;
+        setCloning(true);
+        const { ok, data } = await bomApi.cloneSpec(spec.id, cloneName.trim());
+        if (ok && data.success) {
+            setCloneOpen(false);
+            // Открываем новую спецификацию
+            onClose();
+        } else {
+            alert(data.error || 'Ошибка копирования');
+        }
+        setCloning(false);
+    };
+
     return (
         <div className="w-full space-y-4">
             {/* Шапка */}
@@ -1522,10 +1952,98 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                             )}
                         </div>
                     </div>
+                    {canWrite && (
+                        <button
+                            onClick={() => { setCloneName(spec.onec_name + ' (копия)'); setCloneOpen(true); }}
+                            className="px-3 py-1.5 text-sm rounded-lg border
+                                    border-gray-200 dark:border-gray-700
+                                    text-gray-500 dark:text-gray-400
+                                    hover:bg-gray-50 dark:hover:bg-gray-800
+                                    transition-colors">
+                            ⎘ Копировать
+                        </button>
+                    )}
+
+                    {cloneOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
+                                            border border-gray-200 dark:border-gray-700
+                                            w-full max-w-md p-6 space-y-4">
+                                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                                    Копировать спецификацию
+                                </h2>
+                                <input
+                                    value={cloneName}
+                                    onChange={e => setCloneName(e.target.value)}
+                                    placeholder="Название новой спецификации"
+                                    className="w-full px-3 py-1.5 text-sm rounded-lg
+                                            bg-gray-50 dark:bg-gray-800
+                                            border border-gray-200 dark:border-gray-700
+                                            text-gray-900 dark:text-white
+                                            focus:outline-none focus:border-blue-500"
+                                    autoFocus
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <button onClick={() => setCloneOpen(false)}
+                                        className="px-4 py-2 text-sm text-gray-500">
+                                        Отмена
+                                    </button>
+                                    <button onClick={handleClone} disabled={cloning || !cloneName.trim()}
+                                        className="px-4 py-2 text-sm rounded-lg bg-blue-600
+                                                hover:bg-blue-700 text-white disabled:opacity-50">
+                                        {cloning ? 'Копирование...' : 'Создать копию'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {canWrite && (
+                        <button
+                            onClick={() => setMergeOpen(true)}
+                            className="px-3 py-1.5 text-sm rounded-lg border
+                   border-gray-200 dark:border-gray-700
+                   text-gray-600 dark:text-gray-400
+                   hover:bg-gray-50 dark:hover:bg-gray-800
+                   transition-colors">
+                            ↑ Excel
+                        </button>
+                    )}
+
+                    {mergeOpen && (
+                        <MergeExcelModal
+                            specId={spec.id}
+                            onClose={() => setMergeOpen(false)}
+                            onMerged={(updated) => {
+                                setMergeOpen(false);
+                                onSaved(updated);
+                                reload();
+                            }}
+                        />
+                    )}
+
+                    {canWrite && (
+                        <button onClick={() => setImportJsonOpen(true)}
+                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                   text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                            { } JSON
+                        </button>
+                    )}
+
+                    {importJsonOpen && (
+                        <ImportJsonModal
+                            specId={spec.id}
+                            onClose={() => setImportJsonOpen(false)}
+                            onMerged={(updated) => {
+                                setImportJsonOpen(false);
+                                onSaved(updated);
+                                reload();
+                            }}
+                        />
+                    )}
                 </div>
                 <div className="flex gap-2">
                     {canWrite && (
-                        <button onClick={handleValidate} disabled={validating}
+                        <button onClick={handleValidate} disabled={validating || headerDirty}
                             className="px-3 py-1.5 text-sm rounded-lg border
                        border-gray-200 dark:border-gray-700
                        text-gray-600 dark:text-gray-400
@@ -1537,25 +2055,37 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                     {canPush && (
                         <button
                             onClick={handleCreateDetails}
-                            disabled={pushing || !spec.default_nomenclature_folder}
+                            disabled={pushing || !spec.default_nomenclature_folder || headerDirty}
                             title={!spec.default_nomenclature_folder ? 'Выберите папку номенклатуры деталей' : ''}
                             className="px-3 py-1.5 text-sm rounded-lg
-                       border border-blue-600
-                       text-blue-600 dark:text-blue-400
-                       hover:bg-blue-50 dark:hover:bg-blue-900/20
-                       disabled:opacity-50 transition-colors">
+                   border border-blue-600
+                   text-blue-600 dark:text-blue-400
+                   hover:bg-blue-50 dark:hover:bg-blue-900/20
+                   disabled:opacity-50 transition-colors">
                             {pushing ? '...' : '⚙ Создать детали'}
+                        </button>
+                    )}
+                    {canPush && spec.materials?.some(m => m.detail_spec) && (
+                        <button
+                            onClick={handleUpdateDetails}
+                            disabled={pushing || headerDirty}
+                            className="px-3 py-1.5 text-sm rounded-lg
+                   border border-amber-500
+                   text-amber-600 dark:text-amber-400
+                   hover:bg-amber-50 dark:hover:bg-amber-900/20
+                   disabled:opacity-50 transition-colors">
+                            {pushing ? '...' : '↺ Обновить детали'}
                         </button>
                     )}
                     {canPush && (
                         <button
                             onClick={handlePushAssembly}
-                            disabled={pushing || spec.status === 'pushing' || !spec.folder || !spec.assembly_nomenclature_folder}
+                            disabled={pushing || spec.status === 'pushing' || !spec.folder || !spec.assembly_nomenclature_folder || headerDirty}
                             title={!spec.folder ? 'Выберите папку спецификации сборки' : ''}
                             className="px-3 py-1.5 text-sm rounded-lg
-                   bg-emerald-600 hover:bg-emerald-700
-                   text-white disabled:opacity-50 transition-colors">
-                            {pushing ? '...' : '↑ Загрузить сборку'}
+                                        bg-emerald-600 hover:bg-emerald-700
+                                        text-white disabled:opacity-50 transition-colors">
+                            {pushing ? '...' : spec.status === 'pushed' ? '↑ Обновить сборку' : '↑ Загрузить сборку'}
                         </button>
                     )}
                 </div>
@@ -1568,6 +2098,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                 onSave={handleHeaderSave}
                 saving={saving}
                 canWrite={canWrite}
+                onDirtyChange={setHeaderDirty}
             />
 
             {/* Только материалы — без табов */}
@@ -1610,7 +2141,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
 
 // ─── Форма заголовка ──────────────────────────────────────────────────────────
 
-function SpecHeaderForm({ spec, onSave, saving, canWrite }) {
+function SpecHeaderForm({ spec, onSave, saving, canWrite, onDirtyChange }) {
     const [form, setForm] = useState({
         onec_name: spec.onec_name,
         stage_name: spec.stage_name,
@@ -1621,6 +2152,7 @@ function SpecHeaderForm({ spec, onSave, saving, canWrite }) {
         folder: spec.folder || null,  // ← папка спецификации сборки
     });
     const [dirty, setDirty] = useState(false);
+
     const [selectedNomFolder, setSelectedNomFolder] = useState(
         spec.default_nomenclature_folder
             ? { id: spec.default_nomenclature_folder, path: spec.default_nomenclature_folder_path || '' }
@@ -1637,12 +2169,45 @@ function SpecHeaderForm({ spec, onSave, saving, canWrite }) {
             : null
     );
 
+    useEffect(() => {
+        setForm({
+            onec_name: spec.onec_name,
+            stage_name: spec.stage_name,
+            process_type: spec.process_type,
+            date_from: spec.date_from,
+            quantity: spec.quantity,
+            default_nomenclature_folder: spec.default_nomenclature_folder || null,
+            folder: spec.folder || null,
+            assembly_nomenclature_folder: spec.assembly_nomenclature_folder || null,
+        });
+        setSelectedNomFolder(
+            spec.default_nomenclature_folder
+                ? { id: spec.default_nomenclature_folder, path: spec.default_nomenclature_folder_path || '' }
+                : null
+        );
+        setSelectedSpecFolder(
+            spec.folder
+                ? { id: spec.folder, path: spec.folder_path || '' }
+                : null
+        );
+        setSelectedAssemblyFolder(
+            spec.assembly_nomenclature_folder
+                ? { id: spec.assembly_nomenclature_folder, path: spec.assembly_nomenclature_folder_path || '' }
+                : null
+        );
+        setDirty(false);
+        onDirtyChange?.(false);
+    }, [spec.id, spec.folder, spec.assembly_nomenclature_folder, spec.default_nomenclature_folder]);
+
+
+
     const set = (field, value) => {
         setForm(f => ({ ...f, [field]: value }));
         setDirty(true);
+        onDirtyChange?.(true);
     };
 
-    const handleSave = () => { onSave(form); setDirty(false); };
+    const handleSave = () => { onSave(form); setDirty(false); onDirtyChange?.(false); };
 
     return (
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 space-y-4">
@@ -1664,7 +2229,12 @@ function SpecHeaderForm({ spec, onSave, saving, canWrite }) {
                         </div>
                         <FolderPicker
                             value={selectedNomFolder}
-                            onChange={f => { setSelectedNomFolder(f); set('default_nomenclature_folder', f.id); }}
+                            onChange={f => {
+                                setSelectedNomFolder(f);
+                                const newForm = { ...form, default_nomenclature_folder: f.id };
+                                setForm(newForm);
+                                onSave(newForm);
+                            }}
                             folderType="manufacture"
                         />
                     </div>
@@ -1683,7 +2253,12 @@ function SpecHeaderForm({ spec, onSave, saving, canWrite }) {
                         </div>
                         <FolderPicker
                             value={selectedSpecFolder}
-                            onChange={f => { setSelectedSpecFolder(f); set('folder', f.id); }}
+                            onChange={f => {
+                                setSelectedSpecFolder(f);
+                                const newForm = { ...form, folder: f.id };
+                                setForm(newForm);
+                                onSave(newForm);
+                            }}
                             folderType="spec"
                         />
                     </div>
@@ -1702,7 +2277,9 @@ function SpecHeaderForm({ spec, onSave, saving, canWrite }) {
                             value={selectedAssemblyFolder}
                             onChange={f => {
                                 setSelectedAssemblyFolder(f);
-                                set('assembly_nomenclature_folder', f.id);
+                                const newForm = { ...form, assembly_nomenclature_folder: f.id };
+                                setForm(newForm);
+                                onSave(newForm);
                             }}
                             folderType="nomenclature"
                             rootPath="ГОТОВАЯ ПРОДУКЦИЯ"
@@ -1734,6 +2311,13 @@ function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, can
     const [matResults, setMatResults] = useState({});
     const partRefs = useRef({});
     const matRefs = useRef({});
+    const [units, setUnits] = useState([]);
+
+    useEffect(() => {
+        bomApi.getUnits().then(({ ok, data }) => {
+            if (ok && data.success) setUnits(data.data);
+        });
+    }, []);
 
     useEffect(() => {
         if (!materials.length) return;
@@ -1837,9 +2421,10 @@ function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, can
                                 <th className="text-left py-2 pr-3 w-28">Т×Р1×Р2</th>
                                 <th className="text-left py-2 pr-3 w-16">Вес, кг</th>
                                 <th className="text-left py-2 pr-3 min-w-44">Материал 1С</th>
+                                <th className="text-left py-2 pr-3 w-20">Покраска, м²</th>
                                 <th className="text-left py-2 pr-3 w-20">Кол-во</th>
-                                <th className="text-left py-2 pr-3 w-14">Ед.</th>
-                                <th className="text-left py-2 pr-3 w-20">В процессе</th>
+                                <th className="text-left py-2 pr-3 w-20">Ед.</th>
+                                <th className="text-left py-2 pr-3 w-10">В процессе</th>
                                 {canWrite && <th className="w-6" />}
                             </tr>
                         </thead>
@@ -1960,6 +2545,18 @@ function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, can
                                             />
                                         </td>
 
+                                        {/* Площадь покраски */}
+                                        <td className="py-1.5 pr-3">
+                                            <input
+                                                type="number" min={0} step="0.0001"
+                                                value={row.paint_area || ''}
+                                                onChange={e => update(idx, 'paint_area', e.target.value || null)}
+                                                disabled={!canWrite}
+                                                placeholder="0.0000"
+                                                className={inputCls}
+                                            />
+                                        </td>
+
                                         {/* Количество */}
                                         <td className="py-1.5 pr-3">
                                             <input
@@ -1973,13 +2570,20 @@ function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, can
 
                                         {/* Единица */}
                                         <td className="py-1.5 pr-3">
-                                            <input
+                                            <select
                                                 value={row.unit}
                                                 onChange={e => update(idx, 'unit', e.target.value)}
                                                 disabled={!canWrite}
-                                                className={inputCls}
-                                                placeholder="шт."
-                                            />
+                                                className={`${inputCls} text-xs min-w-full`}>
+                                                <option value="">—</option>
+                                                {units.map(u => (
+                                                    <option key={u} value={u}>{u}</option>
+                                                ))}
+                                                {/* Если текущее значение не в списке — показываем его */}
+                                                {row.unit && !units.includes(row.unit) && (
+                                                    <option value={row.unit}>{row.unit}</option>
+                                                )}
+                                            </select>
                                         </td>
 
                                         {/* В процессе */}
@@ -2304,23 +2908,38 @@ function PullModal({ onClose, onPulled }) {
 function ValidationReport({ result }) {
     if (!result) return null;
 
+    // Ответ может быть строковой ошибкой (не массив errors)
+    const errorMessage = typeof result.error === 'string' ? result.error : null;
+    const errors = Array.isArray(result.errors) ? result.errors : [];
+    const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+
     return (
         <div className={`rounded-lg border p-4 space-y-2
-            ${result.is_valid
+            ${result.is_valid || result.success
                 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
                 : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
             }`}>
             <div className={`text-sm font-medium
-                ${result.is_valid
+                ${result.is_valid || result.success
                     ? 'text-emerald-700 dark:text-emerald-300'
                     : 'text-red-700 dark:text-red-300'
                 }`}>
-                {result.is_valid ? '✓ Проверка пройдена' : `✗ Найдено ошибок: ${result.errors?.length}`}
+                {result.is_valid || result.success
+                    ? '✓ Проверка пройдена'
+                    : `✗ Найдено ошибок: ${errors.length || (errorMessage ? 1 : 0)}`
+                }
             </div>
 
-            {result.errors?.length > 0 && (
+            {/* Строковая ошибка от 1С */}
+            {errorMessage && (
+                <p className="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap">
+                    {errorMessage}
+                </p>
+            )}
+
+            {errors.length > 0 && (
                 <ul className="space-y-1 max-h-48 overflow-y-auto">
-                    {result.errors.map((e, i) => (
+                    {errors.map((e, i) => (
                         <li key={i} className="text-xs text-red-600 dark:text-red-400 flex gap-2">
                             <span className="shrink-0">·</span>
                             <span>
@@ -2332,9 +2951,9 @@ function ValidationReport({ result }) {
                 </ul>
             )}
 
-            {result.warnings?.length > 0 && (
+            {warnings.length > 0 && (
                 <ul className="space-y-1">
-                    {result.warnings.map((w, i) => (
+                    {warnings.map((w, i) => (
                         <li key={i} className="text-xs text-amber-600 dark:text-amber-400 flex gap-2">
                             <span className="shrink-0">⚠</span>
                             <span>{w.message}</span>
@@ -2346,144 +2965,134 @@ function ValidationReport({ result }) {
     );
 }
 
-function ImportPdfModal({ onClose, onImported }) {
-    const [file, setFile] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [warnings, setWarnings] = useState([]);
-
-    const handleImport = async () => {
-        if (!file) return;
-        setLoading(true);
-        setError('');
-        setWarnings([]);
-
-        const { ok, data } = await bomApi.importFromPdf(file);
-
-        if (ok && data.success) {
-            if (data.meta?.warnings?.length) {
-                setWarnings(data.meta.warnings);
-                setTimeout(() => onImported(data.data), 2000);
-            } else {
-                onImported(data.data);
+function ImportJsonModal({ specId, onClose, onMerged }) {
+    const [meta, setMeta] = useState(null);
+    const { file, handleFile, loading, error, warnings, run } = useExcelImport(
+        async (f) => {
+            const { ok, data } = await bomApi.mergeJson(specId, f);
+            if (ok && data.success) {
+                setMeta(data.meta);
+                if (!data.meta?.errors?.length) {
+                    // Нет ошибок — закрываем автоматически
+                    setTimeout(() => onMerged(data.data), 1500);
+                }
+                // Есть ошибки — ждём пока пользователь сам закроет
+                return { ok: true, warnings: data.meta?.warnings || [] };
             }
-        } else {
-            setError(data.error || 'Ошибка импорта PDF');
-            if (data.data?.errors) {
-                setWarnings(data.data.errors);
-            }
+            return { ok: false, error: data.error };
         }
-        setLoading(false);
-    };
+    );
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center
-                        bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
-                            border border-gray-200 dark:border-gray-700
-                            w-full max-w-md p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                        Импорт чертежа (PDF)
+                        Импорт из JSON
                     </h2>
-                    <button onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 text-xl leading-none">
-                        ×
-                    </button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
                 </div>
-
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Выберите PDF файл с чертежом. Система попытается извлечь таблицу
-                    спецификации со страниц "Материалы и элементы".
+                    JSON файл с комплектующими. Новые строки добавятся, существующие обновятся.
                 </p>
-
-                <label className={`flex flex-col items-center justify-center
-                                   border-2 border-dashed rounded-lg p-6 cursor-pointer
-                                   transition-colors
-                                   ${file
-                        ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20'
-                        : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
-                    }`}>
-                    <input
-                        type="file"
-                        accept=".pdf"
-                        className="hidden"
-                        onChange={e => {
-                            setFile(e.target.files[0] || null);
-                            setError('');
-                            setWarnings([]);
-                        }}
-                    />
-                    {file ? (
-                        <>
-                            <span className="text-2xl mb-1">📄</span>
-                            <span className="text-sm font-medium text-orange-700 dark:text-orange-300 text-center">
-                                {file.name}
-                            </span>
-                        </>
-                    ) : (
-                        <>
-                            <span className="text-2xl mb-1 text-gray-400">📤</span>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                                Нажмите для выбора PDF
-                            </span>
-                        </>
-                    )}
-                </label>
-
-                {error && <p className="text-xs text-red-500">{error}</p>}
-
-                {warnings.length > 0 && (
-                    <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 border border-amber-200 max-h-32 overflow-y-auto">
-                        <p className="text-xs font-medium text-amber-700 mb-1">Предупреждения:</p>
-                        {warnings.map((w, i) => <p key={i} className="text-[10px] text-amber-600">· {w}</p>)}
+                <FileDropZone file={file} onFile={handleFile} error={error} accept=".json" hint=".json" />
+                {warnings.length > 0 && <WarningsList warnings={warnings} />}
+                {meta && (
+                    <div className="space-y-2">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-3
+                        border border-emerald-200 dark:border-emerald-800
+                        text-xs text-emerald-700 dark:text-emerald-300 space-y-0.5">
+                            <div>✓ Добавлено: {meta.added}</div>
+                            <div>↻ Обновлено: {meta.updated}</div>
+                            <div>— Без изменений: {meta.skipped}</div>
+                        </div>
+                        {meta.errors?.length > 0 && (
+                            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3
+                            border border-red-200 dark:border-red-800
+                            max-h-32 overflow-y-auto">
+                                <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
+                                    Не найдено в номенклатуре ({meta.errors.length}):
+                                </p>
+                                {meta.errors.map((e, i) => (
+                                    <p key={i} className="text-xs text-red-600 dark:text-red-400">· {e}</p>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
-
-                <div className="flex justify-end gap-2">
-                    <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500">Отмена</button>
-                    <button
-                        onClick={handleImport}
-                        disabled={loading || !file}
-                        className="px-4 py-2 text-sm rounded-lg bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
-                    >
-                        {loading ? 'Обработка...' : 'Импортировать'}
-                    </button>
-                </div>
+                <ModalFooter
+                    onClose={() => {
+                        if (meta && (meta.updated > 0 || meta.added > 0)) {
+                            onMerged(null);
+                        }
+                        onClose();
+                    }}
+                    onConfirm={meta ? null : run}  // ← если meta есть — скрываем кнопку импорта
+                    loading={loading}
+                    disabled={!file}
+                    confirmLabel="Импортировать"
+                    closeLabel={meta ? "Закрыть" : "Отмена"}  // ← меняем текст
+                />
             </div>
         </div>
     );
 }
 
 function SyncModal({ onClose, onRefresh }) {
-    const [activeTask, setActiveTask] = useState(null); // { id: '...', label: '...' }
-    const [status, setStatus] = useState(''); // 'pending', 'success', 'error'
-    const [message, setMessage] = useState('');
+    const [configs, setConfigs] = useState([]);
+    const [statuses, setStatuses] = useState({}); // { configId: 'pending'|'success'|'error' }
+    const [messages, setMessages] = useState({});  // { configId: '...' }
+    const [globalStatus, setGlobalStatus] = useState('');
+    const [globalMessage, setGlobalMessage] = useState('');
 
-    // Функция для периодической проверки статуса задачи Celery
-    const pollTaskStatus = async (taskId, label) => {
+    useEffect(() => {
+        bomApi.getSyncConfigs().then(({ ok, data }) => {
+            if (ok && data.success) setConfigs(data.data);
+        });
+    }, []);
+
+    const pollTaskStatus = (taskId, configId, label) => {
         const interval = setInterval(async () => {
             const { ok, data } = await bomApi.getTaskStatus(taskId);
             if (ok && data.success) {
                 if (data.data.ready) {
                     clearInterval(interval);
-                    setStatus('success');
-                    setMessage(`${label} успешно завершена`);
+                    setStatuses(s => ({ ...s, [configId]: 'success' }));
+                    setMessages(m => ({ ...m, [configId]: `✓ Завершено` }));
                     onRefresh();
-                    setTimeout(() => { setActiveTask(null); setStatus(''); }, 3000);
                 } else if (data.data.status === 'FAILURE') {
                     clearInterval(interval);
-                    setStatus('error');
-                    setMessage(`Ошибка при выполнении: ${label}`);
+                    setStatuses(s => ({ ...s, [configId]: 'error' }));
+                    setMessages(m => ({ ...m, [configId]: 'Ошибка выполнения' }));
                 }
             }
         }, 2000);
     };
 
+    const handleSyncConfig = async (configId, label) => {
+        setStatuses(s => ({ ...s, [configId]: 'pending' }));
+        setMessages(m => ({ ...m, [configId]: 'Запуск...' }));
+
+        const { ok, data } = await bomApi.syncBomConfig(configId);
+        if (ok && data.success) {
+            if (data.data?.task_id) {
+                setMessages(m => ({ ...m, [configId]: 'Выполняется...' }));
+                pollTaskStatus(data.data.task_id, configId, label);
+            } else {
+                setStatuses(s => ({ ...s, [configId]: 'success' }));
+                setMessages(m => ({ ...m, [configId]: '✓ Завершено' }));
+                onRefresh();
+            }
+        } else {
+            setStatuses(s => ({ ...s, [configId]: 'error' }));
+            setMessages(m => ({ ...m, [configId]: data.error || 'Ошибка' }));
+        }
+    };
+
     const handleSyncAction = async (actionType, label) => {
-        setStatus('pending');
-        setMessage(`Запуск: ${label}...`);
-        
+        setGlobalStatus('pending');
+        setGlobalMessage(`Запуск: ${label}...`);
+
         let result;
         if (actionType === 'nomenclature') {
             result = await bomApi.syncParts('', 100);
@@ -2492,26 +3101,30 @@ function SyncModal({ onClose, onRefresh }) {
         } else if (actionType === 'spec_folders') {
             result = await bomApi.syncFolders();
         } else if (actionType === 'all_bom') {
-            result = await bomApi.syncFolder({}); // Запуск всех тяжелых конфигов
+            result = await bomApi.syncFolder({});
         }
 
         const { ok, data } = result;
         if (ok && data.success) {
             if (data.data?.task_id) {
-                // Если бэкенд вернул ID фоновой задачи
-                setActiveTask({ id: data.data.task_id, label });
-                pollTaskStatus(data.data.task_id, label);
+                pollTaskStatus(data.data.task_id, 'global', label);
             } else {
-                // Если бэкенд выполнил всё синхронно
-                setStatus('success');
-                setMessage(`${label} завершена`);
+                setGlobalStatus('success');
+                setGlobalMessage(`${label} завершена`);
                 onRefresh();
-                setTimeout(() => { setStatus(''); setMessage(''); }, 2000);
+                setTimeout(() => { setGlobalStatus(''); setGlobalMessage(''); }, 2000);
             }
         } else {
-            setStatus('error');
-            setMessage(data.error || 'Ошибка при запуске');
+            setGlobalStatus('error');
+            setGlobalMessage(data.error || 'Ошибка при запуске');
         }
+    };
+
+    const anyPending = Object.values(statuses).includes('pending') || globalStatus === 'pending';
+
+    const SYNC_TYPE_ICON = {
+        bom_materials: '📦',
+        bom_production: '🏭',
     };
 
     return (
@@ -2522,51 +3135,70 @@ function SyncModal({ onClose, onRefresh }) {
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
                 </div>
 
-                <div className="p-6 space-y-3">
-                    <SyncButton 
-                        label="Номенклатура (Детали/Материалы)" 
+                <div className="p-6 space-y-3 max-h-[70vh] overflow-y-auto">
+                    {/* Базовые синхронизации */}
+                    <SyncButton
+                        label="Номенклатура (Детали/Материалы)"
                         description="Обновляет названия, артикулы и единицы измерения"
-                        icon="📦"
-                        loading={status === 'pending'}
+                        icon="🔤"
+                        loading={anyPending}
+                        status={globalStatus}
+                        message={globalStatus ? globalMessage : ''}
                         onClick={() => handleSyncAction('nomenclature', 'Синхронизация номенклатуры')}
                     />
-
-                    <SyncButton 
-                        label="Пути производства" 
+                    <SyncButton
+                        label="Пути производства"
                         description="Обновляет дерево папок в разделе ПРОИЗВОДСТВО"
                         icon="🏭"
-                        loading={status === 'pending'}
+                        loading={anyPending}
                         onClick={() => handleSyncAction('production_folders', 'Синхронизация путей производства')}
                     />
-
-                    <SyncButton 
-                        label="Папки спецификаций" 
+                    <SyncButton
+                        label="Папки спецификаций"
                         description="Обновляет дерево папок для хранения спецификаций"
                         icon="📁"
-                        loading={status === 'pending'}
+                        loading={anyPending}
                         onClick={() => handleSyncAction('spec_folders', 'Синхронизация папок спецификаций')}
                     />
 
-                    <hr className="my-4 border-gray-100 dark:border-gray-800" />
+                    <hr className="border-gray-100 dark:border-gray-800" />
 
-                    <SyncButton 
-                        label="Полная синхронизация" 
+                    {/* Динамические конфиги */}
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Номенклатура по папкам
+                    </p>
+                    {configs.map(c => (
+                        <SyncButton
+                            key={c.id}
+                            label={c.name}
+                            description={c.sync_type === 'bom_production' ? 'Папка производства' : 'Папка комплектации'}
+                            icon={SYNC_TYPE_ICON[c.sync_type] || '📦'}
+                            loading={statuses[c.id] === 'pending'}
+                            status={statuses[c.id]}
+                            message={messages[c.id] || ''}
+                            onClick={() => handleSyncConfig(c.id, c.name)}
+                        />
+                    ))}
+
+                    <hr className="border-gray-100 dark:border-gray-800" />
+
+                    <SyncButton
+                        label="Полная синхронизация"
                         description="Запуск всех фоновых процессов обновления BOM"
                         icon="⚡"
                         variant="primary"
-                        loading={status === 'pending'}
+                        loading={anyPending}
                         onClick={() => handleSyncAction('all_bom', 'Полная синхронизация')}
                     />
                 </div>
 
-                {/* Статус-бар внизу модалки */}
-                {message && (
+                {globalMessage && (
                     <div className={`px-6 py-3 text-xs font-medium border-t flex items-center gap-2
-                        ${status === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
-                          status === 'error' ? 'bg-red-50 text-red-700 border-red-100' : 
-                          'bg-blue-50 text-blue-700 border-blue-100 animate-pulse'}`}>
-                        {status === 'pending' && <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />}
-                        {message}
+                        ${globalStatus === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                            globalStatus === 'error' ? 'bg-red-50 text-red-700 border-red-100' :
+                                'bg-blue-50 text-blue-700 border-blue-100 animate-pulse'}`}>
+                        {globalStatus === 'pending' && <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />}
+                        {globalMessage}
                     </div>
                 )}
             </div>
@@ -2575,28 +3207,41 @@ function SyncModal({ onClose, onRefresh }) {
 }
 
 // Вспомогательный компонент кнопки
-function SyncButton({ label, description, icon, onClick, loading, variant = 'secondary' }) {
+function SyncButton({ label, description, icon, onClick, loading, variant = 'secondary', status, message }) {
     return (
-        <button
-            onClick={onClick}
-            disabled={loading}
-            className={`w-full text-left p-3 rounded-lg border transition-all flex items-start gap-3 group
-                ${variant === 'primary' 
-                    ? 'bg-blue-600 border-blue-700 hover:bg-blue-700 text-white' 
-                    : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-            <span className="text-2xl">{icon}</span>
-            <div className="flex-1">
-                <div className={`text-sm font-semibold ${variant === 'primary' ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
-                    {label}
+        <div className="space-y-1">
+            <button
+                onClick={onClick}
+                disabled={loading}
+                className={`w-full text-left p-3 rounded-lg border transition-all flex items-start gap-3 group
+                    ${variant === 'primary'
+                        ? 'bg-blue-600 border-blue-700 hover:bg-blue-700 text-white'
+                        : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+                <span className="text-2xl">{icon}</span>
+                <div className="flex-1">
+                    <div className={`text-sm font-semibold ${variant === 'primary' ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
+                        {label}
+                    </div>
+                    <div className={`text-[11px] mt-0.5 ${variant === 'primary' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {description}
+                    </div>
                 </div>
-                <div className={`text-[11px] mt-0.5 ${variant === 'primary' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>
-                    {description}
+                {loading
+                    ? <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping mt-1" />
+                    : <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500">→</span>
+                }
+            </button>
+            {message && (
+                <div className={`text-xs px-3 py-1 rounded ${status === 'success' ? 'text-emerald-600 dark:text-emerald-400' :
+                    status === 'error' ? 'text-red-600 dark:text-red-400' :
+                        'text-blue-600 dark:text-blue-400'
+                    }`}>
+                    {message}
                 </div>
-            </div>
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500">→</span>
-        </button>
+            )}
+        </div>
     );
 }
 
@@ -2609,6 +3254,431 @@ function Field({ label, children, span = 1 }) {
                 {label}
             </label>
             {children}
+        </div>
+    );
+}
+
+// ─── PackagingModal ───────────────────────────────────────────────────────────
+
+function PackagingModal({ onClose }) {
+    const [packList, setPackList] = useState([]);
+    const [syncing, setSyncing] = useState(false);
+    const [creating, setCreating] = useState(false);
+
+    // Поиск номенклатуры
+    const [nomSearch, setNomSearch] = useState('');
+    const [nomResults, setNomResults] = useState([]);
+    const [nomOpen, setNomOpen] = useState(false);
+    const [selectedNoms, setSelectedNoms] = useState([]);
+    const [assignResults, setAssignResults] = useState([]);
+    const nomRef = useRef(null);
+
+    // Выбранная тара
+    const [selectedPack, setSelectedPack] = useState(null);
+    const [packSearch, setPackSearch] = useState('');
+
+    // Форма создания тары
+    const [form, setForm] = useState({
+        name: '', length: '', width: '', height: '',
+        weight: '', package_type: '', qty_on_pallet: '',
+        qty_in_order: '',
+    });
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState('');
+    const [error, setError] = useState('');
+
+    // Назначение тары
+    const [assigning, setAssigning] = useState(false);
+    const [assignResult, setAssignResult] = useState('');
+
+    const PACK_TYPES = [
+        { value: 'box', label: 'Box' },
+        { value: 'Kor', label: 'Короб' },
+        { value: 'cyl', label: 'Бочка (кега)' },
+        { value: 'nu', label: 'н/у' },
+    ];
+
+    const loadPackaging = useCallback(async () => {
+        setSyncing(true);
+        const { ok, data } = await bomApi.getPackaging();
+        if (ok && data.success) setPackList(data.data);
+        setSyncing(false);
+    }, []);
+
+    useEffect(() => { loadPackaging(); }, [loadPackaging]);
+
+    // Поиск номенклатуры
+    useEffect(() => {
+        if (nomSearch.length < 2) { setNomResults([]); setNomOpen(false); return; }
+        const t = setTimeout(async () => {
+            const { ok, data } = await catalogApi.searchProducts(nomSearch, { limit: 15 });
+            if (ok && data.success) {
+                setNomResults(data.data);
+                setNomOpen(true);  // ← этого не хватало
+            }
+        }, 300);
+        return () => clearTimeout(t);
+    }, [nomSearch]);
+
+    const filteredPacks = packSearch.trim()
+        ? packList.filter(p => p.name.toLowerCase().includes(packSearch.toLowerCase()))
+        : packList;
+
+        const handleAssign = async () => {
+            if (!selectedNoms.length || !selectedPack) return;
+            setAssigning(true);
+            setAssignResults([]);
+            setAssignResult('');
+        
+            const results = [];
+            for (const nom of selectedNoms) {
+                const { ok, data } = await bomApi.setPackaging(nom.name, selectedPack.name);
+                results.push({ id: nom.id, ok: ok && data.success, error: data.error });
+            }
+            setAssignResults(results);
+        
+            const successCount = results.filter(r => r.ok).length;
+            const failCount = results.length - successCount;
+            setAssignResult(
+                failCount === 0
+                    ? `✓ Тара назначена на ${successCount} позиц.`
+                    : `✓ ${successCount} назначено, ✗ ${failCount} ошибок`
+            );
+            setAssigning(false);
+        };
+
+    const handleCreate = async () => {
+        if (!form.name.trim()) { setError('Укажите наименование'); return; }
+        setSaving(true);
+        setError('');
+        setSaved('');
+        const payload = { name: form.name.trim() };
+        if (form.length) payload.length = parseFloat(form.length);
+        if (form.width) payload.width = parseFloat(form.width);
+        if (form.height) payload.height = parseFloat(form.height);
+        if (form.weight) payload.weight = parseFloat(form.weight);
+        if (form.package_type) payload.package_type = form.package_type;
+        if (form.qty_on_pallet) payload.qty_on_pallet = parseInt(form.qty_on_pallet);
+        if (form.qty_in_order) payload.qty_in_order = parseInt(form.qty_in_order);
+
+        const { ok, data } = await bomApi.updatePackaging(payload);
+        if (ok && data.success) {
+            setSaved(`✓ «${form.name}» сохранена`);
+            setForm({ name: '', length: '', width: '', height: '', weight: '', package_type: '', qty_on_pallet: '', qty_in_order: '' });
+            setCreating(false);
+            loadPackaging();
+        } else {
+            setError(data.error || 'Ошибка сохранения');
+        }
+        setSaving(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-4xl
+                            max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700">
+                {/* Шапка */}
+                <div className="flex items-center justify-between px-5 py-4
+                                border-b border-gray-200 dark:border-gray-700 shrink-0">
+                    <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Пак Тара</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Управление упаковкой номенклатуры 1С
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={loadPackaging}
+                            disabled={syncing}
+                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200
+                                       dark:border-gray-700 text-gray-600 dark:text-gray-400
+                                       hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50
+                                       transition-colors">
+                            {syncing ? '⟳ Загрузка...' : '⟳ Синхронизировать'}
+                        </button>
+                        <button
+                            onClick={() => { setCreating(c => !c); setError(''); setSaved(''); }}
+                            className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600
+                                       hover:bg-emerald-700 text-white transition-colors">
+                            {creating ? '✕ Отмена' : '+ Создать тару'}
+                        </button>
+                        <button onClick={onClose}
+                            className="text-gray-400 hover:text-gray-600 text-xl leading-none ml-2">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex flex-1 overflow-hidden">
+                    {/* Левая колонка — список тары */}
+                    <div className="w-72 shrink-0 border-r border-gray-200 dark:border-gray-700
+                                    flex flex-col">
+                        <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                            <input
+                                value={packSearch}
+                                onChange={e => setPackSearch(e.target.value)}
+                                placeholder="Поиск тары..."
+                                className={inputCls}
+                            />
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                            {syncing ? (
+                                <div className="p-4 text-sm text-gray-400 text-center">Загрузка...</div>
+                            ) : filteredPacks.length === 0 ? (
+                                <div className="p-4 text-sm text-gray-400 text-center">Нет тары</div>
+                            ) : (
+                                filteredPacks.map((p, i) => (
+                                    <div key={i}
+                                        onClick={() => {
+                                            setSelectedPack(p);
+                                            setAssignResult('');
+                                        }}
+                                        className={`px-4 py-3 cursor-pointer border-b
+                                                    border-gray-100 dark:border-gray-800
+                                                    hover:bg-gray-50 dark:hover:bg-gray-800
+                                                    transition-colors
+                                                    ${selectedPack?.name === p.name
+                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-blue-500'
+                                                : ''}`}>
+                                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate"
+                                            title={p.name}>
+                                            {p.name}
+                                        </div>
+                                        <div className="text-xs text-gray-400 mt-0.5">
+                                            {p.length}×{p.width}×{p.height} мм
+                                            {p.weight > 0 && ` · ${p.weight} кг`}
+                                            {p.package_type && ` · ${p.package_type}`}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Правая панель */}
+                    <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                        {/* Форма создания */}
+                        {creating && (
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3
+                                            border border-gray-200 dark:border-gray-700">
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                    Новая / обновить тару
+                                </h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="col-span-2">
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                                            Наименование *
+                                        </label>
+                                        <input
+                                            value={form.name}
+                                            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                                            placeholder="Точное наименование как в 1С"
+                                            className={inputCls}
+                                            autoFocus
+                                        />
+                                    </div>
+                                    {[
+                                        { key: 'length', label: 'Длина, мм' },
+                                        { key: 'width', label: 'Ширина, мм' },
+                                        { key: 'height', label: 'Высота, мм' },
+                                        { key: 'weight', label: 'Масса, кг' },
+                                        { key: 'qty_on_pallet', label: 'Кол-во на палете' },
+                                        { key: 'qty_in_order', label: 'Кол-во в заказе' },
+                                    ].map(({ key, label }) => (
+                                        <div key={key}>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">
+                                                {label}
+                                            </label>
+                                            <input
+                                                type="number" min={0}
+                                                value={form[key]}
+                                                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                                                className={inputCls}
+                                            />
+                                        </div>
+                                    ))}
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                                            Вид тары
+                                        </label>
+                                        <select
+                                            value={form.package_type}
+                                            onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))}
+                                            className={inputCls}>
+                                            <option value="">—</option>
+                                            {PACK_TYPES.map(t => (
+                                                <option key={t.value} value={t.value}>{t.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                                {error && <p className="text-xs text-red-500">{error}</p>}
+                                {saved && <p className="text-xs text-emerald-600">{saved}</p>}
+                                <button
+                                    onClick={handleCreate}
+                                    disabled={saving || !form.name.trim()}
+                                    className="w-full py-2 text-sm rounded-lg bg-emerald-600
+                                               hover:bg-emerald-700 text-white disabled:opacity-50
+                                               transition-colors">
+                                    {saving ? 'Сохранение...' : 'Сохранить в 1С'}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Назначение тары на номенклатуру */}
+                        <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                Назначить тару на номенклатуру
+                            </h4>
+
+                            {/* Поиск и добавление в список */}
+                            <div className="relative">
+                                <label className="block text-xs font-medium text-gray-500 mb-1">
+                                    Номенклатура 1С (можно добавить несколько)
+                                </label>
+                                <input
+                                    ref={nomRef}
+                                    value={nomSearch}
+                                    onChange={e => {
+                                        setNomSearch(e.target.value);
+                                        setAssignResult('');
+                                        if (!e.target.value) { setNomOpen(false); setNomResults([]); }
+                                    }}
+                                    placeholder="Начните вводить название..."
+                                    className={inputCls}
+                                />
+                                {nomOpen && (
+                                    <Dropdown
+                                        anchorRef={nomRef}
+                                        items={nomResults}
+                                        onSelect={part => {
+                                            // Добавляем если ещё нет в списке
+                                            setSelectedNoms(prev =>
+                                                prev.find(p => p.id === part.id) ? prev : [...prev, part]
+                                            );
+                                        }}
+                                        renderItem={part => (
+                                            <div>
+                                                <div className="text-gray-900 dark:text-white">{part.name}</div>
+                                                {part.sku && <div className="text-gray-400 text-[10px]">{part.sku}</div>}
+                                            </div>
+                                        )}
+                                    />
+                                )}
+                            </div>
+
+                            {/* Список выбранных номенклатур */}
+                            {selectedNoms.length > 0 && (
+                                <div className="space-y-1">
+                                    {selectedNoms.map(nom => {
+                                        const result = assignResults.find(r => r.id === nom.id);
+                                        return (
+                                            <div key={nom.id}
+                                                className="flex items-center justify-between px-3 py-2 rounded-lg
+                                   bg-gray-50 dark:bg-gray-800 border
+                                   border-gray-200 dark:border-gray-700">
+                                                <div className="min-w-0">
+                                                    <div className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                                                        {nom.name}
+                                                    </div>
+                                                    {nom.sku && (
+                                                        <div className="text-xs text-gray-400">{nom.sku}</div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0 ml-2">
+                                                    {result && (
+                                                        <span className={`text-xs ${result.ok
+                                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                                            : 'text-red-500 dark:text-red-400'}`}>
+                                                            {result.ok ? '✓' : '✗'}
+                                                        </span>
+                                                    )}
+                                                    <button
+                                                        onClick={() => setSelectedNoms(prev =>
+                                                            prev.filter(p => p.id !== nom.id)
+                                                        )}
+                                                        className="text-gray-300 dark:text-gray-600
+                                           hover:text-red-500 transition-colors">
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    <button
+                                        onClick={() => { setSelectedNoms([]); setAssignResults([]); }}
+                                        className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+                                        Очистить список
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Выбранная тара */}
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">
+                                    Тара (выберите из списка слева)
+                                </label>
+                                <div className={`px-3 py-2 text-sm rounded-lg border
+                        ${selectedPack
+                                        ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                                        : 'border-gray-200 dark:border-gray-700 text-gray-400 bg-gray-50 dark:bg-gray-800'}`}>
+                                    {selectedPack
+                                        ? `${selectedPack.name} (${selectedPack.length}×${selectedPack.width}×${selectedPack.height} мм)`
+                                        : 'Не выбрана'}
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleAssign}
+                                disabled={assigning || selectedNoms.length === 0 || !selectedPack}
+                                className="w-full py-2 text-sm rounded-lg bg-blue-600
+                   hover:bg-blue-700 text-white disabled:opacity-50
+                   transition-colors">
+                                {assigning
+                                    ? 'Назначение...'
+                                    : `Назначить тару${selectedNoms.length > 1 ? ` (${selectedNoms.length})` : ''}`}
+                            </button>
+
+                            {assignResult && (
+                                <p className={`text-xs ${assignResult.startsWith('✓')
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : 'text-red-500 dark:text-red-400'}`}>
+                                    {assignResult}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Детали выбранной тары */}
+                        {selectedPack && (
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4
+                                            border border-gray-200 dark:border-gray-700">
+                                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400
+                                               uppercase tracking-wide mb-3">
+                                    Параметры выбранной тары
+                                </h4>
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    {[
+                                        ['Длина', `${selectedPack.length} мм`],
+                                        ['Ширина', `${selectedPack.width} мм`],
+                                        ['Высота', `${selectedPack.height} мм`],
+                                        ['Масса', selectedPack.weight ? `${selectedPack.weight} кг` : '—'],
+                                        ['Вид тары', selectedPack.package_type || '—'],
+                                        ['На палете', selectedPack.qty_on_pallet || '—'],
+                                        ['В заказе', selectedPack.qty_in_order || '—'],
+                                    ].map(([label, value]) => (
+                                        <div key={label}>
+                                            <span className="text-xs text-gray-400">{label}: </span>
+                                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                {value}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

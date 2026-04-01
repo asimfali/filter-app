@@ -30,15 +30,15 @@ export const bomApi = {
     createFolder: (payload) =>
         request('POST', `${BASE}/folders/create/`, payload),
     searchFolders: (type, q, root = null) => {
-        const qs = new URLSearchParams({ 
-            type, 
-            search: q 
+        const qs = new URLSearchParams({
+            type,
+            search: q
         });
-    
+
         if (root !== null) {
             qs.set('root', root);
         }
-    
+
         return request('GET', `${BASE}/folders/?${qs}`);
     },
 
@@ -60,8 +60,19 @@ export const bomApi = {
         request('POST', `${BASE}/parts/`, payload),
     syncParts: (search = '', limit = 50) =>
         request('POST', `${BASE}/parts/sync/`, { search, limit }),
+    getSyncConfigs: () => request('GET', `${BASE}/sync-configs/`),
+    syncBomConfig: (configId) =>
+        request('POST', `${BASE}/sync-folder/`, { config_id: configId }),
+    getTaskStatus: (taskId) =>
+        request('GET', `${BASE}/task-status/${taskId}/`),
     createPartIn1C: (partId) =>
         request('POST', `${BASE}/parts/create-in-1c/`, { part_id: partId }),
+    searchPartsUnitWeight: (q) => {
+        const qs = new URLSearchParams({ q });
+        return request('GET', `${BASE}/parts/unit-weight/?${qs}`);
+    },
+    savePartsUnitWeight: (items) =>
+        request('PATCH', `${BASE}/parts/unit-weight/`, { items }),
 
     // Спецификации
     getSpecs: (params = {}) => {
@@ -80,12 +91,23 @@ export const bomApi = {
         request('DELETE', `${BASE}/specs/${specId}/`),
     pullSpec: (payload) =>
         request('POST', `${BASE}/specs/pull/`, payload),
+    cloneSpec: (specId, newName) =>
+        request('POST', `${BASE}/specs/${specId}/clone/`, { new_name: newName }),
+
+    // Пак Тара
+    getPackaging: () => request('GET', `${BASE}/packaging/`),
+    setPackaging: (nomenclature_name, package_name) =>
+        request('POST', `${BASE}/packaging/set/`, { nomenclature_name, package_name }),
+    updatePackaging: (payload) =>
+        request('POST', `${BASE}/packaging/update/`, payload),
 
     // Этапы и материалы
     updateStages: (specId, stages) =>
         request('PUT', `${BASE}/specs/${specId}/stages/`, { stages }),
     updateMaterials: (specId, materials) =>
         request('PUT', `${BASE}/specs/${specId}/materials/`, { materials }),
+    updateDetails: (specId) =>
+        request('POST', `${BASE}/specs/${specId}/update-details/`, {}),
 
     // Workflow
     validateSpec: (specId) =>
@@ -135,13 +157,23 @@ export const bomApi = {
         if (params.q) qs.set('q', params.q);      // ← добавить
         return request('GET', `${BASE}/specs/?${qs}`);
     },
-    importFromPdf: (file) => {
+    mergeExcel: (specId, file) => {
         const formData = new FormData();
         formData.append('file', file);
-        return fetch(`${BASE}/specs/import-pdf/`, {
+        return fetch(`${BASE}/specs/${specId}/merge-excel/`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` },
             body: formData,
         }).then(async res => ({ ok: res.ok, data: await res.json() }));
     },
+    mergeJson: (specId, file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return fetch(`${BASE}/specs/${specId}/merge-json/`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` },
+            body: formData,
+        }).then(async res => ({ ok: res.ok, data: await res.json() }));
+    },
+    getUnits: () => request('GET', `${BASE}/units/`),
 };

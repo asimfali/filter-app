@@ -212,30 +212,40 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                     {presets.length > 0 && (
                         <div>
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400
-                                          uppercase tracking-wide mb-2">
-                                Пресет этапов по умолчанию
+                                      uppercase tracking-wide mb-2">
+                                Пресет этапов сборки
                             </p>
                             <select
-                                value={prefs?.default_stage_preset_id || ''}
-                                onChange={e => handlePresetChange(e.target.value || null)}
+                                value={prefs?.default_assembly_stage_preset_id || ''}
+                                onChange={async (e) => {
+                                    setSaving(true);
+                                    const { ok, data } = await authApi.updatePreferences({
+                                        default_assembly_stage_preset_id: e.target.value
+                                            ? parseInt(e.target.value) : null,
+                                    });
+                                    if (ok && data.success) {
+                                        setPrefs(data.data);
+                                        showSuccess('Настройки сохранены');
+                                    }
+                                    setSaving(false);
+                                }}
                                 disabled={saving}
                                 className="w-full px-3 py-1.5 text-sm rounded-lg
-                                           bg-gray-50 dark:bg-gray-800
-                                           border border-gray-200 dark:border-gray-700
-                                           text-gray-900 dark:text-white
-                                           focus:outline-none focus:border-blue-500
-                                           disabled:opacity-60 transition-colors">
-                                <option value="">— Не выбран (глобальный дефолт) —</option>
+                                       bg-gray-50 dark:bg-gray-800
+                                       border border-gray-200 dark:border-gray-700
+                                       text-gray-900 dark:text-white
+                                       focus:outline-none focus:border-blue-500
+                                       disabled:opacity-60 transition-colors">
+                                <option value="">— Не выбран —</option>
                                 {presets.map(p => (
                                     <option key={p.id} value={p.id}>
-                                        {p.name}
-                                        {p.is_default ? ' ★' : ''}
+                                        {p.name}{p.is_default ? ' ★' : ''}
                                     </option>
                                 ))}
                             </select>
-                            {prefs?.default_stage_preset_name && (
+                            {prefs?.default_assembly_stage_preset_name && (
                                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                    Текущий: {prefs.default_stage_preset_name}
+                                    Текущий: {prefs.default_assembly_stage_preset_name}
                                 </p>
                             )}
                         </div>
