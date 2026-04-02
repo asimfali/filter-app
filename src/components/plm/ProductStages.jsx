@@ -11,10 +11,10 @@ const STATUS_LABEL = {
 };
 
 const STATUS_COLOR = {
-    draft:            'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+    draft:            'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
     pending_approval: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
     active:           'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    archived:         'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+    archived:         'bg-neutral-100 text-gray-400 dark:bg-neutral-800 dark:text-gray-500',
 };
 
 const DECISION_COLOR = {
@@ -85,7 +85,7 @@ export default function ProductStages({ stages, productId, onStageChange }) {
     };
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
             <div className="text-xs font-medium text-gray-500 dark:text-gray-400
                             uppercase tracking-wide mb-3">
                 Стадии (PLM)
@@ -103,7 +103,7 @@ export default function ProductStages({ stages, productId, onStageChange }) {
                             {/* Шапка стадии */}
                             <div
                                 className="flex items-center justify-between px-3 py-2.5
-                                           hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                                           hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
                                 onClick={() => toggleStage(stage.id)}
                             >
                                 <div className="flex items-center gap-2">

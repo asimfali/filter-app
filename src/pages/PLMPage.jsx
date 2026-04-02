@@ -15,10 +15,10 @@ const STATUS_LABEL = {
 };
 
 const STATUS_COLOR = {
-    draft: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+    draft: 'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
     pending_approval: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
     active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    archived: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+    archived: 'bg-neutral-100 text-gray-400 dark:bg-neutral-800 dark:text-gray-500',
 };
 
 const DECISION_ICON = { pending: '○', approved: '✓', rejected: '✗' };
@@ -263,11 +263,11 @@ function GroupsTab({ onOpenProduct, refData }) {
 
                 return (
                     <div key={group.id}
-                        className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden">
+                        className="bg-white dark:bg-neutral-900 rounded-lg shadow overflow-hidden">
                         {/* Шапка группы */}
                         <div
                             className="flex items-center justify-between px-5 py-3.5
-               cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+               cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800"
                             onClick={() => toggleGroup(group.id)}
                         >
                             <div className="flex items-center gap-3">
@@ -320,7 +320,7 @@ function GroupsTab({ onOpenProduct, refData }) {
 
                                 {/* Панель batch-действий */}
                                 {canManage && (draftIds.length > 0 || pendingIds.length > 0) && (
-                                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg px-4 py-3 space-y-3">
+                                    <div className="bg-neutral-50 dark:bg-neutral-800 rounded-lg px-4 py-3 space-y-3">
                                         <div className="flex items-center gap-2 text-xs text-gray-500">
                                             <span>Выбрано: {selected.size} из {stages.length}</span>
                                             <button onClick={() => selectAll(group.id)}
@@ -341,7 +341,7 @@ function GroupsTab({ onOpenProduct, refData }) {
                                                         value={batchPreset}
                                                         onChange={e => setBatchPreset(e.target.value)}
                                                         className="text-xs rounded border border-gray-200
-                                                                   dark:border-gray-700 bg-white dark:bg-gray-900
+                                                                   dark:border-gray-700 bg-white dark:bg-neutral-900
                                                                    text-gray-700 dark:text-gray-300
                                                                    px-2 py-1 focus:outline-none"
                                                     >
@@ -370,7 +370,7 @@ function GroupsTab({ onOpenProduct, refData }) {
                                                         value={batchDept}
                                                         onChange={e => setBatchDept(e.target.value)}
                                                         className="text-xs rounded border border-gray-200
-                                                                   dark:border-gray-700 bg-white dark:bg-gray-900
+                                                                   dark:border-gray-700 bg-white dark:bg-neutral-900
                                                                    text-gray-700 dark:text-gray-300
                                                                    px-2 py-1 focus:outline-none"
                                                     >
@@ -607,7 +607,7 @@ function ProductsTab({ onOpenProduct, refData }) {
                     onChange={e => setQuery(e.target.value)}
                     placeholder="Найти изделие (мин. 2 символа)..."
                     className="flex-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700
-                               bg-white dark:bg-gray-900 text-gray-900 dark:text-white
+                               bg-white dark:bg-neutral-900 text-gray-900 dark:text-white
                                px-4 py-2 focus:outline-none focus:border-blue-500"
                 />
                 <button type="submit" disabled={loading || query.length < 2}
@@ -619,7 +619,7 @@ function ProductsTab({ onOpenProduct, refData }) {
 
             {/* Toolbar выбранных */}
             {products.length > 0 && canCreate && (
-                <div className="flex items-center gap-3 bg-white dark:bg-gray-900
+                <div className="flex items-center gap-3 bg-white dark:bg-neutral-900
                                 rounded-lg shadow px-4 py-2.5">
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                         <span>Выбрано: {selectedProducts.size} из {products.length}</span>
@@ -661,7 +661,7 @@ function ProductsTab({ onOpenProduct, refData }) {
             <div className="space-y-2">
                 {products.map(product => (
                     <div key={product.id}
-                        className="bg-white dark:bg-gray-900 rounded-lg shadow
+                        className="bg-white dark:bg-neutral-900 rounded-lg shadow
                                    flex items-center gap-3 px-4 py-3">
                         <input
                             type="checkbox"
@@ -712,12 +712,12 @@ export default function PLMPage({ onOpenProduct }) {
             </div>
 
             {/* Вкладки */}
-            <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
+            <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg w-fit">
                 {tabs.map(t => (
                     <button key={t.id} onClick={() => setTab(t.id)}
                         className={`px-4 py-1.5 rounded text-sm transition-colors
                             ${tab === t.id
-                                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
                             }`}>
                         {t.label}

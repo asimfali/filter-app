@@ -11,3 +11,18 @@ input[type=number]::-webkit-inner-spin-button {
 input[type=number] {
     -moz-appearance: textfield;
 }
+
+.dark body,
+.dark #root {
+    background-color: theme('colors.zinc.950');
+}
+
+/* Перебить gray на zinc в тёмной теме */
+.dark .bg-neutral-950 { background-color: theme('colors.zinc.950'); }
+.dark .bg-neutral-900 { background-color: theme('colors.zinc.900'); }
+.dark .bg-neutral-800 { background-color: theme('colors.zinc.800'); }
+.dark .bg-neutral-700 { background-color: theme('colors.zinc.700'); }
+.dark .border-gray-700 { border-color: theme('colors.zinc.700'); }
+.dark .border-gray-800 { border-color: theme('colors.zinc.800'); }
+.dark .hover\:bg-neutral-800:hover { background-color: theme('colors.zinc.800'); }
+.dark .hover\:bg-neutral-700:hover { background-color: theme('colors.zinc.700'); }

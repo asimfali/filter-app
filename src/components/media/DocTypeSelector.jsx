@@ -16,7 +16,7 @@ export default function DocTypeSelector({ docTypes, activeDocType, onSelect, hin
                         className={`px-2 py-1 rounded text-xs font-medium transition-colors
                             ${activeDocType?.code === dt.code
                                 ? 'bg-emerald-600 text-white'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                : 'bg-neutral-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                             }`}
                     >
                         {dt.name}

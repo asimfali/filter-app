@@ -424,7 +424,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         <div
             ref={cyRef}
             className="w-full border border-gray-200 dark:border-gray-700 rounded-lg
-                       bg-white dark:bg-gray-900"
+                       bg-white dark:bg-neutral-900"
             style={{ minHeight: 400 }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}

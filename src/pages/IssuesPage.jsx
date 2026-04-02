@@ -10,7 +10,7 @@ const STATUS_LABEL = {
 };
 
 const STATUS_COLOR = {
-  open: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  open: 'bg-neutral-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-400',
   in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
   resolved: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
   verified: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -24,7 +24,7 @@ function ThreadCard({ thread, onOpen }) {
   return (
     <div
       onClick={() => onOpen(thread.id)}
-      className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800
+      className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-gray-800
                  rounded-xl p-4 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600
                  transition-colors"
     >
@@ -35,7 +35,7 @@ function ThreadCard({ thread, onOpen }) {
         </span>
         <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium
           ${thread.visibility === 'PUBLIC'
-            ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+            ? 'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400'
             : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
           }`}>
           {thread.visibility === 'PUBLIC' ? 'Публичный' : 'Ограниченный'}
@@ -60,7 +60,7 @@ function ThreadCard({ thread, onOpen }) {
 
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium
           ${thread.is_closed
-            ? 'bg-gray-100 text-gray-400 dark:bg-gray-800'
+            ? 'bg-neutral-100 text-gray-400 dark:bg-neutral-800'
             : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
           }`}>
           {thread.is_closed ? 'Закрыт' : 'Активен'}
@@ -107,13 +107,13 @@ export default function IssuesPage({ onOpenThread }) {
 
         {/* Индикатор WS */}
         <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
-          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-neutral-300 dark:bg-neutral-600'}`} />
           {connected ? 'Live' : 'Офлайн'}
         </div>
       </div>
 
       {/* Фильтр */}
-      <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-800/60 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 mb-4 bg-neutral-100 dark:bg-neutral-800/60 rounded-lg p-1 w-fit">
         {[
           { key: 'active', label: 'Активные' },
           { key: 'closed', label: 'Закрытые' },
@@ -124,7 +124,7 @@ export default function IssuesPage({ onOpenThread }) {
             onClick={() => setFilter(key)}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors
               ${filter === key
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                ? 'bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
           >

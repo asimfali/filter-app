@@ -107,7 +107,7 @@ export default function StageTransferPanel({ stage, onDone, onClose }) {
                     </div>
                 ) : (
                     <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800/60">
+                        <thead className="sticky top-0 bg-neutral-50 dark:bg-neutral-800/60">
                             <tr className="border-b border-gray-200 dark:border-gray-700">
                                 <th className="w-8 px-3 py-2">
                                     <input
@@ -137,7 +137,7 @@ export default function StageTransferPanel({ stage, onDone, onClose }) {
                                         onClick={() => toggle(spec.id)}
                                         className={`border-b border-gray-100 dark:border-gray-800
                                                     cursor-pointer transition-colors
-                                                    hover:bg-gray-50 dark:hover:bg-gray-800/40
+                                                    hover:bg-neutral-50 dark:hover:bg-neutral-800/40
                                                     ${selected.has(spec.id)
                                                 ? 'bg-violet-50/40 dark:bg-violet-900/10'
                                                 : ''}`}>
@@ -193,7 +193,7 @@ export default function StageTransferPanel({ stage, onDone, onClose }) {
                         <button onClick={onClose}
                             className="px-3 py-1.5 text-xs rounded-lg
                                        text-gray-600 dark:text-gray-400
-                                       hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                                       hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
                             Отмена
                         </button>
                         <button

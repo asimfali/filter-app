@@ -105,7 +105,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-end"
             onClick={onClose}>
-            <div className="mt-14 mr-4 w-80 bg-white dark:bg-gray-900
+            <div className="mt-14 mr-4 w-80 bg-white dark:bg-neutral-900
                             rounded-xl shadow-2xl
                             border border-gray-200 dark:border-gray-700
                             overflow-hidden"
@@ -117,7 +117,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                     {/* Аватарка */}
                     <div className="relative shrink-0">
                         <div className="w-12 h-12 rounded-full overflow-hidden
-                                        bg-gray-200 dark:bg-gray-700 flex items-center
+                                        bg-neutral-200 dark:bg-neutral-700 flex items-center
                                         justify-center cursor-pointer"
                             onClick={() => fileInputRef.current?.click()}>
                             {avatarUrl ? (
@@ -190,7 +190,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                       uppercase tracking-wide mb-2">
                             Тема
                         </p>
-                        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800
+                        <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800
                                         p-1 rounded-lg">
                             {THEMES.map(t => (
                                 <button
@@ -199,7 +199,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                     className={`flex-1 px-2 py-1.5 rounded text-xs
                                                 font-medium transition-colors
                                         ${prefs?.theme === t.id
-                                            ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                                            ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm'
                                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
                                         }`}>
                                     {t.label}
@@ -231,7 +231,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                 }}
                                 disabled={saving}
                                 className="w-full px-3 py-1.5 text-sm rounded-lg
-                                       bg-gray-50 dark:bg-gray-800
+                                       bg-neutral-50 dark:bg-neutral-800
                                        border border-gray-200 dark:border-gray-700
                                        text-gray-900 dark:text-white
                                        focus:outline-none focus:border-blue-500
@@ -271,7 +271,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                 }}
                                 disabled={saving}
                                 className="w-full px-3 py-1.5 text-sm rounded-lg
-                       bg-gray-50 dark:bg-gray-800
+                       bg-neutral-50 dark:bg-neutral-800
                        border border-gray-200 dark:border-gray-700
                        text-gray-900 dark:text-white
                        focus:outline-none focus:border-blue-500
@@ -304,7 +304,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                             }}
                             placeholder="Полуфабрикат"
                             className="w-full px-3 py-1.5 text-sm rounded-lg
-                   bg-gray-50 dark:bg-gray-800
+                   bg-neutral-50 dark:bg-neutral-800
                    border border-gray-200 dark:border-gray-700
                    text-gray-900 dark:text-white
                    focus:outline-none focus:border-blue-500

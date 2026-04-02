@@ -21,7 +21,7 @@ const STATUS_NEXT_LABEL = {
 };
 
 const STATUS_COLOR = {
-    open: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+    open: 'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
     in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
     resolved: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
     verified: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -38,8 +38,8 @@ function MessageBubble({ msg, currentUserId }) {
     if (msg.is_system) {
         return (
             <div className="flex justify-center my-2">
-                <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100
-                         dark:bg-gray-800 px-3 py-1 rounded-full">
+                <span className="text-xs text-gray-400 dark:text-gray-500 bg-neutral-100
+                         dark:bg-neutral-800 px-3 py-1 rounded-full">
                     {msg.text}
                 </span>
             </div>
@@ -63,7 +63,7 @@ function MessageBubble({ msg, currentUserId }) {
                 <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed
           ${isOwn
                         ? 'bg-blue-600 text-white rounded-tr-sm'
-                        : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-sm border border-gray-200 dark:border-gray-700'
+                        : 'bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 rounded-tl-sm border border-gray-200 dark:border-gray-700'
                     }`}>
                     {msg.text}
                     {msg.attachments?.length > 0 && (
@@ -177,8 +177,8 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
             <div
                 className={`px-4 py-3 flex items-center justify-between gap-3 cursor-pointer
                     ${isVerified
-                        ? 'bg-gray-50/50 dark:bg-gray-800/30'
-                        : 'bg-gray-50 dark:bg-gray-800/60'
+                        ? 'bg-neutral-50/50 dark:bg-neutral-800/30'
+                        : 'bg-neutral-50 dark:bg-neutral-800/60'
                     }`}
                 onClick={handleExpand}
             >
@@ -221,7 +221,7 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
 
             {/* Свёрнутое превью */}
             {!expanded && previewMessage && !previewMessage.is_system && (
-                <div className="px-4 py-2 bg-white dark:bg-gray-900 cursor-pointer"
+                <div className="px-4 py-2 bg-white dark:bg-neutral-900 cursor-pointer"
                     onClick={handleExpand}>
                     <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
                         {previewMessage.author_name}: {previewMessage.text}
@@ -232,7 +232,7 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
             {/* Развёрнутый контент */}
             {expanded && (
                 <>
-                    <div className="bg-white dark:bg-gray-900 px-4 py-3 flex flex-col gap-3
+                    <div className="bg-white dark:bg-neutral-900 px-4 py-3 flex flex-col gap-3
                                     min-h-[80px] max-h-64 overflow-y-auto">
                         {issueMessages.length === 0 ? (
                             <p className="text-xs text-gray-300 dark:text-gray-600 text-center py-4">
@@ -247,9 +247,9 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
                     </div>
 
                     {pendingFiles.length > 0 && (
-                        <div className="flex flex-wrap gap-2 px-3 pt-2 bg-white dark:bg-gray-900">
+                        <div className="flex flex-wrap gap-2 px-3 pt-2 bg-white dark:bg-neutral-900">
                             {pendingFiles.map((f, idx) => (
-                                <div key={idx} className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800
+                                <div key={idx} className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800
                                                            text-xs text-gray-700 dark:text-gray-300
                                                            px-2 py-1 rounded-lg">
                                     {f.type.startsWith('image/') ? (
@@ -268,7 +268,7 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
 
                     {issue.status !== 'verified' && (
                         <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-2
-                                    bg-white dark:bg-gray-900 flex items-end gap-2">
+                                    bg-white dark:bg-neutral-900 flex items-end gap-2">
                             <input ref={fileRef} type="file" multiple accept="image/*,.pdf"
                                 className="hidden" onChange={handleFileChange} />
                             <button onClick={() => fileRef.current?.click()}
@@ -401,7 +401,7 @@ export default function IssueThreadPage({ threadId, onBack }) {
                 </div>
 
                 <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                    <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                    <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-neutral-300 dark:bg-neutral-600'}`} />
                     {connected ? 'Live' : 'Офлайн'}
                 </div>
                 <button

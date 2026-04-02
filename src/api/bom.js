@@ -175,5 +175,33 @@ export const bomApi = {
             body: formData,
         }).then(async res => ({ ok: res.ok, data: await res.json() }));
     },
+
+    // Локальная тара
+    getPackagingItems: (q = '') => {
+        const qs = new URLSearchParams();
+        if (q) qs.set('q', q);
+        return request('GET', `${BASE}/packaging-items/?${qs}`);
+    },
+    createPackagingItem: (payload) =>
+        request('POST', `${BASE}/packaging-items/`, payload),
+    updatePackagingItem: (id, payload) =>
+        request('PATCH', `${BASE}/packaging-items/${id}/`, payload),
+    deletePackagingItem: (id) =>
+        request('DELETE', `${BASE}/packaging-items/${id}/`),
+    addPackagingMaterial: (id, payload) =>
+        request('POST', `${BASE}/packaging-items/${id}/materials/`, payload),
+    removePackagingMaterial: (id, materialId) =>
+        request('DELETE', `${BASE}/packaging-items/${id}/materials/${materialId}/`),
+    syncPackagingItems: () =>
+        request('POST', `${BASE}/packaging-items/sync/`),
+    importPackagingFrom1C: () =>
+        request('POST', `${BASE}/packaging-items/import-from-1c/`),
+
     getUnits: () => request('GET', `${BASE}/units/`),
+    togglePriority: (partId) =>
+        request('PATCH', `${BASE}/parts/${partId}/priority/`),
+    importPackagingFrom1C: () =>
+        request('POST', `${BASE}/packaging-items/import-from-1c/`),
+    trackPartUse: (partId) =>
+        request('POST', `${BASE}/parts/${partId}/use/`),
 };

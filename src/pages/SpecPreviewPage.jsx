@@ -137,12 +137,12 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
 
                     <div className="flex items-center gap-3">
                         {/* Переключатели групп колонок */}
-                        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                        <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
                             {axes.length > 0 && (
                                 <button
                                     onClick={() => setShowParams(o => !o)}
                                     className={`px-3 py-1 rounded text-xs transition-colors ${showParams
-                                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                        ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                                         : 'text-gray-500 dark:text-gray-400'
                                         }`}>
                                     Параметры
@@ -152,7 +152,7 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                                 <button
                                     onClick={() => setShowSpecs(o => !o)}
                                     className={`px-3 py-1 rounded text-xs transition-colors ${showSpecs
-                                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                        ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                                         : 'text-gray-500 dark:text-gray-400'
                                         }`}>
                                     Характеристики
@@ -162,7 +162,7 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                                 <button
                                     onClick={() => setShowDocs(o => !o)}
                                     className={`px-3 py-1 rounded text-xs transition-colors ${showDocs
-                                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                        ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                                         : 'text-gray-500 dark:text-gray-400'
                                         }`}>
                                     Документы
@@ -193,7 +193,7 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors
                                 ${showPLM
                                         ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200'
+                                        : 'bg-neutral-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-neutral-200'
                                     }`}>
                                 PLM
                             </button>
@@ -202,14 +202,14 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                 </div>
 
                 {/* Таблица */}
-                <div className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-x-auto">
+                <div className="bg-white dark:bg-neutral-900 rounded-lg shadow overflow-x-auto">
                     <table className="w-full text-sm border-collapse">
                         <thead>
                             <tr className="border-b border-gray-200 dark:border-gray-700">
                                 {/* Название */}
                                 <th className="text-left px-4 py-3 text-xs font-medium
                                            text-gray-500 dark:text-gray-400 uppercase tracking-wide
-                                           sticky left-0 bg-white dark:bg-gray-900 z-10 min-w-48
+                                           sticky left-0 bg-white dark:bg-neutral-900 z-10 min-w-48
                                            border-r border-gray-100 dark:border-gray-800">
                                     Изделие
                                 </th>
@@ -227,7 +227,7 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
 
                                 {/* Разделитель */}
                                 {showParams && showSpecs && definitions.length > 0 && axes.length > 0 && (
-                                    <th className="w-px bg-gray-200 dark:bg-gray-700 p-0" />
+                                    <th className="w-px bg-neutral-200 dark:bg-neutral-700 p-0" />
                                 )}
 
                                 {/* Характеристики */}
@@ -292,14 +292,14 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                         Введено вручную
                     </span>
                     <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded bg-gray-100 dark:bg-gray-800 inline-block" />
+                        <span className="w-3 h-3 rounded bg-neutral-100 dark:bg-neutral-800 inline-block" />
                         Из 1С
                     </span>
                 </div>
             </div>
             {/* Боковая панель PLM */}
             {showPLM && (
-                <div className="w-80 shrink-0 bg-white dark:bg-gray-900 rounded-lg shadow
+                <div className="w-80 shrink-0 bg-white dark:bg-neutral-900 rounded-lg shadow
                             sticky top-4"
                     style={{ maxHeight: 'calc(100vh - 6rem)', display: 'flex', flexDirection: 'column' }}>
                     <PLMSidePanel
@@ -369,12 +369,12 @@ function ProductRow({
             className={`border-b border-gray-100 dark:border-gray-800 transition-colors
                 ${draggingOver
                     ? 'bg-emerald-50 dark:bg-emerald-900/20 ring-1 ring-inset ring-emerald-400'
-                    : idx % 2 === 0 ? '' : 'bg-gray-50/50 dark:bg-gray-800/30'
+                    : idx % 2 === 0 ? '' : 'bg-neutral-50/50 dark:bg-neutral-800/30'
                 }`}
         >
             {/* Название */}
             <td className="px-4 py-2 sticky left-0 z-10
-                           bg-white dark:bg-gray-900
+                           bg-white dark:bg-neutral-900
                            text-gray-900 dark:text-white font-medium
                            border-r border-gray-100 dark:border-gray-800">
                 <div className="flex items-center gap-2">
@@ -416,7 +416,7 @@ function ProductRow({
 
             {/* Разделитель */}
             {showParams && showSpecs && definitions.length > 0 && axes.length > 0 && (
-                <td className="w-px bg-gray-200 dark:bg-gray-700 p-0" />
+                <td className="w-px bg-neutral-200 dark:bg-neutral-700 p-0" />
             )}
 
             {/* Характеристики */}

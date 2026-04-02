@@ -37,7 +37,7 @@ export default function CreateIssueModal({ thread, onClose }) {
                  bg-black/40 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl
                       w-full max-w-md mx-4 overflow-hidden">
 
         {/* Шапка */}
@@ -70,7 +70,7 @@ export default function CreateIssueModal({ thread, onClose }) {
               placeholder="Кратко опишите замечание"
               autoFocus
               className="w-full px-3 py-2 text-sm rounded-lg
-                         bg-gray-50 dark:bg-gray-800
+                         bg-neutral-50 dark:bg-neutral-800
                          border border-gray-200 dark:border-gray-700
                          text-gray-900 dark:text-gray-100
                          placeholder-gray-300 dark:placeholder-gray-600
@@ -89,7 +89,7 @@ export default function CreateIssueModal({ thread, onClose }) {
               placeholder="Подробности..."
               rows={3}
               className="w-full px-3 py-2 text-sm rounded-lg resize-none
-                         bg-gray-50 dark:bg-gray-800
+                         bg-neutral-50 dark:bg-neutral-800
                          border border-gray-200 dark:border-gray-700
                          text-gray-900 dark:text-gray-100
                          placeholder-gray-300 dark:placeholder-gray-600
@@ -106,7 +106,7 @@ export default function CreateIssueModal({ thread, onClose }) {
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
               className="w-full px-3 py-2 text-sm rounded-lg
-                         bg-gray-50 dark:bg-gray-800
+                         bg-neutral-50 dark:bg-neutral-800
                          border border-gray-200 dark:border-gray-700
                          text-gray-900 dark:text-gray-100
                          focus:outline-none focus:border-blue-500 transition-colors"
@@ -133,7 +133,7 @@ export default function CreateIssueModal({ thread, onClose }) {
               className="flex-1 px-4 py-2 text-sm rounded-lg
                          border border-gray-200 dark:border-gray-700
                          text-gray-600 dark:text-gray-400
-                         hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                         hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
             >
               Отмена
             </button>

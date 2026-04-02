@@ -189,7 +189,7 @@ function MaterialGroupsModal({ onClose }) {
 
     return (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-4xl
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-4xl
                             max-h-[90vh] flex flex-col">
                 {/* Шапка */}
                 <div className="flex items-center justify-between px-5 py-4
@@ -231,7 +231,7 @@ function MaterialGroupsModal({ onClose }) {
                                     onClick={() => { setSelected(g); setCreating(false); }}
                                     className={`px-4 py-3 cursor-pointer border-b
                                                 border-gray-100 dark:border-gray-800
-                                                hover:bg-gray-50 dark:hover:bg-gray-800
+                                                hover:bg-neutral-50 dark:hover:bg-neutral-800
                                                 transition-colors
                                                 ${selected?.id === g.id
                                             ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-blue-500'
@@ -349,7 +349,7 @@ function UnitWeightModal({ onClose }) {
 
     return (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-2xl
                             max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700">
                 {/* Шапка */}
                 <div className="flex items-center justify-between px-5 py-4
@@ -392,7 +392,7 @@ function UnitWeightModal({ onClose }) {
                         </p>
                     ) : (
                         <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-white dark:bg-gray-900">
+                            <thead className="sticky top-0 bg-white dark:bg-neutral-900">
                                 <tr className="text-xs text-gray-400 uppercase border-b
                                                border-gray-100 dark:border-gray-800">
                                     <th className="text-left px-5 py-2">Наименование</th>
@@ -404,7 +404,7 @@ function UnitWeightModal({ onClose }) {
                                 {results.map(p => (
                                     <tr key={p.id}
                                         className="border-b border-gray-50 dark:border-gray-800
-                                                   hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                                   hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
                                         <td className="px-5 py-2 text-gray-800 dark:text-gray-200">
                                             {p.onec_name}
                                         </td>
@@ -444,7 +444,7 @@ function UnitWeightModal({ onClose }) {
                         <button onClick={onClose}
                             className="px-4 py-1.5 text-sm border border-gray-200
                                        dark:border-gray-700 text-gray-600 dark:text-gray-400
-                                       rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                                       rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800">
                             Закрыть
                         </button>
                         <button
@@ -547,7 +547,7 @@ function GroupForm({ onSaved, onCancel }) {
                 <button onClick={onCancel}
                     className="flex-1 border border-gray-200 dark:border-gray-700
                                text-gray-600 dark:text-gray-400 text-sm py-2 rounded-lg
-                               hover:bg-gray-50 dark:hover:bg-gray-800">
+                               hover:bg-neutral-50 dark:hover:bg-neutral-800">
                     Отмена
                 </button>
                 <button onClick={handleSave} disabled={saving}
@@ -687,7 +687,7 @@ function GroupDetail({ group, onUpdated }) {
                     {detail.all_parts?.map(p => (
                         <div key={p.id}
                             className="flex items-center justify-between px-3 py-2 rounded-lg
-                                       bg-gray-50 dark:bg-gray-800 text-sm">
+                                       bg-neutral-50 dark:bg-neutral-800 text-sm">
                             <div className="flex items-center gap-2 min-w-0">
                                 {p.from_folder
                                     ? <span className="text-gray-400 text-xs shrink-0">📁</span>
@@ -916,7 +916,7 @@ function FolderPicker({ value, onChange, folderType = 'nomenclature', rootPath =
                     onFocus={handleFocus}
                     placeholder="Введите 2+ символа для поиска или полный путь для создания"
                     className="w-full px-3 py-1.5 text-sm rounded-lg
-                               bg-gray-50 dark:bg-gray-800
+                               bg-neutral-50 dark:bg-neutral-800
                                border border-gray-200 dark:border-gray-700
                                text-gray-900 dark:text-white
                                focus:outline-none focus:border-blue-500"
@@ -957,7 +957,7 @@ function CreateDetailsModal({ onClose, onConfirm, defaultFolderId }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center
                         bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
                             border border-gray-200 dark:border-gray-700
                             w-full max-w-lg p-6 space-y-4">
                 <div className="flex items-center justify-between">
@@ -996,7 +996,7 @@ function CreateDetailsModal({ onClose, onConfirm, defaultFolderId }) {
                         className="px-4 py-2 text-sm rounded-lg border
                                    border-gray-200 dark:border-gray-700
                                    text-gray-600 dark:text-gray-400
-                                   hover:bg-gray-50 dark:hover:bg-gray-800">
+                                   hover:bg-neutral-50 dark:hover:bg-neutral-800">
                         Отмена
                     </button>
                     <button
@@ -1055,7 +1055,7 @@ function Dropdown({ anchorRef, items, onSelect, renderItem }) {
             ref={dropdownRef}
             style={style}
             data-dropdown="true"
-            className="bg-white dark:bg-gray-900
+            className="bg-white dark:bg-neutral-900
                         border border-gray-200 dark:border-gray-700
                         rounded-lg shadow-xl max-h-48 overflow-y-auto
                         transition-opacity duration-75"
@@ -1064,7 +1064,7 @@ function Dropdown({ anchorRef, items, onSelect, renderItem }) {
                 <button key={i}
                     onMouseDown={e => { e.preventDefault(); onSelect(item); }}
                     className="w-full text-left px-3 py-2 text-xs
-                               hover:bg-gray-50 dark:hover:bg-gray-800
+                               hover:bg-neutral-50 dark:hover:bg-neutral-800
                                border-b border-gray-50 dark:border-gray-800 last:border-0">
                     {renderItem(item)}
                 </button>
@@ -1139,7 +1139,7 @@ function CreateSpecModal({ onClose, onCreated }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center
                         bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
                             border border-gray-200 dark:border-gray-700
                             w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center justify-between">
@@ -1163,7 +1163,7 @@ function CreateSpecModal({ onClose, onCreated }) {
                         onChange={e => handlePartSearch(e.target.value)}
                         placeholder="Начните вводить название..."
                         className="w-full px-3 py-1.5 text-sm rounded-lg
-                                   bg-gray-50 dark:bg-gray-800
+                                   bg-neutral-50 dark:bg-neutral-800
                                    border border-gray-200 dark:border-gray-700
                                    text-gray-900 dark:text-white
                                    focus:outline-none focus:border-blue-500"
@@ -1171,7 +1171,7 @@ function CreateSpecModal({ onClose, onCreated }) {
                     />
                     {partResults.length > 0 && (
                         <div className="absolute top-full left-0 right-0 z-50
-                                        bg-white dark:bg-gray-900
+                                        bg-white dark:bg-neutral-900
                                         border border-gray-200 dark:border-gray-700
                                         rounded-lg shadow-lg mt-0.5
                                         max-h-48 overflow-y-auto">
@@ -1179,7 +1179,7 @@ function CreateSpecModal({ onClose, onCreated }) {
                                 <button key={part.id}
                                     onClick={() => handlePartSelect(part)}
                                     className="w-full text-left px-3 py-2 text-xs
-                                               hover:bg-gray-50 dark:hover:bg-gray-800
+                                               hover:bg-neutral-50 dark:hover:bg-neutral-800
                                                border-b border-gray-50 last:border-0">
                                     <div className="text-gray-900 dark:text-white">
                                         {part.onec_name}
@@ -1204,7 +1204,7 @@ function CreateSpecModal({ onClose, onCreated }) {
                         onChange={e => setSpecName(e.target.value)}
                         placeholder="КЭВ-45П5033Е(Сборка)"
                         className="w-full px-3 py-1.5 text-sm rounded-lg
-                                   bg-gray-50 dark:bg-gray-800
+                                   bg-neutral-50 dark:bg-neutral-800
                                    border border-gray-200 dark:border-gray-700
                                    text-gray-900 dark:text-white
                                    focus:outline-none focus:border-blue-500"
@@ -1220,7 +1220,7 @@ function CreateSpecModal({ onClose, onCreated }) {
                         className="px-4 py-2 text-sm rounded-lg border
                                    border-gray-200 dark:border-gray-700
                                    text-gray-600 dark:text-gray-400
-                                   hover:bg-gray-50 dark:hover:bg-gray-800">
+                                   hover:bg-neutral-50 dark:hover:bg-neutral-800">
                         Отмена
                     </button>
                     <button
@@ -1326,7 +1326,7 @@ function ImportExcelModal({ onClose, onImported }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 space-y-4">
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                         Импорт маршрутной карты
@@ -1361,7 +1361,7 @@ function MergeExcelModal({ specId, onClose, onMerged }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 space-y-4">
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                         Обновить из Excel
@@ -1405,7 +1405,7 @@ function ModalFooter({ onClose, onConfirm, loading, disabled, confirmLabel, clos
         <div className="flex justify-end gap-2">
             <button onClick={onClose}
                 className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
-                           text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800
+                           text-gray-600 dark:text-gray-400 hover:bg-neutral-50 dark:hover:bg-neutral-800
                            transition-colors">
                 {closeLabel}
             </button>
@@ -1510,7 +1510,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                         </button>
                         <button
                             onClick={() => setSyncModalOpen(true)}
-                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                         >
                             ↻ Синхронизация данных
                         </button>
@@ -1526,7 +1526,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             className="px-3 py-1.5 text-sm rounded-lg border
                                     border-gray-200 dark:border-gray-700
                                     text-gray-600 dark:text-gray-400
-                                    hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                    hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
                             ⚙ Группы материалов
                         </button>
 
@@ -1535,7 +1535,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             className="px-3 py-1.5 text-sm rounded-lg border
                border-gray-200 dark:border-gray-700
                text-gray-600 dark:text-gray-400
-               hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+               hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
                             📦 Пак Тара
                         </button>
 
@@ -1547,7 +1547,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             className="px-3 py-1.5 text-sm rounded-lg border
                border-gray-200 dark:border-gray-700
                text-gray-600 dark:text-gray-400
-               hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+               hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
                             ⚖ Масса единицы
                         </button>
 
@@ -1562,7 +1562,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                     placeholder="Поиск по названию спецификации или изделия..."
                     onChange={e => onSearch(e.target.value)}
                     className="flex-1 px-3 py-2 text-sm rounded-lg
-                               bg-white dark:bg-gray-900
+                               bg-white dark:bg-neutral-900
                                border border-gray-200 dark:border-gray-700
                                text-gray-900 dark:text-white
                                focus:outline-none focus:border-blue-500"
@@ -1607,7 +1607,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
             )}
 
             {/* Таблица */}
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-visible">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow overflow-visible">
                 {loading ? (
                     <div className="py-16 text-center text-sm text-gray-400 dark:text-gray-500">
                         Загрузка...
@@ -1648,9 +1648,9 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                                     onClick={() => onOpen(spec.id)}
                                     onContextMenu={e => handleContextMenu(e, spec)}
                                     className={`border-b border-gray-50 dark:border-gray-800
-                                            hover:bg-gray-50 dark:hover:bg-gray-800/50 
+                                            hover:bg-neutral-50 dark:hover:bg-neutral-800/50 
                                             transition-colors cursor-pointer
-                                            ${idx % 2 === 1 ? 'bg-gray-50/30 dark:bg-gray-800/20' : ''}`}>
+                                            ${idx % 2 === 1 ? 'bg-neutral-50/30 dark:bg-neutral-800/20' : ''}`}>
                                     <td className="px-4 py-3 truncate">
                                         <div className="font-medium text-gray-900 dark:text-white truncate"
                                             title={spec.onec_name}>
@@ -1688,7 +1688,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
             {contextMenu && createPortal(
                 <div
                     style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x, zIndex: 9999 }}
-                    className="bg-white dark:bg-gray-900 rounded-lg shadow-xl
+                    className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl
                    border border-gray-200 dark:border-gray-700
                    py-1 min-w-40"
                     onMouseDown={e => e.stopPropagation()}
@@ -1702,7 +1702,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                         }}
                         className="w-full text-left px-4 py-2 text-sm
                        text-gray-700 dark:text-gray-300
-                       hover:bg-gray-50 dark:hover:bg-gray-800">
+                       hover:bg-neutral-50 dark:hover:bg-neutral-800">
                         ⎘ Копировать
                     </button>
                     <button
@@ -1714,7 +1714,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                         }}
                         className="w-full text-left px-4 py-2 text-sm
                        text-gray-700 dark:text-gray-300
-                       hover:bg-gray-50 dark:hover:bg-gray-800">
+                       hover:bg-neutral-50 dark:hover:bg-neutral-800">
                         ✎ Переименовать
                     </button>
                     {canWrite && (
@@ -1736,7 +1736,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
             {/* Модалка переименования */}
             {renameOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
+                    <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
                         border border-gray-200 dark:border-gray-700
                         w-full max-w-md p-6 space-y-4">
                         <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -1747,7 +1747,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             onChange={e => setRenameName(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleRename()}
                             className="w-full px-3 py-1.5 text-sm rounded-lg
-                           bg-gray-50 dark:bg-gray-800
+                           bg-neutral-50 dark:bg-neutral-800
                            border border-gray-200 dark:border-gray-700
                            text-gray-900 dark:text-white
                            focus:outline-none focus:border-blue-500"
@@ -1769,7 +1769,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
             {/* Модалка копирования */}
             {cloneOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
+                    <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
                         border border-gray-200 dark:border-gray-700
                         w-full max-w-md p-6 space-y-4">
                         <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -1784,7 +1784,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             onKeyDown={e => e.key === 'Enter' && handleClone()}
                             placeholder="Название новой спецификации"
                             className="w-full px-3 py-1.5 text-sm rounded-lg
-                           bg-gray-50 dark:bg-gray-800
+                           bg-neutral-50 dark:bg-neutral-800
                            border border-gray-200 dark:border-gray-700
                            text-gray-900 dark:text-white
                            focus:outline-none focus:border-blue-500"
@@ -1958,7 +1958,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                             className="px-3 py-1.5 text-sm rounded-lg border
                                     border-gray-200 dark:border-gray-700
                                     text-gray-500 dark:text-gray-400
-                                    hover:bg-gray-50 dark:hover:bg-gray-800
+                                    hover:bg-neutral-50 dark:hover:bg-neutral-800
                                     transition-colors">
                             ⎘ Копировать
                         </button>
@@ -1966,7 +1966,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
 
                     {cloneOpen && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
+                            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
                                             border border-gray-200 dark:border-gray-700
                                             w-full max-w-md p-6 space-y-4">
                                 <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -1977,7 +1977,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                                     onChange={e => setCloneName(e.target.value)}
                                     placeholder="Название новой спецификации"
                                     className="w-full px-3 py-1.5 text-sm rounded-lg
-                                            bg-gray-50 dark:bg-gray-800
+                                            bg-neutral-50 dark:bg-neutral-800
                                             border border-gray-200 dark:border-gray-700
                                             text-gray-900 dark:text-white
                                             focus:outline-none focus:border-blue-500"
@@ -2003,7 +2003,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                             className="px-3 py-1.5 text-sm rounded-lg border
                    border-gray-200 dark:border-gray-700
                    text-gray-600 dark:text-gray-400
-                   hover:bg-gray-50 dark:hover:bg-gray-800
+                   hover:bg-neutral-50 dark:hover:bg-neutral-800
                    transition-colors">
                             ↑ Excel
                         </button>
@@ -2024,7 +2024,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                     {canWrite && (
                         <button onClick={() => setImportJsonOpen(true)}
                             className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
-                   text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                   text-gray-600 dark:text-gray-400 hover:bg-neutral-50 dark:hover:bg-neutral-800">
                             { } JSON
                         </button>
                     )}
@@ -2047,7 +2047,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                             className="px-3 py-1.5 text-sm rounded-lg border
                        border-gray-200 dark:border-gray-700
                        text-gray-600 dark:text-gray-400
-                       hover:bg-gray-50 dark:hover:bg-gray-800
+                       hover:bg-neutral-50 dark:hover:bg-neutral-800
                        disabled:opacity-50 transition-colors">
                             {validating ? 'Проверка...' : '✓ Проверить'}
                         </button>
@@ -2102,7 +2102,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
             />
 
             {/* Только материалы — без табов */}
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow">
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800
                                 flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -2114,8 +2114,8 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                             <span>Этапы:</span>
                             {spec.spec_stages.map(s => (
                                 <span key={s.id}
-                                    className="px-2 py-0.5 rounded bg-gray-100
-                                               dark:bg-gray-800 text-gray-600
+                                    className="px-2 py-0.5 rounded bg-neutral-100
+                                               dark:bg-neutral-800 text-gray-600
                                                dark:text-gray-400">
                                     {s.name}
                                 </span>
@@ -2210,7 +2210,7 @@ function SpecHeaderForm({ spec, onSave, saving, canWrite, onDirtyChange }) {
     const handleSave = () => { onSave(form); setDirty(false); onDirtyChange?.(false); };
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 space-y-4">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-4 space-y-4">
             {/* грид полей без изменений */}
 
             {canWrite && (
@@ -2388,6 +2388,7 @@ function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, can
     const handleMatSelect = (idx, part) => {
         update(idx, 'source_material_id', part.id);
         update(idx, 'source_material_name', part.onec_name);
+        bomApi.trackPartUse(part.id);
         setMatSearch(s => ({ ...s, [idx]: undefined }));
         setMatResults(r => ({ ...r, [idx]: [] }));
     };
@@ -2618,7 +2619,7 @@ function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, can
             {/* Липкая нижняя панель действий */}
             {canWrite && (
                 <div className="sticky bottom-0 left-0 right-0 -mx-4 -mb-4 mt-2
-                                bg-white/80 dark:bg-gray-900/80 backdrop-blur-md
+                                bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md
                                 border-t border-gray-100 dark:border-gray-800
                                 p-4 flex items-center justify-between z-20
                                 rounded-b-lg shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
@@ -2645,7 +2646,7 @@ function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, can
                                         transition-all duration-200
                                         ${dirty
                                     ? 'bg-blue-600 hover:bg-blue-700 text-white scale-105'
-                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                                    : 'bg-neutral-100 dark:bg-neutral-800 text-gray-400 cursor-not-allowed'
                                 }
                                         disabled:opacity-50`}
                         >
@@ -2731,8 +2732,8 @@ function MaterialCombobox({ row, idx, canWrite, onSelect, matRefs }) {
     const handleChange = async (q) => {
         setQuery(q);
         setOpen(true);
-        if (q.length < 2) return;
-
+        if (q.length < 2) return;  // ← убрать ранний return, всегда запрашиваем
+    
         setLoading(true);
         const { ok, data } = await bomApi.getMaterialGroup(
             row.material_type || '',
@@ -2740,19 +2741,18 @@ function MaterialCombobox({ row, idx, canWrite, onSelect, matRefs }) {
             q,
             context,
         );
-        if (ok && data.success) setOptions(data.data);
+        if (ok && data.success) setOptions(data.data);  // ← обновляем options
         setLoading(false);
     };
 
     const handleSelect = (part) => {
         onSelect(idx, part);
+        bomApi.trackPartUse(part.id);
         setQuery('');
         setOpen(false);
     };
 
-    const filtered = query.trim()
-        ? options.filter(p => p.onec_name.toLowerCase().includes(query.toLowerCase()))
-        : options;
+    const filtered = options;
 
     const displayValue = query !== '' ? query : (row.source_material_name || '');
 
@@ -2789,9 +2789,29 @@ function MaterialCombobox({ row, idx, canWrite, onSelect, matRefs }) {
                     renderItem={part => part.id === '__loading__'
                         ? <span className="text-gray-400 italic">Загрузка...</span>
                         : (
-                            <div>
-                                <div className="text-gray-900 dark:text-white">{part.onec_name}</div>
-                                {part.sku && <div className="text-gray-400 text-[10px]">{part.sku}</div>}
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                    <div className="text-gray-900 dark:text-white truncate">{part.onec_name}</div>
+                                    {part.sku && <div className="text-gray-400 text-[10px]">{part.sku}</div>}
+                                </div>
+                                <button
+                                    onMouseDown={e => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        bomApi.togglePriority(part.id).then(() => {
+                                            // Обновляем priority локально без перезапроса
+                                            setOptions(opts => opts.map(o =>
+                                                o.id === part.id
+                                                    ? { ...o, priority: o.priority > 0 ? 0 : 10 }
+                                                    : o
+                                            ));
+                                        });
+                                    }}
+                                    className="shrink-0 text-base leading-none transition-colors"
+                                    title={part.priority > 0 ? 'Убрать из избранного' : 'В избранное'}
+                                >
+                                    {part.priority > 0 ? '⭐' : '☆'}
+                                </button>
                             </div>
                         )
                     }
@@ -2828,7 +2848,7 @@ function PullModal({ onClose, onPulled }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center
                         bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
                             border border-gray-200 dark:border-gray-700
                             w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center justify-between">
@@ -2844,7 +2864,7 @@ function PullModal({ onClose, onPulled }) {
                 </div>
 
                 {/* Режим поиска */}
-                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
                     {[
                         { id: 'product', label: 'По изделию' },
                         { id: 'name', label: 'По имени спецификации' },
@@ -2854,7 +2874,7 @@ function PullModal({ onClose, onPulled }) {
                             onClick={() => { setMode(m.id); setValue(''); setError(''); }}
                             className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors
                                 ${mode === m.id
-                                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                                    ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm'
                                     : 'text-gray-500 dark:text-gray-400'
                                 }`}>
                             {m.label}
@@ -2885,7 +2905,7 @@ function PullModal({ onClose, onPulled }) {
                         className="px-4 py-2 text-sm rounded-lg border
                                    border-gray-200 dark:border-gray-700
                                    text-gray-600 dark:text-gray-400
-                                   hover:bg-gray-50 dark:hover:bg-gray-800
+                                   hover:bg-neutral-50 dark:hover:bg-neutral-800
                                    transition-colors">
                         Отмена
                     </button>
@@ -2985,7 +3005,7 @@ function ImportJsonModal({ specId, onClose, onMerged }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 space-y-4">
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                         Импорт из JSON
@@ -3129,8 +3149,8 @@ function SyncModal({ onClose, onRefresh }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-neutral-50/50 dark:bg-neutral-800/50">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">Синхронизация данных 1С</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
                 </div>
@@ -3216,7 +3236,7 @@ function SyncButton({ label, description, icon, onClick, loading, variant = 'sec
                 className={`w-full text-left p-3 rounded-lg border transition-all flex items-start gap-3 group
                     ${variant === 'primary'
                         ? 'bg-blue-600 border-blue-700 hover:bg-blue-700 text-white'
-                        : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm'
+                        : 'bg-white dark:bg-neutral-900 border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
                 <span className="text-2xl">{icon}</span>
@@ -3262,8 +3282,11 @@ function Field({ label, children, span = 1 }) {
 
 function PackagingModal({ onClose }) {
     const [packList, setPackList] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [creating, setCreating] = useState(false);
+    const [selected, setSelected] = useState(null);
+    const [packSearch, setPackSearch] = useState('');
 
     // Поиск номенклатуры
     const [nomSearch, setNomSearch] = useState('');
@@ -3271,25 +3294,9 @@ function PackagingModal({ onClose }) {
     const [nomOpen, setNomOpen] = useState(false);
     const [selectedNoms, setSelectedNoms] = useState([]);
     const [assignResults, setAssignResults] = useState([]);
-    const nomRef = useRef(null);
-
-    // Выбранная тара
-    const [selectedPack, setSelectedPack] = useState(null);
-    const [packSearch, setPackSearch] = useState('');
-
-    // Форма создания тары
-    const [form, setForm] = useState({
-        name: '', length: '', width: '', height: '',
-        weight: '', package_type: '', qty_on_pallet: '',
-        qty_in_order: '',
-    });
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState('');
-    const [error, setError] = useState('');
-
-    // Назначение тары
     const [assigning, setAssigning] = useState(false);
     const [assignResult, setAssignResult] = useState('');
+    const nomRef = useRef(null);
 
     const PACK_TYPES = [
         { value: 'box', label: 'Box' },
@@ -3298,84 +3305,68 @@ function PackagingModal({ onClose }) {
         { value: 'nu', label: 'н/у' },
     ];
 
-    const loadPackaging = useCallback(async () => {
-        setSyncing(true);
-        const { ok, data } = await bomApi.getPackaging();
+    useEffect(() => {
+        const t = setTimeout(() => loadItems(), 300);
+        return () => clearTimeout(t);
+    }, [packSearch]);  // loadItems убрать из зависимостей
+    
+    const loadItems = useCallback(async () => {
+        setLoading(true);
+        const { ok, data } = await bomApi.getPackagingItems(packSearch);
         if (ok && data.success) setPackList(data.data);
-        setSyncing(false);
-    }, []);
+        setLoading(false);
+    }, [packSearch]);
 
-    useEffect(() => { loadPackaging(); }, [loadPackaging]);
-
-    // Поиск номенклатуры
+    // Поиск номенклатуры для назначения тары
     useEffect(() => {
         if (nomSearch.length < 2) { setNomResults([]); setNomOpen(false); return; }
         const t = setTimeout(async () => {
             const { ok, data } = await catalogApi.searchProducts(nomSearch, { limit: 15 });
-            if (ok && data.success) {
-                setNomResults(data.data);
-                setNomOpen(true);  // ← этого не хватало
-            }
+            if (ok && data.success) { setNomResults(data.data); setNomOpen(true); }
         }, 300);
         return () => clearTimeout(t);
     }, [nomSearch]);
 
-    const filteredPacks = packSearch.trim()
-        ? packList.filter(p => p.name.toLowerCase().includes(packSearch.toLowerCase()))
-        : packList;
-
-        const handleAssign = async () => {
-            if (!selectedNoms.length || !selectedPack) return;
-            setAssigning(true);
-            setAssignResults([]);
-            setAssignResult('');
-        
-            const results = [];
-            for (const nom of selectedNoms) {
-                const { ok, data } = await bomApi.setPackaging(nom.name, selectedPack.name);
-                results.push({ id: nom.id, ok: ok && data.success, error: data.error });
-            }
-            setAssignResults(results);
-        
-            const successCount = results.filter(r => r.ok).length;
-            const failCount = results.length - successCount;
-            setAssignResult(
-                failCount === 0
-                    ? `✓ Тара назначена на ${successCount} позиц.`
-                    : `✓ ${successCount} назначено, ✗ ${failCount} ошибок`
-            );
-            setAssigning(false);
-        };
-
-    const handleCreate = async () => {
-        if (!form.name.trim()) { setError('Укажите наименование'); return; }
-        setSaving(true);
-        setError('');
-        setSaved('');
-        const payload = { name: form.name.trim() };
-        if (form.length) payload.length = parseFloat(form.length);
-        if (form.width) payload.width = parseFloat(form.width);
-        if (form.height) payload.height = parseFloat(form.height);
-        if (form.weight) payload.weight = parseFloat(form.weight);
-        if (form.package_type) payload.package_type = form.package_type;
-        if (form.qty_on_pallet) payload.qty_on_pallet = parseInt(form.qty_on_pallet);
-        if (form.qty_in_order) payload.qty_in_order = parseInt(form.qty_in_order);
-
-        const { ok, data } = await bomApi.updatePackaging(payload);
-        if (ok && data.success) {
-            setSaved(`✓ «${form.name}» сохранена`);
-            setForm({ name: '', length: '', width: '', height: '', weight: '', package_type: '', qty_on_pallet: '', qty_in_order: '' });
-            setCreating(false);
-            loadPackaging();
-        } else {
-            setError(data.error || 'Ошибка сохранения');
+    const handleSync = async () => {
+        setSyncing(true);
+        // 1. Пушим грязные записи в 1С
+        const { ok: okSync, data: dataSync } = await bomApi.syncPackagingItems();
+        // 2. Тянем из 1С в локальную БД
+        const { ok: okImport, data: dataImport } = await bomApi.importPackagingFrom1C();
+        // 3. Перезагружаем список
+        await loadItems();
+        setSyncing(false);
+        if (okSync && okImport) {
+            const s = dataSync.data;
+            const i = dataImport.data;
+            alert(`Синхронизировано: ${s.synced} → 1С, импортировано: ${i.created} новых, обновлено: ${i.updated}`);
         }
-        setSaving(false);
     };
+
+    const handleAssign = async () => {
+        if (!selectedNoms.length || !selected) return;
+        setAssigning(true);
+        setAssignResults([]);
+        const results = [];
+        for (const nom of selectedNoms) {
+            const { ok, data } = await bomApi.setPackaging(nom.name, selected.name);
+            results.push({ id: nom.id, ok: ok && data.success, error: data?.error });
+        }
+        setAssignResults(results);
+        const successCount = results.filter(r => r.ok).length;
+        const failCount = results.length - successCount;
+        setAssignResult(failCount === 0
+            ? `✓ Тара назначена на ${successCount} позиц.`
+            : `✓ ${successCount} назначено, ✗ ${failCount} ошибок`
+        );
+        setAssigning(false);
+    };
+
+    const filteredPacks = packList;
 
     return (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-4xl
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-5xl
                             max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700">
                 {/* Шапка */}
                 <div className="flex items-center justify-between px-5 py-4
@@ -3387,17 +3378,14 @@ function PackagingModal({ onClose }) {
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button
-                            onClick={loadPackaging}
-                            disabled={syncing}
+                        <button onClick={handleSync} disabled={syncing}
                             className="px-3 py-1.5 text-sm rounded-lg border border-gray-200
                                        dark:border-gray-700 text-gray-600 dark:text-gray-400
-                                       hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50
-                                       transition-colors">
-                            {syncing ? '⟳ Загрузка...' : '⟳ Синхронизировать'}
+                                       hover:bg-neutral-50 dark:hover:bg-neutral-800
+                                       disabled:opacity-50 transition-colors">
+                            {syncing ? '⟳ Синхронизация...' : '⟳ Синхронизировать'}
                         </button>
-                        <button
-                            onClick={() => { setCreating(c => !c); setError(''); setSaved(''); }}
+                        <button onClick={() => { setCreating(c => !c); setSelected(null); }}
                             className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600
                                        hover:bg-emerald-700 text-white transition-colors">
                             {creating ? '✕ Отмена' : '+ Создать тару'}
@@ -3411,8 +3399,7 @@ function PackagingModal({ onClose }) {
 
                 <div className="flex flex-1 overflow-hidden">
                     {/* Левая колонка — список тары */}
-                    <div className="w-72 shrink-0 border-r border-gray-200 dark:border-gray-700
-                                    flex flex-col">
+                    <div className="w-72 shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col">
                         <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
                             <input
                                 value={packSearch}
@@ -3422,258 +3409,170 @@ function PackagingModal({ onClose }) {
                             />
                         </div>
                         <div className="flex-1 overflow-y-auto">
-                            {syncing ? (
+                            {loading ? (
                                 <div className="p-4 text-sm text-gray-400 text-center">Загрузка...</div>
                             ) : filteredPacks.length === 0 ? (
-                                <div className="p-4 text-sm text-gray-400 text-center">Нет тары</div>
-                            ) : (
-                                filteredPacks.map((p, i) => (
-                                    <div key={i}
-                                        onClick={() => {
-                                            setSelectedPack(p);
-                                            setAssignResult('');
-                                        }}
-                                        className={`px-4 py-3 cursor-pointer border-b
-                                                    border-gray-100 dark:border-gray-800
-                                                    hover:bg-gray-50 dark:hover:bg-gray-800
-                                                    transition-colors
-                                                    ${selectedPack?.name === p.name
-                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-blue-500'
-                                                : ''}`}>
-                                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate"
-                                            title={p.name}>
-                                            {p.name}
+                                <div className="p-4 text-sm text-gray-400 text-center">
+                                    Нет тары. Нажмите «Синхронизировать» для импорта из 1С.
+                                </div>
+                            ) : filteredPacks.map(p => (
+                                <div key={p.id}
+                                    onClick={() => { setSelected(p); setCreating(false); }}
+                                    className={`px-4 py-3 cursor-pointer border-b
+                                                border-gray-100 dark:border-gray-800
+                                                hover:bg-neutral-50 dark:hover:bg-neutral-800
+                                                transition-colors
+                                                ${selected?.id === p.id
+                                            ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-blue-500'
+                                            : ''}`}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="min-w-0">
+                                            <div className="text-sm font-medium text-gray-900
+                                                            dark:text-white truncate" title={p.name}>
+                                                {p.name}
+                                            </div>
+                                            <div className="text-xs text-gray-400 mt-0.5">
+                                                {p.length}×{p.width}×{p.height} мм
+                                                {p.weight > 0 && ` · ${p.weight} кг`}
+                                                {p.package_type && ` · ${p.package_type}`}
+                                            </div>
                                         </div>
-                                        <div className="text-xs text-gray-400 mt-0.5">
-                                            {p.length}×{p.width}×{p.height} мм
-                                            {p.weight > 0 && ` · ${p.weight} кг`}
-                                            {p.package_type && ` · ${p.package_type}`}
-                                        </div>
+                                        {p.is_dirty && (
+                                            <span className="text-xs text-amber-500 shrink-0 ml-1"
+                                                title="Не синхронизировано с 1С">●</span>
+                                        )}
                                     </div>
-                                ))
-                            )}
+                                </div>
+                            ))}
                         </div>
                     </div>
 
                     {/* Правая панель */}
                     <div className="flex-1 overflow-y-auto p-5 space-y-5">
-                        {/* Форма создания */}
                         {creating && (
-                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3
-                                            border border-gray-200 dark:border-gray-700">
+                            <PackagingCreateForm
+                                packTypes={PACK_TYPES}
+                                onSaved={(item) => {
+                                    setCreating(false);
+                                    setSelected(item);
+                                    loadItems();
+                                }}
+                                onCancel={() => setCreating(false)}
+                            />
+                        )}
+
+                        {selected && !creating && (
+                            <PackagingDetail
+                                key={selected.id}
+                                item={selected}
+                                packTypes={PACK_TYPES}
+                                onUpdated={(updated) => {
+                                    setSelected(updated);
+                                    loadItems();
+                                }}
+                                onDeleted={() => {
+                                    setSelected(null);
+                                    loadItems();
+                                }}
+                            />
+                        )}
+
+                        {/* Назначить тару на номенклатуру */}
+                        {selected && !creating && (
+                            <div className="space-y-3 border-t border-gray-100
+                                            dark:border-gray-800 pt-4">
                                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                    Новая / обновить тару
+                                    Назначить тару на номенклатуру
                                 </h4>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="col-span-2">
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">
-                                            Наименование *
-                                        </label>
-                                        <input
-                                            value={form.name}
-                                            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                                            placeholder="Точное наименование как в 1С"
-                                            className={inputCls}
-                                            autoFocus
+                                <div className="relative">
+                                    <input
+                                        ref={nomRef}
+                                        value={nomSearch}
+                                        onChange={e => {
+                                            setNomSearch(e.target.value);
+                                            setAssignResult('');
+                                            if (!e.target.value) { setNomOpen(false); setNomResults([]); }
+                                        }}
+                                        placeholder="Начните вводить название..."
+                                        className={inputCls}
+                                    />
+                                    {nomOpen && (
+                                        <Dropdown
+                                            anchorRef={nomRef}
+                                            items={nomResults}
+                                            onSelect={part => {
+                                                setSelectedNoms(prev =>
+                                                    prev.find(p => p.id === part.id)
+                                                        ? prev : [...prev, part]
+                                                );
+                                            }}
+                                            renderItem={part => (
+                                                <div>
+                                                    <div className="text-gray-900 dark:text-white">{part.name}</div>
+                                                    {part.sku && <div className="text-gray-400 text-[10px]">{part.sku}</div>}
+                                                </div>
+                                            )}
                                         />
-                                    </div>
-                                    {[
-                                        { key: 'length', label: 'Длина, мм' },
-                                        { key: 'width', label: 'Ширина, мм' },
-                                        { key: 'height', label: 'Высота, мм' },
-                                        { key: 'weight', label: 'Масса, кг' },
-                                        { key: 'qty_on_pallet', label: 'Кол-во на палете' },
-                                        { key: 'qty_in_order', label: 'Кол-во в заказе' },
-                                    ].map(({ key, label }) => (
-                                        <div key={key}>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">
-                                                {label}
-                                            </label>
-                                            <input
-                                                type="number" min={0}
-                                                value={form[key]}
-                                                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                                                className={inputCls}
-                                            />
-                                        </div>
-                                    ))}
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">
-                                            Вид тары
-                                        </label>
-                                        <select
-                                            value={form.package_type}
-                                            onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))}
-                                            className={inputCls}>
-                                            <option value="">—</option>
-                                            {PACK_TYPES.map(t => (
-                                                <option key={t.value} value={t.value}>{t.label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    )}
                                 </div>
-                                {error && <p className="text-xs text-red-500">{error}</p>}
-                                {saved && <p className="text-xs text-emerald-600">{saved}</p>}
-                                <button
-                                    onClick={handleCreate}
-                                    disabled={saving || !form.name.trim()}
-                                    className="w-full py-2 text-sm rounded-lg bg-emerald-600
-                                               hover:bg-emerald-700 text-white disabled:opacity-50
-                                               transition-colors">
-                                    {saving ? 'Сохранение...' : 'Сохранить в 1С'}
+
+                                {selectedNoms.length > 0 && (
+                                    <div className="space-y-1">
+                                        {selectedNoms.map(nom => {
+                                            const result = assignResults.find(r => r.id === nom.id);
+                                            return (
+                                                <div key={nom.id}
+                                                    className="flex items-center justify-between px-3 py-2
+                                                               rounded-lg bg-neutral-50 dark:bg-neutral-800
+                                                               border border-gray-200 dark:border-gray-700">
+                                                    <span className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                                                        {nom.name}
+                                                    </span>
+                                                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                                                        {result && (
+                                                            <span className={`text-xs ${result.ok
+                                                                ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                                {result.ok ? '✓' : '✗'}
+                                                            </span>
+                                                        )}
+                                                        <button
+                                                            onClick={() => setSelectedNoms(prev =>
+                                                                prev.filter(p => p.id !== nom.id)
+                                                            )}
+                                                            className="text-gray-300 hover:text-red-500">×</button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        <button
+                                            onClick={() => { setSelectedNoms([]); setAssignResults([]); }}
+                                            className="text-xs text-gray-400 hover:text-red-500">
+                                            Очистить список
+                                        </button>
+                                    </div>
+                                )}
+
+                                <button onClick={handleAssign}
+                                    disabled={assigning || !selectedNoms.length || !selected}
+                                    className="w-full py-2 text-sm rounded-lg bg-blue-600
+                                               hover:bg-blue-700 text-white disabled:opacity-50">
+                                    {assigning
+                                        ? 'Назначение...'
+                                        : `Назначить тару${selectedNoms.length > 1 ? ` (${selectedNoms.length})` : ''}`}
                                 </button>
+                                {assignResult && (
+                                    <p className={`text-xs ${assignResult.startsWith('✓')
+                                        ? 'text-emerald-600' : 'text-red-500'}`}>
+                                        {assignResult}
+                                    </p>
+                                )}
                             </div>
                         )}
 
-                        {/* Назначение тары на номенклатуру */}
-                        <div className="space-y-3">
-                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                Назначить тару на номенклатуру
-                            </h4>
-
-                            {/* Поиск и добавление в список */}
-                            <div className="relative">
-                                <label className="block text-xs font-medium text-gray-500 mb-1">
-                                    Номенклатура 1С (можно добавить несколько)
-                                </label>
-                                <input
-                                    ref={nomRef}
-                                    value={nomSearch}
-                                    onChange={e => {
-                                        setNomSearch(e.target.value);
-                                        setAssignResult('');
-                                        if (!e.target.value) { setNomOpen(false); setNomResults([]); }
-                                    }}
-                                    placeholder="Начните вводить название..."
-                                    className={inputCls}
-                                />
-                                {nomOpen && (
-                                    <Dropdown
-                                        anchorRef={nomRef}
-                                        items={nomResults}
-                                        onSelect={part => {
-                                            // Добавляем если ещё нет в списке
-                                            setSelectedNoms(prev =>
-                                                prev.find(p => p.id === part.id) ? prev : [...prev, part]
-                                            );
-                                        }}
-                                        renderItem={part => (
-                                            <div>
-                                                <div className="text-gray-900 dark:text-white">{part.name}</div>
-                                                {part.sku && <div className="text-gray-400 text-[10px]">{part.sku}</div>}
-                                            </div>
-                                        )}
-                                    />
-                                )}
-                            </div>
-
-                            {/* Список выбранных номенклатур */}
-                            {selectedNoms.length > 0 && (
-                                <div className="space-y-1">
-                                    {selectedNoms.map(nom => {
-                                        const result = assignResults.find(r => r.id === nom.id);
-                                        return (
-                                            <div key={nom.id}
-                                                className="flex items-center justify-between px-3 py-2 rounded-lg
-                                   bg-gray-50 dark:bg-gray-800 border
-                                   border-gray-200 dark:border-gray-700">
-                                                <div className="min-w-0">
-                                                    <div className="text-sm text-gray-800 dark:text-gray-200 truncate">
-                                                        {nom.name}
-                                                    </div>
-                                                    {nom.sku && (
-                                                        <div className="text-xs text-gray-400">{nom.sku}</div>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2 shrink-0 ml-2">
-                                                    {result && (
-                                                        <span className={`text-xs ${result.ok
-                                                            ? 'text-emerald-600 dark:text-emerald-400'
-                                                            : 'text-red-500 dark:text-red-400'}`}>
-                                                            {result.ok ? '✓' : '✗'}
-                                                        </span>
-                                                    )}
-                                                    <button
-                                                        onClick={() => setSelectedNoms(prev =>
-                                                            prev.filter(p => p.id !== nom.id)
-                                                        )}
-                                                        className="text-gray-300 dark:text-gray-600
-                                           hover:text-red-500 transition-colors">
-                                                        ×
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    <button
-                                        onClick={() => { setSelectedNoms([]); setAssignResults([]); }}
-                                        className="text-xs text-gray-400 hover:text-red-500 transition-colors">
-                                        Очистить список
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Выбранная тара */}
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">
-                                    Тара (выберите из списка слева)
-                                </label>
-                                <div className={`px-3 py-2 text-sm rounded-lg border
-                        ${selectedPack
-                                        ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                                        : 'border-gray-200 dark:border-gray-700 text-gray-400 bg-gray-50 dark:bg-gray-800'}`}>
-                                    {selectedPack
-                                        ? `${selectedPack.name} (${selectedPack.length}×${selectedPack.width}×${selectedPack.height} мм)`
-                                        : 'Не выбрана'}
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={handleAssign}
-                                disabled={assigning || selectedNoms.length === 0 || !selectedPack}
-                                className="w-full py-2 text-sm rounded-lg bg-blue-600
-                   hover:bg-blue-700 text-white disabled:opacity-50
-                   transition-colors">
-                                {assigning
-                                    ? 'Назначение...'
-                                    : `Назначить тару${selectedNoms.length > 1 ? ` (${selectedNoms.length})` : ''}`}
-                            </button>
-
-                            {assignResult && (
-                                <p className={`text-xs ${assignResult.startsWith('✓')
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : 'text-red-500 dark:text-red-400'}`}>
-                                    {assignResult}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Детали выбранной тары */}
-                        {selectedPack && (
-                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4
-                                            border border-gray-200 dark:border-gray-700">
-                                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400
-                                               uppercase tracking-wide mb-3">
-                                    Параметры выбранной тары
-                                </h4>
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                    {[
-                                        ['Длина', `${selectedPack.length} мм`],
-                                        ['Ширина', `${selectedPack.width} мм`],
-                                        ['Высота', `${selectedPack.height} мм`],
-                                        ['Масса', selectedPack.weight ? `${selectedPack.weight} кг` : '—'],
-                                        ['Вид тары', selectedPack.package_type || '—'],
-                                        ['На палете', selectedPack.qty_on_pallet || '—'],
-                                        ['В заказе', selectedPack.qty_in_order || '—'],
-                                    ].map(([label, value]) => (
-                                        <div key={label}>
-                                            <span className="text-xs text-gray-400">{label}: </span>
-                                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                                                {value}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                        {!selected && !creating && (
+                            <div className="flex items-center justify-center h-full
+                                            text-sm text-gray-400 dark:text-gray-500">
+                                Выберите тару или создайте новую
                             </div>
                         )}
                     </div>
@@ -3683,8 +3582,306 @@ function PackagingModal({ onClose }) {
     );
 }
 
+
+
+// ─── Форма создания тары ──────────────────────────────────────────────────────
+
+function PackagingCreateForm({ packTypes, onSaved, onCancel }) {
+    const [form, setForm] = useState({
+        name: '', length: '', width: '', height: '',
+        weight: '', package_type: '', qty_on_pallet: '', qty_in_order: '',
+    });
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleSave = async () => {
+        if (!form.name.trim()) { setError('Укажите наименование'); return; }
+        setSaving(true);
+        const payload = {
+            name: form.name.trim(),
+            length: parseInt(form.length) || 0,
+            width: parseInt(form.width) || 0,
+            height: parseInt(form.height) || 0,
+            weight: parseFloat(form.weight) || 0,
+            package_type: form.package_type,
+            qty_on_pallet: parseInt(form.qty_on_pallet) || 0,
+            qty_in_order: parseInt(form.qty_in_order) || 0,
+        };
+        const { ok, data } = await bomApi.createPackagingItem(payload);
+        if (ok && data.success) {
+            onSaved(data.data);
+        } else {
+            setError(data.error || 'Ошибка создания');
+        }
+        setSaving(false);
+    };
+
+    return (
+        <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Новая тара</h4>
+            <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Наименование *
+                    </label>
+                    <input value={form.name}
+                        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="Точное наименование как в 1С"
+                        className={inputCls} autoFocus />
+                </div>
+                {[
+                    { key: 'length', label: 'Длина, мм' },
+                    { key: 'width', label: 'Ширина, мм' },
+                    { key: 'height', label: 'Высота, мм' },
+                    { key: 'weight', label: 'Масса, кг' },
+                    { key: 'qty_on_pallet', label: 'Кол-во на палете' },
+                    { key: 'qty_in_order', label: 'Кол-во в заказе' },
+                ].map(({ key, label }) => (
+                    <div key={key}>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+                        <input type="number" min={0}
+                            value={form[key]}
+                            onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                            className={inputCls} />
+                    </div>
+                ))}
+                <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Вид тары</label>
+                    <select value={form.package_type}
+                        onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))}
+                        className={inputCls}>
+                        <option value="">—</option>
+                        {packTypes.map(t => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="flex gap-2">
+                <button onClick={onCancel}
+                    className="flex-1 border border-gray-200 dark:border-gray-700
+                               text-gray-600 dark:text-gray-400 text-sm py-2 rounded-lg
+                               hover:bg-neutral-50 dark:hover:bg-neutral-800">
+                    Отмена
+                </button>
+                <button onClick={handleSave} disabled={saving}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700
+                               text-white text-sm py-2 rounded-lg disabled:opacity-50">
+                    {saving ? 'Создание...' : 'Создать'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── Детали тары с редактированием ───────────────────────────────────────────
+
+function PackagingDetail({ item, packTypes, onUpdated, onDeleted }) {
+    const [editing, setEditing] = useState(false);
+    const [form, setForm] = useState({
+        length: item.length,
+        width: item.width,
+        height: item.height,
+        weight: item.weight,
+        package_type: item.package_type,
+        qty_on_pallet: item.qty_on_pallet,
+        qty_in_order: item.qty_in_order,
+    });
+    const [saving, setSaving] = useState(false);
+    const [matSearch, setMatSearch] = useState('');
+    const [matResults, setMatResults] = useState([]);
+    const [addingMat, setAddingMat] = useState(false);
+    const matRef = useRef(null);
+
+    const handleSave = async () => {
+        setSaving(true);
+        const { ok, data } = await bomApi.updatePackagingItem(item.id, {
+            length: parseInt(form.length) || 0,
+            width: parseInt(form.width) || 0,
+            height: parseInt(form.height) || 0,
+            weight: parseFloat(form.weight) || 0,
+            package_type: form.package_type,
+            qty_on_pallet: parseInt(form.qty_on_pallet) || 0,
+            qty_in_order: parseInt(form.qty_in_order) || 0,
+        });
+        if (ok && data.success) {
+            onUpdated(data.data);
+            setEditing(false);
+        }
+        setSaving(false);
+    };
+
+    const handleDelete = async () => {
+        if (!confirm(`Удалить тару «${item.name}»?`)) return;
+        const { ok, data } = await bomApi.deletePackagingItem(item.id);
+        if (ok && data.success) onDeleted();
+    };
+
+    const handleMatSearch = async (q) => {
+        setMatSearch(q);
+        if (q.length < 2) { setMatResults([]); return; }
+        const { ok, data } = await bomApi.getParts({ q, limit: 10, is_synced: true });
+        if (ok && data.success) setMatResults(data.data);
+    };
+
+    const handleAddMat = async (part) => {
+        setAddingMat(true);
+        const { ok, data } = await bomApi.addPackagingMaterial(item.id, { part_id: part.id });
+        if (ok && data.success) onUpdated(data.data);
+        setMatSearch('');
+        setMatResults([]);
+        setAddingMat(false);
+    };
+
+    const handleRemoveMat = async (materialId) => {
+        const { ok, data } = await bomApi.removePackagingMaterial(item.id, materialId);
+        if (ok && data.success) onUpdated(data.data);
+    };
+
+    return (
+        <div className="space-y-4">
+            {/* Заголовок */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h4 className="text-base font-semibold text-gray-900 dark:text-white">
+                        {item.name}
+                    </h4>
+                    {item.is_dirty && (
+                        <span className="text-xs text-amber-500">● Не синхронизировано с 1С</span>
+                    )}
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={() => setEditing(e => !e)}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                        {editing ? 'Отмена' : 'Редактировать'}
+                    </button>
+                    <button onClick={handleDelete}
+                        className="text-xs text-red-500 hover:underline">
+                        Удалить
+                    </button>
+                </div>
+            </div>
+
+            {/* Форма редактирования */}
+            {editing ? (
+                <div className="grid grid-cols-2 gap-3">
+                    {[
+                        { key: 'length', label: 'Длина, мм' },
+                        { key: 'width', label: 'Ширина, мм' },
+                        { key: 'height', label: 'Высота, мм' },
+                        { key: 'weight', label: 'Масса, кг' },
+                        { key: 'qty_on_pallet', label: 'Кол-во на палете' },
+                        { key: 'qty_in_order', label: 'Кол-во в заказе' },
+                    ].map(({ key, label }) => (
+                        <div key={key}>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+                            <input type="number" min={0}
+                                value={form[key]}
+                                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                                className={inputCls} />
+                        </div>
+                    ))}
+                    <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Вид тары</label>
+                        <select value={form.package_type}
+                            onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))}
+                            className={inputCls}>
+                            <option value="">—</option>
+                            {packTypes.map(t => (
+                                <option key={t.value} value={t.value}>{t.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="col-span-2 flex justify-end">
+                        <button onClick={handleSave} disabled={saving}
+                            className="px-4 py-2 text-sm rounded-lg bg-blue-600
+                                       hover:bg-blue-700 text-white disabled:opacity-50">
+                            {saving ? 'Сохранение...' : 'Сохранить'}
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 gap-2 text-sm bg-neutral-50
+                                dark:bg-neutral-800 rounded-lg p-3">
+                    {[
+                        ['Длина', `${item.length} мм`],
+                        ['Ширина', `${item.width} мм`],
+                        ['Высота', `${item.height} мм`],
+                        ['Масса', item.weight > 0 ? `${item.weight} кг` : '—'],
+                        ['Вид тары', item.package_type || '—'],
+                        ['На палете', item.qty_on_pallet || '—'],
+                        ['В заказе', item.qty_in_order || '—'],
+                    ].map(([label, value]) => (
+                        <div key={label}>
+                            <span className="text-xs text-gray-400">{label}: </span>
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                {value}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Материалы тары */}
+            <div>
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Материалы упаковки ({item.materials?.length ?? 0})
+                </div>
+                <div className="space-y-1 max-h-48 overflow-y-auto mb-2">
+                    {item.materials?.map(m => (
+                        <div key={m.id}
+                            className="flex items-center justify-between px-3 py-2 rounded-lg
+                                       bg-neutral-50 dark:bg-neutral-800 text-sm">
+                            <div className="min-w-0">
+                                <span className="text-gray-800 dark:text-gray-200 truncate">
+                                    {m.part_name}
+                                </span>
+                                <span className="text-gray-400 text-xs ml-2">
+                                    {m.quantity} {m.unit}
+                                </span>
+                            </div>
+                            <button onClick={() => handleRemoveMat(m.id)}
+                                className="text-gray-300 dark:text-gray-600
+                                           hover:text-red-500 transition-colors shrink-0 ml-2">
+                                ×
+                            </button>
+                        </div>
+                    ))}
+                    {(!item.materials || item.materials.length === 0) && (
+                        <p className="text-xs text-gray-400 italic">Нет материалов</p>
+                    )}
+                </div>
+
+                {/* Добавить материал */}
+                <div className="relative">
+                    <input
+                        ref={matRef}
+                        value={matSearch}
+                        onChange={e => handleMatSearch(e.target.value)}
+                        placeholder="Добавить материал..."
+                        className={inputCls}
+                        disabled={addingMat}
+                    />
+                    <Dropdown
+                        anchorRef={matRef}
+                        items={matResults}
+                        onSelect={handleAddMat}
+                        renderItem={part => (
+                            <div>
+                                <div className="text-gray-900 dark:text-white">{part.onec_name}</div>
+                                {part.sku && <div className="text-gray-400 text-[10px]">{part.sku}</div>}
+                            </div>
+                        )}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 const inputCls = `w-full px-3 py-1.5 text-sm rounded-lg
-    bg-gray-50 dark:bg-gray-800
+    bg-neutral-50 dark:bg-neutral-800
     border border-gray-200 dark:border-gray-700
     text-gray-900 dark:text-white
     focus:outline-none focus:border-blue-500

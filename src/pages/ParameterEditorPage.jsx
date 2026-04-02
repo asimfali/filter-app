@@ -37,7 +37,7 @@ function useProductTypes() {
 function Modal({ title, onClose, children }) {
     return (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md">
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-md">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
                     <button onClick={onClose}
@@ -93,7 +93,7 @@ function AxisForm({ productTypeId, axis, onSave, onClose }) {
     };
 
     const inp = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-            "bg-white dark:bg-gray-800 text-gray-900 dark:text-white " +
+            "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
             "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
     return (
@@ -126,7 +126,7 @@ function AxisForm({ productTypeId, axis, onSave, onClose }) {
 
             <div className="flex gap-2 pt-1">
                 <button type="button" onClick={onClose}
-                    className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
+                    className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm py-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:bg-neutral-950">
                     Отмена
                 </button>
                 <button type="submit" disabled={loading}
@@ -172,7 +172,7 @@ function ValueForm({ axisId, value, onSave, onClose }) {
     };
 
     const inp = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-            "bg-white dark:bg-gray-800 text-gray-900 dark:text-white " +
+            "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
             "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
     return (
@@ -198,7 +198,7 @@ function ValueForm({ axisId, value, onSave, onClose }) {
 
             <div className="flex gap-2 pt-1">
                 <button type="button" onClick={onClose}
-                    className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
+                    className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm py-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:bg-neutral-950">
                     Отмена
                 </button>
                 <button type="submit" disabled={loading}
@@ -262,7 +262,7 @@ function ValuesPanel({ axis }) {
                 <div className="space-y-1">
                     {values.map(v => (
                         <div key={v.id}
-                            className="flex items-center justify-between bg-gray-50 dark:bg-gray-950 hover:bg-gray-100 dark:hover:bg-gray-700 dark:bg-gray-800
+                            className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-950 hover:bg-neutral-100 dark:hover:bg-neutral-700 dark:bg-neutral-800
                          border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 group transition-colors">
                             <div className="flex items-center gap-3">
                                 <span className="text-xs text-gray-400 dark:text-gray-500 w-6 text-right">{v.sort_order}</span>
@@ -358,7 +358,7 @@ function BulkAddValues({ axisId, onAdded }) {
     }
 
     return (
-        <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-950">
+        <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-neutral-50 dark:bg-neutral-950">
             <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500">
                     Массовое добавление — каждое значение с новой строки
@@ -431,7 +431,7 @@ export default function ParameterEditorPage() {
         <div className="space-y-4">
 
             {/* Заголовок + выбор типа */}
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4 flex items-center gap-4">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4 flex items-center gap-4">
                 <div className="flex-1">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
                         Редактор осей и значений
@@ -446,7 +446,7 @@ export default function ParameterEditorPage() {
                         value={typeId}
                         onChange={e => setTypeId(e.target.value)}
                         className="border border-gray-300 dark:border-gray-600
-             bg-white dark:bg-gray-800
+             bg-white dark:bg-neutral-800
              text-gray-900 dark:text-white
              rounded-lg px-3 py-2 text-sm
              focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-48"
@@ -460,7 +460,7 @@ export default function ParameterEditorPage() {
             </div>
 
             {!typeId && (
-                <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-12 text-center text-gray-400 dark:text-gray-500 text-sm">
+                <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-12 text-center text-gray-400 dark:text-gray-500 text-sm">
                     Выберите тип продукции
                 </div>
             )}
@@ -469,7 +469,7 @@ export default function ParameterEditorPage() {
                 <div className="flex gap-4">
 
                     {/* Список осей */}
-                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 w-64 shrink-0">
+                    <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-4 w-64 shrink-0">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Оси параметров</span>
                             <button onClick={() => setModal('add-axis')}
@@ -493,7 +493,7 @@ export default function ParameterEditorPage() {
                                         className={`flex items-center justify-between rounded-lg px-3 py-2.5
                                 cursor-pointer group transition-colors ${selectedAxis?.id === axis.id
                                                 ? 'bg-blue-50 border border-blue-200'
-                                                : 'hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 border border-transparent'
+                                                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:bg-neutral-950 border border-transparent'
                                             }`}>
                                         <div className="min-w-0">
                                             <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
@@ -524,7 +524,7 @@ export default function ParameterEditorPage() {
                     </div>
 
                     {/* Панель значений */}
-                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 flex-1 min-w-0">
+                    <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-4 flex-1 min-w-0">
                         {selectedAxis ? (
                             <ValuesPanel axis={selectedAxis} />
                         ) : (

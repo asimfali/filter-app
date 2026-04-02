@@ -542,14 +542,14 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
     <div className="space-y-4">
 
       {/* Выбор типа продукции */}
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
         <label className="block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
           Тип продукции
         </label>
         <select
           value={selectedTypeId}
           onChange={e => setSelectedTypeId(e.target.value)}
-          className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800
+          className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-neutral-800
                      text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm
                      focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
@@ -562,12 +562,12 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
 
       {/* ── Переключатель режимов (показываем если тип выбран) ── */}
       {selectedTypeId && !loading && (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-3">
-          <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-3">
+          <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg w-fit">
             <button
               onClick={() => setMode('filter')}
               className={`px-4 py-1.5 rounded text-sm transition-colors ${mode === 'filter'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
                 }`}
             >
@@ -577,7 +577,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
               <button
                 onClick={() => setMode('binding')}
                 className={`px-4 py-1.5 rounded text-sm transition-colors ${mode === 'binding'
-                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                  ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
                   }`}
               >
@@ -593,7 +593,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
 
       {/* Загрузка типа */}
       {selectedTypeId && loading && (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center
+        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-8 text-center
                         text-gray-400 dark:text-gray-500 text-sm">
           Загрузка...
         </div>
@@ -610,7 +610,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
 
       {/* Теги — показываем сразу после загрузки типа */}
       {mode === 'filter' && selectedTypeId && !loading && tagValues.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               Фильтр графа
@@ -643,7 +643,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                           px-3 py-1 rounded-full text-sm font-medium transition-all
                           ${isSelected
                             ? 'bg-violet-600 text-white shadow-sm'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                            : 'bg-neutral-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                           }
                         `}
                       >
@@ -668,7 +668,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
         <>
           {/* Пока не выбраны теги */}
           {selectedTypeId && !loading && selectedTags.length === 0 && (
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-12 text-center
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-12 text-center
                         text-gray-400 dark:text-gray-500 text-sm">
               Выберите фильтр выше для отображения графа
             </div>
@@ -676,7 +676,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
 
           {/* Загрузка графа */}
           {selectedTags.length > 0 && graphLoading && (
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-8 text-center
                         text-gray-400 dark:text-gray-500 text-sm">
               Загрузка графа...
             </div>
@@ -687,7 +687,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
             <div className="flex gap-4 w-full">
 
               {/* Граф */}
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 flex-1 min-w-0 flex flex-col">
+              <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-4 flex-1 min-w-0 flex flex-col">
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {productType?.name}
@@ -704,7 +704,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
               </div>
 
               {/* Панель привязки */}
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 w-72 shrink-0
+              <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-4 w-72 shrink-0
                           flex flex-col gap-4 self-start sticky top-4">
                 <div>
                   <div className="text-xs font-medium text-gray-500 dark:text-gray-400
@@ -740,7 +740,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                 {filterResult !== null && (
                   <div className={`rounded-lg p-3 text-sm ${filterResult.count > 0
                     ? 'bg-green-50 text-green-800'
-                    : 'bg-gray-50 dark:bg-gray-950 text-gray-500'
+                    : 'bg-neutral-50 dark:bg-neutral-950 text-gray-500'
                     }`}>
                     {filterResult.count > 0
                       ? <>Найдено: <strong>{filterResult.count}</strong> изделий</>
@@ -759,8 +759,8 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                     </button>
                     <button
                       onClick={() => onOpenSpecPreview(filterResult.product_ids)}
-                      className="w-full bg-gray-100 dark:bg-gray-800
-                       hover:bg-gray-200 dark:hover:bg-gray-700
+                      className="w-full bg-neutral-100 dark:bg-neutral-800
+                       hover:bg-neutral-200 dark:hover:bg-neutral-700
                        text-gray-700 dark:text-gray-300
                        text-sm py-2 rounded-lg transition-colors">
                       👁 Просмотр ({filterResult.count})
@@ -799,7 +799,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                         onChange={e => handleAxisChange(e.target.value)}
                         className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
                                px-2 py-1.5 text-sm focus:outline-none focus:ring-2
-                               focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                               focus:ring-blue-500 dark:bg-neutral-800 dark:text-white"
                       >
                         <option value="">— выберите —</option>
                         {allAxes.map(a => (
@@ -817,7 +817,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                       </div>
                     )}
                     {attachAxis && attachedValueIds.length === 0 && availableValues.length > 0 && (
-                      <div className="mb-2 p-2 bg-gray-50 dark:bg-gray-950 rounded text-xs text-gray-400">
+                      <div className="mb-2 p-2 bg-neutral-50 dark:bg-neutral-950 rounded text-xs text-gray-400">
                         Привязок нет
                       </div>
                     )}
@@ -832,7 +832,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                           onChange={e => { setAttachValue(e.target.value); setAttachResult(null); }}
                           className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
                                  px-2 py-1.5 text-sm focus:outline-none focus:ring-2
-                                 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                 focus:ring-blue-500 dark:bg-neutral-800 dark:text-white"
                         >
                           <option value="">— выберите —</option>
                           {availableValues.map(v => (
@@ -897,7 +897,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
             </div>
           )}
           {/* Теги редактора — все оси */}
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                 Фильтр товаров
@@ -930,7 +930,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                           )}
                           className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${isSelected
                             ? 'bg-orange-500 text-white shadow-sm'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
+                            : 'bg-neutral-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 hover:bg-neutral-200'
                             }`}
                         >
                           {tag.label}
@@ -950,17 +950,17 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
 
           {/* Граф + панель */}
           <div className="flex gap-4">
-            <div className="flex-1 bg-white dark:bg-gray-900 rounded-lg shadow p-4">
+            <div className="flex-1 bg-white dark:bg-neutral-900 rounded-lg shadow p-4">
 
               {/* Переключатель режимов */}
               {canEditBindings && (
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-xs text-gray-500 dark:text-gray-400">Режим:</span>
-                  <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                  <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
                     <button
                       onClick={() => setBindingMode('attach')}
                       className={`px-3 py-1 rounded text-xs transition-colors ${bindingMode === 'attach'
-                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                        ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                         : 'text-gray-500 hover:text-gray-700'
                         }`}
                     >
@@ -969,7 +969,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                     <button
                       onClick={() => setBindingMode('connect')}
                       className={`px-3 py-1 rounded text-xs transition-colors ${bindingMode === 'connect'
-                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                        ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                         : 'text-gray-500 hover:text-gray-700'
                         }`}
                     >

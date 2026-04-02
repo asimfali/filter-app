@@ -108,7 +108,7 @@ function NotificationBell({ onNavigate }) {
         onClick={handleOpen}
         className="relative w-9 h-9 flex items-center justify-center rounded-lg
                    text-gray-500 dark:text-gray-400
-                   hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                   hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
         title="Уведомления"
       >
         🔔
@@ -124,7 +124,7 @@ function NotificationBell({ onNavigate }) {
       {/* Дропдаун */}
       {open && (
         <div className="absolute right-0 top-full mt-2 w-80 z-50
-                        bg-white dark:bg-gray-900
+                        bg-white dark:bg-neutral-900
                         border border-gray-200 dark:border-gray-700
                         rounded-xl shadow-xl overflow-hidden">
 
@@ -156,7 +156,7 @@ function NotificationBell({ onNavigate }) {
                   <button
                     onClick={() => handleClick(n)}
                     className={`w-full text-left px-4 py-3 transition-colors
-                      hover:bg-gray-50 dark:hover:bg-gray-800
+                      hover:bg-neutral-50 dark:hover:bg-neutral-800
                       ${!n.is_delivered ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
                   >
                     <div className="flex items-start gap-2">
@@ -247,7 +247,7 @@ export default function Header({ currentPage, onNavigate }) {
   };
 
   return (
-    <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700
+    <header className="bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-gray-700
                        px-6 py-3 flex items-center justify-between gap-4">
       <div className="flex items-center gap-6 shrink-0">
         <span className="font-bold text-gray-900 dark:text-white text-sm">
@@ -277,7 +277,7 @@ export default function Header({ currentPage, onNavigate }) {
                   className={`px-3 py-1.5 rounded text-sm transition-colors
                     ${currentPage === item.id
                       ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800'
                     }`}>
                   {item.label}
                 </button>
@@ -303,7 +303,7 @@ export default function Header({ currentPage, onNavigate }) {
               onFocus={() => results.length > 0 && setOpen(true)}
               placeholder="Поиск товара..."
               className="w-full pl-8 pr-4 py-1.5 text-sm rounded-lg
-                         bg-gray-100 dark:bg-gray-800
+                         bg-neutral-100 dark:bg-neutral-800
                          border border-transparent focus:border-blue-500
                          text-gray-900 dark:text-white
                          placeholder-gray-400 dark:placeholder-gray-500
@@ -318,7 +318,7 @@ export default function Header({ currentPage, onNavigate }) {
           {open && (
             <div ref={dropdownRef}
               className="absolute top-full left-0 right-0 mt-1 z-50
-                         bg-white dark:bg-gray-900
+                         bg-white dark:bg-neutral-900
                          border border-gray-200 dark:border-gray-700
                          rounded-lg shadow-lg overflow-hidden">
               {results.length === 0 ? (
@@ -331,7 +331,7 @@ export default function Header({ currentPage, onNavigate }) {
                     <li key={product.id}>
                       <button onClick={() => handleSelect(product)}
                         className="w-full text-left px-4 py-2.5 text-sm
-                                   hover:bg-gray-50 dark:hover:bg-gray-800
+                                   hover:bg-neutral-50 dark:hover:bg-neutral-800
                                    transition-colors border-b border-gray-100
                                    dark:border-gray-800 last:border-0">
                         <div className="text-gray-900 dark:text-white font-medium">
@@ -364,7 +364,7 @@ export default function Header({ currentPage, onNavigate }) {
                            transition-opacity cursor-pointer">
                 {/* Аватарка или инициал */}
                 <div className="w-8 h-8 rounded-full overflow-hidden
-                                bg-gray-200 dark:bg-gray-700
+                                bg-neutral-200 dark:bg-neutral-700
                                 flex items-center justify-center shrink-0">
                   {user.avatar_url ? (
                     <img src={user.avatar_url} alt=""

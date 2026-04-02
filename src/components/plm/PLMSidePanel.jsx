@@ -14,10 +14,10 @@ const STATUS_LABEL = {
 };
 
 const STATUS_COLOR = {
-    draft: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+    draft: 'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
     pending_approval: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
     active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    archived: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+    archived: 'bg-neutral-100 text-gray-400 dark:bg-neutral-800 dark:text-gray-500',
 };
 
 const DECISION_ICON = { pending: '○', approved: '✓', rejected: '✗' };
@@ -125,7 +125,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
             {/* Шапка */}
             <div
                 className="flex items-center justify-between px-3 py-2
-                           hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                           hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
                 onClick={() => {
                     setExpanded(v => !v);
                     if (!expanded) stages.forEach(s => loadApprovals(s.id));
@@ -332,7 +332,7 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
                 <div className="flex items-center gap-2">
                     <select value={batchPreset} onChange={e => setBatchPreset(e.target.value)}
                         className="flex-1 text-xs rounded border border-gray-200 dark:border-gray-700
-                                   bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300
+                                   bg-white dark:bg-neutral-900 text-gray-700 dark:text-gray-300
                                    px-2 py-1 focus:outline-none">
                         <option value="">Пресет по умолчанию</option>
                         {presets.map(p => (
@@ -366,7 +366,7 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
                 <div className="flex items-center gap-2">
                     <select value={batchDept} onChange={e => setBatchDept(e.target.value)}
                         className="flex-1 text-xs rounded border border-gray-200 dark:border-gray-700
-                                   bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300
+                                   bg-white dark:bg-neutral-900 text-gray-700 dark:text-gray-300
                                    px-2 py-1 focus:outline-none">
                         <option value="">Выберите отдел</option>
                         {depts.map(d => (
@@ -447,7 +447,7 @@ export default function PLMSidePanel({ productIds, products, onClose, selectedLi
 
                 {/* Форма создания группы */}
                 {showCreate ? (
-                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                    <div className="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-3">
                         <BatchCreateForm
                             productIds={productIds}
                             onCreated={handleCreated}

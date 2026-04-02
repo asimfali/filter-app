@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
+import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
@@ -7,6 +8,181 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader';
 import { tokenStorage } from '../api/auth';
 export { canPreview3D } from '../utils/fileUtils';
+import { useTheme } from '../contexts/ThemeContext';
+
+// ─── Видовой куб ──────────────────────────────────────────────────────────────
+
+const VIEW_CUBE_FACES = [
+    { label: 'Спереди', position: [0, 0, 1], up: [0, 1, 0] },
+    { label: 'Сзади', position: [0, 0, -1], up: [0, 1, 0] },
+    { label: 'Слева', position: [-1, 0, 0], up: [0, 1, 0] },
+    { label: 'Справа', position: [1, 0, 0], up: [0, 1, 0] },
+    { label: 'Сверху', position: [0, 1, 0], up: [0, 0, -1] },
+    { label: 'Снизу', position: [0, -1, 0], up: [0, 0, 1] },
+];
+
+const VIEW_CUBE_CORNERS = [
+    { position: [1, 1, 1] },
+    { position: [-1, 1, 1] },
+    { position: [1, 1, -1] },
+    { position: [-1, 1, -1] },
+    { position: [1, -1, 1] },
+    { position: [-1, -1, 1] },
+    { position: [1, -1, -1] },
+    { position: [-1, -1, -1] },
+];
+
+function ViewCube({ onSetView, onRotate, cameraRef, dark }) {
+    const mountRef = useRef(null);
+    const frameRef = useRef(null);
+
+    useEffect(() => {
+        const container = mountRef.current;
+        if (!container) return;
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+        camera.position.set(0, 0, 3);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(80, 80);
+        renderer.setClearColor(0x000000, 0);
+        container.appendChild(renderer.domElement);
+
+        const faceLabels = ['Справа', 'Слева', 'Сзади', 'Спереди', 'Сверху', 'Снизу'];
+        const faceColors = [
+            0x2563eb, 0x1d4ed8,
+            0x9333ea, 0x7e22ce,
+            0x16a34a, 0x15803d,
+        ];
+
+        const cubeGroup = new THREE.Group();
+        const directions = [
+            [1, 0, 0], [-1, 0, 0],
+            [0, 1, 0], [0, -1, 0],
+            [0, 0, 1], [0, 0, -1],
+        ];
+
+        directions.forEach((dir, i) => {
+            const geo = new THREE.PlaneGeometry(0.9, 0.9);
+            const mat = new THREE.MeshBasicMaterial({
+                color: faceColors[i],
+                transparent: true,
+                opacity: 0.85,
+                side: THREE.DoubleSide,
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(dir[0] * 0.5, dir[1] * 0.5, dir[2] * 0.5);
+            mesh.lookAt(dir[0], dir[1], dir[2]);
+            mesh.userData.label = faceLabels[i];
+            cubeGroup.add(mesh);
+        });
+
+        const edgeGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
+        const edgeMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff, wireframe: true, transparent: true, opacity: 0.3,
+        });
+        cubeGroup.add(new THREE.Mesh(edgeGeo, edgeMat));
+        scene.add(cubeGroup);
+        scene.add(new THREE.AmbientLight(0xffffff, 1));
+
+        const raycaster = new THREE.Raycaster();
+        const VIEWS = {
+            'Спереди': { position: [0, -1, 0], up: [0, 0, 1] },
+            'Сзади': { position: [0, 1, 0], up: [0, 0, -1] },
+            'Слева': { position: [-1, 0, 0], up: [0, 0, 1] },
+            'Справа': { position: [1, 0, 0], up: [0, 0, 1] },
+            'Сверху': { position: [0, 0, 1], up: [0, 1, 0] },
+            'Снизу': { position: [0, 0, -1], up: [0, 1, 0] },
+        };
+
+        const handleClick = (e) => {
+            const rect = container.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1,
+            );
+            raycaster.setFromCamera(mouse, camera);
+            const hits = raycaster.intersectObjects(cubeGroup.children, false);
+            const hit = hits.find(h => h.object.userData.label);
+            if (hit) {
+                const view = VIEWS[hit.object.userData.label];
+                if (view) onSetView(view);
+            }
+        };
+        renderer.domElement.addEventListener('click', handleClick);
+
+        const animate = () => {
+            frameRef.current = requestAnimationFrame(animate);
+            const mainCamera = cameraRef.current;
+            if (mainCamera) {
+                cubeGroup.quaternion.copy(mainCamera.quaternion).invert();
+            }
+            renderer.render(scene, camera);
+        };
+        animate();
+
+        return () => {
+            cancelAnimationFrame(frameRef.current);
+            renderer.domElement.removeEventListener('click', handleClick);
+            renderer.dispose();
+            if (container.contains(renderer.domElement)) {
+                container.removeChild(renderer.domElement);
+            }
+        };
+    }, []);
+
+    const arrowBtn = (label, onClick, style) => (
+        <button
+            onClick={onClick}
+            title={label}
+            style={{
+                position: 'absolute',
+                width: 18, height: 18,
+                background: dark ? 'rgba(30,41,59,0.7)' : 'rgba(241,245,249,0.85)',
+                border: dark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.15)',
+                borderRadius: 3,
+                color: dark ? '#94a3b8' : '#475569',
+                fontSize: 9,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                ...style,
+            }}>
+            {label}
+        </button>
+    );
+
+    return (
+        <div style={{
+            position: 'absolute',
+            top: 12, right: 12,
+            zIndex: 30,
+            width: 120, height: 120,
+        }}>
+            {/* Стрелки */}
+            {arrowBtn('↑', () => onRotate('up'), { top: 0, left: 51 })}
+            {arrowBtn('↓', () => onRotate('down'), { bottom: 0, left: 51 })}
+            {arrowBtn('←', () => onRotate('left'), { top: 51, left: 0 })}
+            {arrowBtn('→', () => onRotate('right'), { top: 51, right: 0 })}
+            {arrowBtn('↺', () => onRotate('ccw'), { top: 0, left: 0 })}
+            {arrowBtn('↻', () => onRotate('cw'), { top: 0, right: 0 })}
+
+            {/* Куб по центру */}
+            <div
+                ref={mountRef}
+                style={{
+                    position: 'absolute',
+                    top: 20, left: 20,
+                    width: 80, height: 80,
+                    cursor: 'pointer',
+                }}
+            />
+        </div>
+    );
+}
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 
@@ -77,7 +253,7 @@ function ContextMenu({ x, y, node, onHide, onShow, onIsolate, onFocus, onClose }
 
     return (
         <div
-            className="fixed z-50 bg-white dark:bg-gray-900 border border-gray-200
+            className="fixed z-50 bg-white dark:bg-neutral-900 border border-gray-200
                        dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-40"
             style={{ left: x, top: y }}
             onMouseDown={e => e.stopPropagation()}
@@ -89,22 +265,22 @@ function ContextMenu({ x, y, node, onHide, onShow, onIsolate, onFocus, onClose }
             </div>
             <button onClick={onHide}
                 className="w-full text-left px-3 py-2 text-sm text-gray-700
-                           dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                           dark:text-gray-300 hover:bg-neutral-50 dark:hover:bg-neutral-800">
                 👁 Скрыть
             </button>
             <button onClick={onShow}
                 className="w-full text-left px-3 py-2 text-sm text-gray-700
-                           dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                           dark:text-gray-300 hover:bg-neutral-50 dark:hover:bg-neutral-800">
                 ✓ Показать
             </button>
             <button onClick={onIsolate}
                 className="w-full text-left px-3 py-2 text-sm text-gray-700
-                           dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                           dark:text-gray-300 hover:bg-neutral-50 dark:hover:bg-neutral-800">
                 ◎ Изолировать
             </button>
             <button onClick={onFocus}
                 className="w-full text-left px-3 py-2 text-sm text-gray-700
-                           dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                           dark:text-gray-300 hover:bg-neutral-50 dark:hover:bg-neutral-800">
                 ⊙ Фокус
             </button>
         </div>
@@ -149,7 +325,7 @@ function TreeNode({ node, depth, selectedUuid, onSelect, onContextMenu, onHover,
                             group transition-colors text-xs
                             ${isSelected
                         ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                        : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 text-gray-700 dark:text-gray-300'
                     }
                             ${!visible ? 'opacity-40' : ''}`}
                 style={{ paddingLeft: `${depth * 14 + 8}px` }}
@@ -187,7 +363,7 @@ function TreeNode({ node, depth, selectedUuid, onSelect, onContextMenu, onHover,
                 {/* Tooltip рендерится через portal или просто fixed */}
                 {tooltip && (
                     <div
-                        className="fixed z-[9999] bg-gray-900 text-white text-xs
+                        className="fixed z-[9999] bg-neutral-900 text-white text-xs
                    px-2 py-1 rounded whitespace-nowrap pointer-events-none shadow-lg
                    border border-gray-700"
                         style={{ left: tooltip.x, top: tooltip.y }}
@@ -327,7 +503,10 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
     const sceneRef = useRef(null);
     const raycasterRef = useRef(new THREE.Raycaster());
     const objMapRef = useRef({});  // uuid → THREE.Object3D
+    const userMaterialStateRef = useRef({});
+    const panDragRef = useRef(null);
 
+    const { dark } = useTheme();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [tree, setTree] = useState(null);
@@ -337,6 +516,54 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
     const [, forceUpdate] = useState(0); // для ре-рендера дерева
 
     const refresh = useCallback(() => forceUpdate(n => n + 1), []);
+    const setView = useCallback(({ position, up }) => {
+        const camera = cameraRef.current;
+        const controls = controlsRef.current;
+        const scene = sceneRef.current;
+        if (!camera || !controls || !scene) return;
+
+        const box = new THREE.Box3();
+        scene.traverse(c => { if (c.isMesh) box.expandByObject(c); });
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const dist = maxDim * 2;
+
+        camera.position.set(
+            position[0] * dist,
+            position[1] * dist,
+            position[2] * dist,
+        );
+        camera.up.set(up[0], up[1], up[2]);
+        controls.target.set(0, 0, 0);
+        controls.update();
+    }, []);
+
+    const rotateView = useCallback((direction) => {
+        const camera = cameraRef.current;
+        const controls = controlsRef.current;
+        if (!camera || !controls) return;
+
+        const angle = Math.PI / 2;
+        const q = new THREE.Quaternion();
+        const pos = camera.position.clone().normalize();
+        const right = new THREE.Vector3()
+            .crossVectors(camera.position, camera.up)
+            .normalize();
+
+        switch (direction) {
+            case 'up': q.setFromAxisAngle(right, -angle); break;
+            case 'down': q.setFromAxisAngle(right, angle); break;
+            case 'left': q.setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle); break;
+            case 'right': q.setFromAxisAngle(new THREE.Vector3(0, 0, 1), -angle); break;
+            case 'cw': q.setFromAxisAngle(pos, -angle); break;
+            case 'ccw': q.setFromAxisAngle(pos, angle); break;
+        }
+
+        camera.position.applyQuaternion(q);
+        camera.up.applyQuaternion(q);
+        controls.target.set(0, 0, 0);
+        controls.update();
+    }, []);
 
     // ── Инициализация Three.js ────────────────────────────────────────────────
 
@@ -347,7 +574,6 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         const ext = getExt(fname);
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x1a1a2e);
         sceneRef.current = scene;
 
         const w = container.clientWidth;
@@ -380,9 +606,56 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         // dir2.position.set(-5, -5, -5);
         // scene.add(dir2);
 
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = false;
+        const controls = new TrackballControls(camera, renderer.domElement);
+        controls.rotateSpeed = 6.0;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 0.8;
+        controls.staticMoving = true;
+        controls.mouseButtons = {
+            LEFT: THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.ZOOM,
+            RIGHT: THREE.MOUSE.PAN,
+        };
         controlsRef.current = controls;
+
+        const onPointerMove = (e) => {
+            if (!panDragRef.current) return;
+            if (!(e.buttons & 3)) {
+                panDragRef.current = null;
+                controls.enabled = true;
+                return;
+            }
+
+            const camera = cameraRef.current;
+            if (!camera) return;
+
+            const { startX, startY, startTarget, startCamPos } = panDragRef.current;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            const h = container.clientHeight;
+            const scale = (camera.top - camera.bottom) / camera.zoom / h;
+
+            const right = new THREE.Vector3()
+                .crossVectors(camera.position.clone().sub(controls.target).normalize(), camera.up)
+                .normalize()
+                .negate();
+            const up = camera.up.clone().normalize();
+
+            const offset = right.multiplyScalar(-dx * scale).add(up.multiplyScalar(dy * scale));
+
+            camera.position.copy(startCamPos).add(offset);
+            controls.target.copy(startTarget).add(offset);
+            controls.update();
+        };
+
+        const onPointerUp = () => {
+            panDragRef.current = null;
+            controls.enabled = true;
+        };
+
+        container.addEventListener('pointermove', onPointerMove);
+        container.addEventListener('pointerup', onPointerUp);
 
         const animate = () => {
             frameRef.current = requestAnimationFrame(animate);
@@ -405,12 +678,6 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             renderer.setSize(w, h);
         };
         window.addEventListener('resize', onResize);
-
-        controls.mouseButtons = {
-            LEFT: THREE.MOUSE.ROTATE,
-            MIDDLE: THREE.MOUSE.PAN,    // ← средняя кнопка = перемещение
-            RIGHT: THREE.MOUSE.PAN,     // ← ПКМ тоже перемещение
-        };
 
         // ── Загрузка модели ───────────────────────────────────────────────────
 
@@ -467,17 +734,28 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
 
             object.position.sub(center);
 
-            // Подбираем размер ortho по bounding box
-            camera.near = -maxDim * 10;  // отрицательный near для ortho
-            camera.far = maxDim * 10;
+            const orthoSize = maxDim;
+            camera.left = -orthoSize * aspect;
+            camera.right = orthoSize * aspect;
+            camera.top = orthoSize;
+            camera.bottom = -orthoSize;
+            camera.near = -maxDim * 100;
+            camera.far = maxDim * 100;
+
+            const zoomX = (orthoSize * aspect * 2) / size.x;
+            const zoomY = (orthoSize * 2) / size.z;
+            camera.zoom = Math.min(zoomX, zoomY) * 0.85;
             camera.updateProjectionMatrix();
 
-            camera.position.set(maxDim, maxDim * 0.7, maxDim * 1.2);
+            // Изометрия спереди-сверху-справа
+            camera.position.set(maxDim * 1.2, -maxDim * 1.5, maxDim * 0.8);
+            camera.up.set(0, 0, 1);  // ← Z вверх как у нас
             controls.target.set(0, 0, 0);
             controls.update();
         };
 
         const onLoaded = (root) => {
+            scene.background = new THREE.Color(dark ? 0x1a1f2e : 0xf1f5f9);
             scene.add(root);
             prepareObject(root);
             buildEdges(root);
@@ -563,6 +841,11 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         };
     }, [relPath, fname, mtlPath]);
 
+    useEffect(() => {
+        if (!sceneRef.current) return;
+        sceneRef.current.background = new THREE.Color(dark ? 0x1a1a2e : 0xf1f5f9);
+    }, [dark]);
+
     // ── Raycast — клик по модели ──────────────────────────────────────────────
 
     const clickCountRef = useRef(0);
@@ -572,19 +855,27 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
     const selectedHighlightRef = useRef(null);
 
     const highlightSelected = useCallback((uuid) => {
-        // Сбросить предыдущую подсветку
+        // Сбросить предыдущую подсветку — восстанавливаем из userMaterialState
         if (selectedHighlightRef.current) {
             const prev = objMapRef.current[selectedHighlightRef.current];
             if (prev) {
                 prev.traverse(child => {
                     if (!child.isMesh) return;
+                    const userState = userMaterialStateRef.current[child.uuid];
                     const orig = originalColorsRef.current[child.uuid];
-                    if (orig !== undefined) {
-                        const setMat = m => m.color.setHex(orig);
+
+                    const restoreColor = userState?.color ?? orig;
+                    const restoreOpacity = userState?.opacity ?? 1;
+
+                    if (restoreColor !== undefined) {
+                        const setMat = m => {
+                            m.color.setHex(restoreColor);
+                            m.opacity = restoreOpacity;
+                        };
                         if (Array.isArray(child.material)) child.material.forEach(setMat);
                         else setMat(child.material);
-                        delete originalColorsRef.current[child.uuid];
                     }
+                    delete originalColorsRef.current[child.uuid];
                 });
             }
             selectedHighlightRef.current = null;
@@ -597,6 +888,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             obj.traverse(child => {
                 if (!child.isMesh) return;
                 const mat = Array.isArray(child.material) ? child.material[0] : child.material;
+                // Сохраняем текущий цвет (с учётом userState)
                 if (originalColorsRef.current[child.uuid] === undefined) {
                     originalColorsRef.current[child.uuid] = mat.color.getHex();
                 }
@@ -701,35 +993,49 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
     const mouseDownPosRef = useRef(null);
 
     const handleCanvasMouseDown = useCallback((e) => {
-        if (e.button === 0) {
-            mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
-        }
-        if (e.button !== 1) return; // только средняя кнопка
-        e.preventDefault();
-
         const container = mountRef.current;
         const camera = cameraRef.current;
         const scene = sceneRef.current;
         const controls = controlsRef.current;
+    
+        if (e.button === 0) {
+            mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+        }
+    
+        if (e.button === 2 && e.buttons === 3) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!controls || !camera) return;
+            controls.enabled = false;
+            panDragRef.current = {
+                startX: e.clientX,
+                startY: e.clientY,
+                startTarget: controls.target.clone(),
+                startCamPos: camera.position.clone(),
+            };
+            return;
+        }
+    
+        if (e.button !== 1) return;
+        e.preventDefault();
         if (!container || !camera || !scene || !controls) return;
-
+    
         const rect = container.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width) * 2 - 1,
             -((e.clientY - rect.top) / rect.height) * 2 + 1,
         );
-
+    
         raycasterRef.current.setFromCamera(mouse, camera);
         const meshes = [];
         scene.traverse(c => { if (c.isMesh && c.visible) meshes.push(c); });
         const hits = raycasterRef.current.intersectObjects(meshes, false);
-
+    
         if (hits.length > 0) {
             controls.target.copy(hits[0].point);
             controls.update();
         }
     }, []);
-
 
     const handleCanvasContextMenu = useCallback((e) => {
         e.preventDefault();
@@ -796,20 +1102,27 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         const obj = objMapRef.current[uuid];
         const camera = cameraRef.current;
         const controls = controlsRef.current;
-        if (!obj || !camera || !controls) return;
+        const container = mountRef.current;
+        if (!obj || !camera || !controls || !container) return;
 
         const box = new THREE.Box3().setFromObject(obj);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-        const fov = camera.fov * (Math.PI / 180);
-        const dist = Math.abs(maxDim / Math.sin(fov / 2)) * 1.5;
+        const aspect = container.clientWidth / container.clientHeight;
+
+        const orthoSize = maxDim * 0.3;
+        camera.left = -orthoSize * aspect;
+        camera.right = orthoSize * aspect;
+        camera.top = orthoSize;
+        camera.bottom = -orthoSize;
+        camera.updateProjectionMatrix();
 
         controls.target.copy(center);
         camera.position.set(
-            center.x + dist * 0.7,
-            center.y + dist * 0.5,
-            center.z + dist,
+            center.x + maxDim,
+            center.y + maxDim * 0.7,
+            center.z + maxDim,
         );
         controls.update();
     }, []);
@@ -820,6 +1133,12 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         const setMat = m => { m.opacity = value; m.transparent = true; };
         if (Array.isArray(obj.material)) obj.material.forEach(setMat);
         else setMat(obj.material);
+
+        // Запоминаем состояние
+        userMaterialStateRef.current[uuid] = {
+            ...userMaterialStateRef.current[uuid],
+            opacity: value,
+        };
         refresh();
     }, [refresh]);
 
@@ -830,6 +1149,12 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         const setMat = m => m.color.set(color);
         if (Array.isArray(obj.material)) obj.material.forEach(setMat);
         else setMat(obj.material);
+
+        // Запоминаем состояние
+        userMaterialStateRef.current[uuid] = {
+            ...userMaterialStateRef.current[uuid],
+            color: color.getHex(),
+        };
         refresh();
     }, [refresh]);
 
@@ -843,14 +1168,19 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             if (!child.isMesh) return;
             if (highlight) {
                 const mat = Array.isArray(child.material) ? child.material[0] : child.material;
-                originalColorsRef.current[child.uuid] = mat.color.getHex();
+                // Не перезаписываем если уже в originalColors (деталь выделена)
+                if (originalColorsRef.current[child.uuid] === undefined) {
+                    originalColorsRef.current[child.uuid] = mat.color.getHex();
+                }
                 const setMat = m => m.color.setHex(0xff8c00);
                 if (Array.isArray(child.material)) child.material.forEach(setMat);
                 else setMat(child.material);
             } else {
                 const orig = originalColorsRef.current[child.uuid];
                 if (orig !== undefined) {
-                    const setMat = m => m.color.setHex(orig);
+                    const userState = userMaterialStateRef.current[child.uuid];
+                    const restoreColor = userState?.color ?? orig;
+                    const setMat = m => m.color.setHex(restoreColor);
                     if (Array.isArray(child.material)) child.material.forEach(setMat);
                     else setMat(child.material);
                     delete originalColorsRef.current[child.uuid];
@@ -862,28 +1192,26 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
     // ── Рендер ────────────────────────────────────────────────────────────────
 
     return (
-        <div className="flex flex-col h-screen bg-gray-950">
+        <div className={`flex flex-col ${dark ? 'bg-neutral-950' : 'bg-slate-200'}`} style={{ height: '100dvh', overflow: 'hidden' }}>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-2
-                            bg-gray-900 border-b border-gray-700 shrink-0">
+            <div className={`flex items-center justify-between px-4 py-2 border-b shrink-0
+                ${dark ? 'bg-neutral-900 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center gap-3">
-                    <button onClick={onBack}
-                        className="text-sm text-gray-400 hover:text-white transition-colors">
-                        ← Назад
-                    </button>
-                    <span className="text-sm font-medium text-white">{fname}</span>
+                    <span className={`text-sm font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>{fname}</span>
                     <span className="text-xs text-gray-500 uppercase">{getExt(fname)}</span>
                 </div>
                 <div className="flex items-center gap-3">
                     <button onClick={showAll}
-                        className="text-xs text-gray-400 hover:text-white
-                                   border border-gray-700 hover:border-gray-500
-                                   px-3 py-1 rounded transition-colors">
+                        className={`text-xs px-3 py-1 rounded transition-colors border
+                            ${dark
+                                ? 'text-gray-400 hover:text-white border-gray-700 hover:border-gray-500'
+                                : 'text-gray-600 hover:text-gray-900 border-gray-300 hover:border-gray-400'
+                            }`}>
                         Показать все
                     </button>
                     <span className="text-xs text-gray-500 hidden lg:block">
-                        ЛКМ — вращение · Колесо — зум · ПКМ — перемещение · 2×ЛКМ — скрыть · 3×ЛКМ — показать скрытое · СКМ — центр вращения
+                        ЛКМ — вращение · Колесо — зум · ПКМ — перемещение · 2×ЛКМ — скрыть · 3×ЛКМ — показать · СКМ — центр
                     </span>
                 </div>
             </div>
@@ -892,10 +1220,10 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             <div className="flex flex-1 min-h-0">
 
                 {/* Дерево объектов */}
-                <div className="w-56 shrink-0 bg-gray-900 border-r border-gray-700
-                                flex flex-col overflow-hidden">
-                    <div className="px-3 py-2 text-xs font-medium text-gray-400
-                                    uppercase tracking-wide border-b border-gray-700 shrink-0">
+                <div className={`w-56 shrink-0 border-r flex flex-col overflow-hidden
+                     ${dark ? 'bg-neutral-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <div className={`px-3 py-2 text-xs font-medium uppercase tracking-wide border-b shrink-0
+                         ${dark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'}`}>
                         Структура модели
                     </div>
                     <div className="flex-1 overflow-y-auto py-1">
@@ -924,15 +1252,33 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
 
                 {/* Viewport */}
                 <div className="relative flex-1 min-w-0">
+                    {/* Фиксированная кнопка назад */}
+                    <button onClick={onBack}
+                        className={`absolute top-3 left-3 z-20 flex items-center gap-1.5
+            text-sm px-3 py-1.5 rounded-lg border backdrop-blur-sm transition-colors
+            ${dark
+                                ? 'bg-neutral-900/80 hover:bg-neutral-800 text-gray-300 hover:text-white border-gray-700'
+                                : 'bg-white/80 hover:bg-white text-gray-600 hover:text-gray-900 border-gray-300'
+                            }`}>
+                        ← Назад
+                    </button>
+
+                    <ViewCube
+                        onSetView={setView}
+                        onRotate={rotateView}
+                        cameraRef={cameraRef}
+                        dark={dark}
+                    />
+
                     {loading && (
-                        <div className="absolute inset-0 flex items-center justify-center
-                                        bg-gray-100 text-gray-500 text-sm z-10">
+                        <div className={`absolute inset-0 flex items-center justify-center text-sm z-10
+             ${dark ? 'bg-neutral-950 text-gray-500' : 'bg-slate-200 text-gray-400'}`}>
                             Загрузка модели...
                         </div>
                     )}
                     {error && (
-                        <div className="absolute inset-0 flex items-center justify-center
-                                        bg-gray-100 text-red-500 text-sm z-10">
+                        <div className={`absolute inset-0 flex items-center justify-center text-red-500 text-sm z-10
+             ${dark ? 'bg-neutral-950' : 'bg-slate-200'}`}>
                             {error}
                         </div>
                     )}
@@ -940,16 +1286,16 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
                         ref={mountRef}
                         className="w-full h-full"
                         onClick={handleCanvasClick}
-                        onMouseDown={handleCanvasMouseDown}  // ← добавить
+                        onMouseDown={handleCanvasMouseDown}
                         onContextMenu={handleCanvasContextMenu}
                     />
                 </div>
 
                 {/* Панель свойств */}
-                <div className="w-52 shrink-0 bg-gray-900 border-l border-gray-700
-                                flex flex-col overflow-hidden">
-                    <div className="px-3 py-2 text-xs font-medium text-gray-400
-                                    uppercase tracking-wide border-b border-gray-700 shrink-0">
+                <div className={`w-52 shrink-0 border-l flex flex-col overflow-hidden
+                     ${dark ? 'bg-neutral-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <div className={`px-3 py-2 text-xs font-medium uppercase tracking-wide border-b shrink-0
+                         ${dark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'}`}>
                         Свойства
                     </div>
                     <div className="flex-1 overflow-y-auto">

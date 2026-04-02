@@ -51,7 +51,7 @@ export default function BatchCreateForm({ productIds, onCreated, onCancel }) {
                 onChange={e => setGroupName(e.target.value)}
                 placeholder="Название группы"
                 className="w-full text-sm rounded border border-gray-200 dark:border-gray-700
-                           bg-white dark:bg-gray-900 text-gray-900 dark:text-white
+                           bg-white dark:bg-neutral-900 text-gray-900 dark:text-white
                            px-3 py-1.5 focus:outline-none focus:border-blue-500"
             />
 
@@ -60,7 +60,7 @@ export default function BatchCreateForm({ productIds, onCreated, onCancel }) {
                     <label className="text-xs text-gray-500 mb-1 block">Литера *</label>
                     <select value={literaId} onChange={e => setLiteraId(e.target.value)}
                         className="w-full text-sm rounded border border-gray-200 dark:border-gray-700
-                                   bg-white dark:bg-gray-900 text-gray-900 dark:text-white
+                                   bg-white dark:bg-neutral-900 text-gray-900 dark:text-white
                                    px-2 py-1.5 focus:outline-none focus:border-blue-500">
                         <option value="">Выберите...</option>
                         {literas.map(l => (
@@ -72,7 +72,7 @@ export default function BatchCreateForm({ productIds, onCreated, onCancel }) {
                     <label className="text-xs text-gray-500 mb-1 block">Видимость</label>
                     <select value={visibilityId} onChange={e => setVisibilityId(e.target.value)}
                         className="w-full text-sm rounded border border-gray-200 dark:border-gray-700
-                                   bg-white dark:bg-gray-900 text-gray-900 dark:text-white
+                                   bg-white dark:bg-neutral-900 text-gray-900 dark:text-white
                                    px-2 py-1.5 focus:outline-none focus:border-blue-500">
                         <option value="">По умолчанию</option>
                         {visGroups.map(g => (
@@ -88,7 +88,7 @@ export default function BatchCreateForm({ productIds, onCreated, onCancel }) {
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Примечания"
                 className="w-full text-sm rounded border border-gray-200 dark:border-gray-700
-                           bg-white dark:bg-gray-900 text-gray-900 dark:text-white
+                           bg-white dark:bg-neutral-900 text-gray-900 dark:text-white
                            px-3 py-1.5 focus:outline-none focus:border-blue-500"
             />
 

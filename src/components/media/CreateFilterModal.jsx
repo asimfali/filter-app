@@ -108,7 +108,7 @@ export default function CreateFilterModal({ docId, axes, currentFilterIds = [], 
                         bg-black/40 backdrop-blur-sm"
             onClick={handleBackdrop}
         >
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-md
                             mx-4 flex flex-col max-h-[80vh]">
 
                 {/* Шапка */}
@@ -131,12 +131,12 @@ export default function CreateFilterModal({ docId, axes, currentFilterIds = [], 
 
                 {/* Переключатель режимов */}
                 <div className="px-5 pt-3 shrink-0">
-                    <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
+                    <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg w-fit">
                         <button
                             onClick={() => setMode('existing')}
                             className={`px-3 py-1.5 rounded text-xs transition-colors ${
                                 mode === 'existing'
-                                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                    ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                                     : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                             }`}>
                             Выбрать существующий
@@ -145,7 +145,7 @@ export default function CreateFilterModal({ docId, axes, currentFilterIds = [], 
                             onClick={() => { setMode('new'); setStep('axis'); setSelectedAxisId(null); }}
                             className={`px-3 py-1.5 rounded text-xs transition-colors ${
                                 mode === 'new'
-                                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                    ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                                     : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                             }`}>
                             + Создать новый
@@ -270,7 +270,7 @@ export default function CreateFilterModal({ docId, axes, currentFilterIds = [], 
                                                                 font-medium transition-all
                                                         ${selected
                                                             ? 'bg-blue-600 text-white shadow-sm'
-                                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                                            : 'bg-neutral-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                                                         }`}>
                                                     {v.value}
                                                 </button>

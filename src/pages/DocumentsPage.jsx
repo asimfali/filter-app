@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { mediaApi } from '../api/media';
 import { can } from '../utils/permissions';
 import CreateFilterModal from '../components/media/CreateFilterModal.jsx';
-import ModelViewer, { canPreview3D } from '../components/viewer3d/ModelViewer';
+import { canPreview3D } from '../utils/fileUtils';
 import { useCommonDocUpload } from '../hooks/useDocUpload';
 
 const MEDIA = '/media';
@@ -208,7 +208,7 @@ function FileRow({ file, siblings = [], dimmed = false, canDelete = false,
       className={`flex flex-col py-2 px-3 rounded-lg transition-colors group
        ${draggingOver
           ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-400'
-          : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+          : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
         }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -317,7 +317,7 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm
+    <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm
                       border border-gray-200 dark:border-gray-700 overflow-hidden">
 
       {/* Заголовок карточки */}
@@ -390,7 +390,7 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
 
       {/* Раскрывающаяся панель фильтров */}
       {filtersOpen && (
-        <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800/50
+        <div className="px-5 py-3 bg-neutral-50 dark:bg-neutral-800/50
                               border-b border-gray-100 dark:border-gray-700">
           <div className="text-xs font-medium text-gray-500 dark:text-gray-400
                                   uppercase tracking-wide mb-2">
@@ -408,7 +408,7 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
                   key={f.id}
                   className="flex items-center justify-between
                                              px-3 py-1.5 rounded-lg
-                                             bg-white dark:bg-gray-900
+                                             bg-white dark:bg-neutral-900
                                              border border-gray-200 dark:border-gray-700"
                 >
                   <div className="text-xs">
@@ -544,7 +544,7 @@ function DocumentGroup({ typeName, items, canDelete, canManageFilters, axes, onD
         <span className="text-xs text-gray-400 dark:text-gray-500 font-normal normal-case">
           {items.length} {declDocs(items.length)}
         </span>
-        <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700 ml-2" />
+        <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700 ml-2" />
       </button>
       {!collapsed && (
         <div className="space-y-3 pl-2">
@@ -605,7 +605,7 @@ function BulkCreateForm({ docTypes, onCreated }) {
   };
 
   const sel = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-    "bg-white dark:bg-gray-800 text-gray-900 dark:text-white " +
+    "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
     "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
@@ -635,7 +635,7 @@ function BulkCreateForm({ docTypes, onCreated }) {
           rows={6}
           placeholder={"passport-001\npassport-002\npassport-003"}
           className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2
-                     text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+                     text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-white
                      focus:outline-none focus:ring-2 focus:ring-blue-500
                      resize-none font-mono"
         />
@@ -655,7 +655,7 @@ function BulkCreateForm({ docTypes, onCreated }) {
             </div>
           )}
           {result.skipped > 0 && result.created === 0 && (
-            <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200
+            <div className="text-xs text-gray-500 bg-neutral-50 border border-gray-200
                             px-3 py-2 rounded-lg">
               Все {result.skipped} записей уже существуют
             </div>
@@ -796,7 +796,7 @@ function UploadForm({ docTypes, onUploaded }) {
   };
 
   const sel = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-    "bg-white dark:bg-gray-800 text-gray-900 dark:text-white " +
+    "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
     "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
@@ -837,14 +837,14 @@ function UploadForm({ docTypes, onUploaded }) {
 
           {(suggestions.length > 0 || (query.length >= 2 && !isNew && !form.external_id)) && (
             <div className="absolute top-full left-0 right-0 mt-1 z-20
-                            bg-white dark:bg-gray-900
+                            bg-white dark:bg-neutral-900
                             border border-gray-200 dark:border-gray-700
                             rounded-lg shadow-lg overflow-hidden">
               {suggestions.map(doc => (
                 <button key={doc.id} type="button"
                   onClick={() => handleSelect(doc)}
                   className="w-full text-left px-3 py-2 text-sm
-                             hover:bg-gray-50 dark:hover:bg-gray-800
+                             hover:bg-neutral-50 dark:hover:bg-neutral-800
                              border-b border-gray-100 dark:border-gray-800
                              last:border-0 text-gray-800 dark:text-gray-200">
                   {doc.external_id}
@@ -855,7 +855,7 @@ function UploadForm({ docTypes, onUploaded }) {
                 <button type="button"
                   onClick={handleCreateNew}
                   className="w-full text-left px-3 py-2 text-sm
-                             hover:bg-gray-50 dark:hover:bg-gray-800
+                             hover:bg-neutral-50 dark:hover:bg-neutral-800
                              text-green-600 dark:text-green-400">
                   + Создать «{query}»
                 </button>
@@ -961,7 +961,7 @@ export default function DocumentsPage({ onOpenViewer }) {
   return (
     <div className="space-y-4">
       {/* Шапка */}
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4
+      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4
                       flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">Документы</h2>
@@ -972,7 +972,7 @@ export default function DocumentsPage({ onOpenViewer }) {
         {canUpload && (
           <button onClick={() => setShowUpload(o => !o)}
             className={`text-sm px-4 py-2 rounded-lg transition-colors ${showUpload
-              ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+              ? 'bg-neutral-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300'
               : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}>
             {showUpload ? '← Назад' : '+ Загрузить'}
@@ -981,19 +981,19 @@ export default function DocumentsPage({ onOpenViewer }) {
       </div>
 
       {showUpload ? (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-5 max-w-lg">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-5 max-w-lg">
           {/* Переключатель */}
-          <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit mb-4">
+          <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg w-fit mb-4">
             <button onClick={() => setUploadMode('single')}
               className={`px-3 py-1.5 rounded text-sm transition-colors ${uploadMode === 'single'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
                 }`}>
               Загрузить файл
             </button>
             <button onClick={() => setUploadMode('bulk')}
               className={`px-3 py-1.5 rounded text-sm transition-colors ${uploadMode === 'bulk'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
                 }`}>
               Добавить несколько
@@ -1025,7 +1025,7 @@ export default function DocumentsPage({ onOpenViewer }) {
       ) : (
         <>
           {/* Поиск */}
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-4 py-3">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-4 py-3">
             <div className="relative">
               <input
                 type="search"
@@ -1033,7 +1033,7 @@ export default function DocumentsPage({ onOpenViewer }) {
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Поиск по типу, оси, значению..."
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
-                 px-3 py-2 text-sm bg-white dark:bg-gray-800
+                 px-3 py-2 text-sm bg-white dark:bg-neutral-800
                  text-gray-900 dark:text-white
                  placeholder-gray-400 dark:placeholder-gray-500
                  focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1047,7 +1047,7 @@ export default function DocumentsPage({ onOpenViewer }) {
 
           {/* Контент */}
           {loading ? (
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-8
                             text-center text-gray-400 dark:text-gray-500 text-sm">
               Загрузка...
             </div>
@@ -1057,7 +1057,7 @@ export default function DocumentsPage({ onOpenViewer }) {
               {error}
             </div>
           ) : totalCount === 0 ? (
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-8 text-center">
               <p className="text-gray-400 dark:text-gray-500 text-sm mb-3">
                 {search ? 'Ничего не найдено' : 'Документов пока нет'}
               </p>

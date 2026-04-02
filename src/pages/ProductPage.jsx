@@ -47,7 +47,7 @@ function useAuthImage(relPath) {
 function AuthImage({ relPath, alt, className }) {
     const src = useAuthImage(relPath);
     if (!src) return (
-        <div className={`${className} bg-gray-100 dark:bg-gray-800 animate-pulse`} />
+        <div className={`${className} bg-neutral-100 dark:bg-neutral-800 animate-pulse`} />
     );
     return <img src={src} alt={alt} className={className} />;
 }
@@ -63,9 +63,9 @@ function ImageSlider({ images }) {
     if (!images || images.length === 0) return null;
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow overflow-hidden">
             {/* Основное изображение */}
-            <div className="relative bg-gray-100 dark:bg-gray-800" style={{ height: 320 }}>
+            <div className="relative bg-neutral-100 dark:bg-neutral-800" style={{ height: 320 }}>
                 <AuthImage
                     relPath={images[current].rel_path}
                     alt={images[current].name}
@@ -135,7 +135,7 @@ const STATUS_LABEL = {
 };
 
 const STATUS_COLOR = {
-    open: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+    open: 'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
     in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
     resolved: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
     verified: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -163,7 +163,7 @@ function ProductThreads({ externalId, onOpenThread }) {
         setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
             <div className="text-xs font-medium text-gray-500 dark:text-gray-400
                             uppercase tracking-wide mb-3">
                 Замечания
@@ -178,7 +178,7 @@ function ProductThreads({ externalId, onOpenThread }) {
                             {/* Шапка треда */}
                             <div
                                 className="flex items-center justify-between px-3 py-2.5
-                                           hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                                           hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
                                 onClick={() => toggleThread(thread.id)}
                             >
                                 <div className="flex items-center gap-2 min-w-0">
@@ -196,7 +196,7 @@ function ProductThreads({ externalId, onOpenThread }) {
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <span className={`text-xs px-2 py-0.5 rounded-full ${thread.is_closed
-                                        ? 'bg-gray-100 text-gray-400 dark:bg-gray-800'
+                                        ? 'bg-neutral-100 text-gray-400 dark:bg-neutral-800'
                                         : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
                                         }`}>
                                         {thread.is_closed ? 'Закрыт' : 'Активен'}
@@ -318,7 +318,7 @@ function ProductDocumentGroup({ group, onOpenViewer, product, docTypes }) {
                         key={file.rel_path}
                         onClick={() => handleDownload(file.rel_path, file.name)}
                         className="flex items-center gap-2 w-full text-left px-3 py-2
-                                   rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800
+                                   rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800
                                    transition-colors group"
                     >
                         <svg className="w-4 h-4 text-red-400 shrink-0"
@@ -590,7 +590,7 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
 
             {/* Статусы подразделений */}
             {product.department_statuses.length > 0 && (
-                <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+                <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
                     <div className="text-xs font-medium text-gray-500 dark:text-gray-400
                                     uppercase tracking-wide mb-3">
                         Статусы подразделений
@@ -612,7 +612,7 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
             )}
 
             {stages.length > 0 && (
-                <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+                <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
                     <div className="flex items-center justify-between mb-3">
                         <div className="text-xs font-medium text-gray-500 dark:text-gray-400
                             uppercase tracking-wide">
@@ -641,7 +641,7 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
 
             {/* Параметры */}
             {product.parameters.length > 0 && (
-                <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+                <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
                     <div className="text-xs font-medium text-gray-500 dark:text-gray-400
                                     uppercase tracking-wide mb-3">
                         Параметры
@@ -659,7 +659,7 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
 
             {/* Характеристики */}
             {product.specs.length > 0 && (
-                <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+                <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
                     <div className="text-xs font-medium text-gray-500 dark:text-gray-400
                                     uppercase tracking-wide mb-3">
                         Характеристики
@@ -688,7 +688,7 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
                                             }}
                                             autoFocus
                                             className="border border-blue-400 rounded px-2 py-0.5
-                                                       text-sm bg-white dark:bg-gray-800
+                                                       text-sm bg-white dark:bg-neutral-800
                                                        text-gray-900 dark:text-white
                                                        focus:outline-none focus:ring-1
                                                        focus:ring-blue-500 w-32"
@@ -745,7 +745,7 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
             )}
 
             {/* Документы */}
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
                 <div className="flex items-center justify-between mb-3">
                     <div className="text-xs font-medium text-gray-500 dark:text-gray-400
                         uppercase tracking-wide">

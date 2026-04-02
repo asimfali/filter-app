@@ -99,7 +99,7 @@ function useStaffRequests() {
 function Modal({ title, onClose, children, wide }) {
     return (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className={`bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
+            <div className={`bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
                     <button onClick={onClose}
@@ -148,7 +148,7 @@ function AssignRoleForm({ userId, departments, roles, existingRoles, onSave, onC
     };
 
     const sel = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-        "focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white dark:border-gray-600";
+        "focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:text-white dark:border-gray-600";
 
     return (
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -185,7 +185,7 @@ function AssignRoleForm({ userId, departments, roles, existingRoles, onSave, onC
 
             <div className="flex gap-2 pt-1">
                 <button type="button" onClick={onClose}
-                    className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
+                    className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm py-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:bg-neutral-950">
                     Отмена
                 </button>
                 <button type="submit" disabled={loading}
@@ -216,10 +216,10 @@ function UserCard({ user, departments, roles, onUpdate }) {
     const deptRoles = user.department_roles || [];
 
     return (
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             {/* Шапка карточки */}
             <div
-                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950"
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:bg-neutral-950"
                 onClick={() => setExpanded(e => !e)}
             >
                 <div className="flex items-center gap-3">
@@ -266,7 +266,7 @@ function UserCard({ user, departments, roles, onUpdate }) {
 
             {/* Раскрытая часть */}
             {expanded && (
-                <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3 bg-gray-50 dark:bg-gray-950">
+                <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3 bg-neutral-50 dark:bg-neutral-950">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">
                             Роли в подразделениях
@@ -287,7 +287,7 @@ function UserCard({ user, departments, roles, onUpdate }) {
                         <div className="space-y-1.5">
                             {deptRoles.map(dr => (
                                 <div key={dr.id}
-                                    className="flex items-center justify-between bg-white dark:bg-gray-900 border
+                                    className="flex items-center justify-between bg-white dark:bg-neutral-900 border
                              border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
                                     <div className="flex items-center gap-3">
                                         <div>
@@ -349,7 +349,7 @@ function DepartmentTree({ departments, level = 0, onEdit, onAdd }) {
                 <div key={dept.id}>
                     <div
                         className="flex items-center justify-between px-3 py-2 rounded-lg
-                       hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 group"
+                       hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:bg-neutral-950 group"
                         style={{ paddingLeft: `${level * 20 + 12}px` }}
                     >
                         <div className="flex items-center gap-2">
@@ -519,14 +519,14 @@ function SpecPermissionsTab({ deptId }) {
                     <tr>
                         <th className="text-left px-2 py-1.5 text-gray-500 font-medium
                                        border-b border-gray-200 dark:border-gray-700
-                                       sticky top-0 bg-white dark:bg-gray-900 min-w-48">
+                                       sticky top-0 bg-white dark:bg-neutral-900 min-w-48">
                             Характеристика
                         </th>
                         {roles.map(role => (
                             <th key={role.id}
                                 className="px-2 py-1.5 text-center text-gray-600 dark:text-gray-400
                                            font-medium border-b border-gray-200 dark:border-gray-700
-                                           sticky top-0 bg-white dark:bg-gray-900 min-w-24">
+                                           sticky top-0 bg-white dark:bg-neutral-900 min-w-24">
                                 {role.name}
                             </th>
                         ))}
@@ -535,7 +535,7 @@ function SpecPermissionsTab({ deptId }) {
                 <tbody>
                     {specs.map(spec => (
                         <tr key={spec.spec_id}
-                            className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            className="hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
                             <td className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-800">
                                 <div className="font-medium text-gray-700 dark:text-gray-300">
                                     {spec.spec_name}
@@ -616,14 +616,14 @@ function DeptPermissionsTab({ deptId, roles }) {
                         {/* Пустая ячейка под названия прав */}
                         <th className="text-left px-2 py-1.5 text-gray-500 font-medium
                                        border-b border-gray-200 dark:border-gray-700 sticky top-0
-                                       bg-white dark:bg-gray-900 min-w-48">
+                                       bg-white dark:bg-neutral-900 min-w-48">
                             Право
                         </th>
                         {roles.map(r => (
                             <th key={r.id}
                                 className="px-2 py-1.5 text-center text-gray-600 dark:text-gray-400
                                            font-medium border-b border-gray-200 dark:border-gray-700
-                                           sticky top-0 bg-white dark:bg-gray-900 min-w-24">
+                                           sticky top-0 bg-white dark:bg-neutral-900 min-w-24">
                                 {r.name}
                             </th>
                         ))}
@@ -632,7 +632,7 @@ function DeptPermissionsTab({ deptId, roles }) {
                 <tbody>
                     {allPermissions.map(perm => (
                         <tr key={perm.id}
-                            className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            className="hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
                             <td className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-800">
                                 <div className="font-mono text-gray-700 dark:text-gray-300">
                                     {perm.code}
@@ -722,7 +722,7 @@ function DepartmentsPanel({ departments, reload }) {
     };
 
     const inp = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-        "focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white";
+        "focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:text-white";
 
     const modalTitle = modal?.id
         ? `Редактировать: ${modal.name}`
@@ -733,7 +733,7 @@ function DepartmentsPanel({ departments, reload }) {
     const isEdit = modal?.id;
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-4">
             <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                     Структура подразделений
@@ -755,7 +755,7 @@ function DepartmentsPanel({ departments, reload }) {
                 <Modal title={modalTitle} onClose={() => setModal(null)} wide={isEdit}>
                     {/* Вкладки — только для редактирования существующего */}
                     {isEdit && (
-                        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mb-4">
+                        <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg mb-4">
                             {[
                                 { id: 'main', label: 'Основное' },
                                 { id: 'permissions', label: 'Права' },
@@ -763,7 +763,7 @@ function DepartmentsPanel({ departments, reload }) {
                             ].map(t => (
                                 <button key={t.id} onClick={() => setActiveTab(t.id)}
                                     className={`flex-1 py-1.5 rounded text-sm transition-colors ${activeTab === t.id
-                                            ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                            ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                                             : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
                                         }`}>
                                     {t.label}
@@ -812,7 +812,7 @@ function DepartmentsPanel({ departments, reload }) {
                                 <button type="button" onClick={() => setModal(null)}
                                     className="flex-1 border border-gray-300 dark:border-gray-600
                                                text-gray-700 dark:text-gray-300 text-sm py-2 rounded-lg
-                                               hover:bg-gray-50 dark:hover:bg-gray-800">
+                                               hover:bg-neutral-50 dark:hover:bg-neutral-800">
                                     Отмена
                                 </button>
                                 <button type="submit" disabled={loading}
@@ -888,12 +888,12 @@ function StaffRequestsPanel({ requests, loading, onReload }) {
     return (
         <div className="space-y-3">
             {/* Фильтр по статусу */}
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-4 py-3 flex gap-1">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-4 py-3 flex gap-1">
                 {Object.entries(STATUS_LABEL).map(([s, label]) => (
                     <button key={s} onClick={() => { setStatusFilter(s); onReload(s); }}
                         className={`px-3 py-1.5 rounded text-sm transition-colors ${statusFilter === s
                             ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                             }`}>
                         {label}
                     </button>
@@ -901,18 +901,18 @@ function StaffRequestsPanel({ requests, loading, onReload }) {
             </div>
 
             {loading ? (
-                <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center text-gray-400 text-sm">
+                <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-8 text-center text-gray-400 text-sm">
                     Загрузка...
                 </div>
             ) : requests.length === 0 ? (
-                <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center text-gray-400 text-sm">
+                <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-8 text-center text-gray-400 text-sm">
                     {statusFilter === 'pending' ? 'Нет новых заявок' : 'Нет заявок'}
                 </div>
             ) : (
                 <div className="space-y-2">
                     {requests.map(r => (
                         <div key={r.id}
-                            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700
+                            className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-gray-700
                                        rounded-lg px-4 py-3 flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3 min-w-0">
                                 {/* Аватар */}
@@ -988,12 +988,12 @@ function StaffRequestsPanel({ requests, loading, onReload }) {
                             placeholder="Причина..."
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2
                                        text-sm focus:outline-none focus:ring-2 focus:ring-red-400
-                                       dark:bg-gray-800 dark:text-white resize-none"
+                                       dark:bg-neutral-800 dark:text-white resize-none"
                         />
                         <div className="flex gap-2">
                             <button onClick={() => setRejectModal(null)}
                                 className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300
-                                           text-sm py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                                           text-sm py-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800">
                                 Отмена
                             </button>
                             <button onClick={handleReject} disabled={processing === rejectModal.id}
@@ -1034,7 +1034,7 @@ export default function StaffPage() {
 
     return (
         <div className="space-y-4">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-5 py-4 flex items-center justify-between">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4 flex items-center justify-between">
                 <div>
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                         Управление персоналом
@@ -1043,11 +1043,11 @@ export default function StaffPage() {
                         Назначайте сотрудников в подразделения и управляйте ролями
                     </p>
                 </div>
-                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
                     {visibleTabs.map(t => (
                         <button key={t.id} onClick={() => setTab(t.id)}
                             className={`relative px-4 py-1.5 rounded text-sm transition-colors ${tab === t.id
-                                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
                                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
                                 }`}>
                             {t.label}
@@ -1064,21 +1064,21 @@ export default function StaffPage() {
 
             {tab === 'users' && (
                 <>
-                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow px-4 py-3">
+                    <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-4 py-3">
                         <input type="search" value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder="Поиск по имени, фамилии, email..."
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm
                                        focus:outline-none focus:ring-2 focus:ring-blue-500
-                                       dark:bg-gray-800 dark:text-white" />
+                                       dark:bg-neutral-800 dark:text-white" />
                     </div>
 
                     {usersLoading ? (
-                        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center text-gray-400 text-sm">
+                        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-8 text-center text-gray-400 text-sm">
                             Загрузка...
                         </div>
                     ) : users.length === 0 ? (
-                        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center text-gray-400 text-sm">
+                        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-8 text-center text-gray-400 text-sm">
                             {search ? 'Ничего не найдено' : 'Нет пользователей'}
                         </div>
                     ) : (

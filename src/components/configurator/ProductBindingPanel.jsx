@@ -128,7 +128,7 @@ export default function ProductBindingPanel({
     // ── Render ─────────────────────────────────────────────────────────────
 
     return (
-        <div className="flex flex-col h-full bg-white dark:bg-gray-900 rounded-lg shadow">
+        <div className="flex flex-col h-full bg-white dark:bg-neutral-900 rounded-lg shadow">
 
             {/* Поиск */}
             <div className="px-3 pt-3 pb-2 border-b border-gray-100 dark:border-gray-800">
@@ -139,7 +139,7 @@ export default function ProductBindingPanel({
                     placeholder="Поиск товаров..."
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
                                px-3 py-1.5 text-sm focus:outline-none focus:ring-2
-                               focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                               focus:ring-blue-500 dark:bg-neutral-800 dark:text-white"
                 />
             </div>
 
@@ -188,7 +188,7 @@ export default function ProductBindingPanel({
                                     transition-colors
                                     ${isSelected
                                         ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-100'
-                                        : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
                                     }
                                 `}
                             >

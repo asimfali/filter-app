@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 const STATUS_COLOR = {
-    draft: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+    draft: 'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
     pending_approval: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
     active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    archived: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+    archived: 'bg-neutral-100 text-gray-400 dark:bg-neutral-800 dark:text-gray-500',
 };
 
 const STATUS_LABEL = {
@@ -52,7 +52,7 @@ export default function LiteraSelector({ stages, selected, onChange, showAll = t
                             font-medium border transition-colors
                             ${selected && selected !== 'none'
                                 ? `${STATUS_COLOR[selected.status]} border-transparent`
-                                : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                                : 'bg-white dark:bg-neutral-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
                             }`}
             >
                 {label}
@@ -62,7 +62,7 @@ export default function LiteraSelector({ stages, selected, onChange, showAll = t
             {/* Дропдаун */}
             {open && (
                 <div className="absolute left-0 top-full mt-1 z-50 min-w-48
-                                bg-white dark:bg-gray-900
+                                bg-white dark:bg-neutral-900
                                 border border-gray-200 dark:border-gray-700
                                 rounded-lg shadow-lg overflow-hidden">
 
@@ -71,7 +71,7 @@ export default function LiteraSelector({ stages, selected, onChange, showAll = t
                             <button
                                 onClick={() => { onChange(null); setOpen(false); }}
                                 className={`w-full text-left px-3 py-2 text-xs transition-colors
-                                    hover:bg-gray-50 dark:hover:bg-gray-800
+                                    hover:bg-neutral-50 dark:hover:bg-neutral-800
                                     ${selected === null
                                         ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'
                                         : 'text-gray-700 dark:text-gray-300'
@@ -82,7 +82,7 @@ export default function LiteraSelector({ stages, selected, onChange, showAll = t
                             <button
                                 onClick={() => { onChange('none'); setOpen(false); }}
                                 className={`w-full text-left px-3 py-2 text-xs transition-colors
-                                    hover:bg-gray-50 dark:hover:bg-gray-800
+                                    hover:bg-neutral-50 dark:hover:bg-neutral-800
                                     border-b border-gray-100 dark:border-gray-800
                                     ${selected === 'none'
                                         ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'
@@ -99,7 +99,7 @@ export default function LiteraSelector({ stages, selected, onChange, showAll = t
                             key={stage.id}
                             onClick={() => { onChange(stage); setOpen(false); }}
                             className={`w-full text-left px-3 py-2 text-xs transition-colors
-                                hover:bg-gray-50 dark:hover:bg-gray-800
+                                hover:bg-neutral-50 dark:hover:bg-neutral-800
                                 ${selected?.id === stage.id
                                     ? 'bg-blue-50 dark:bg-blue-900/20'
                                     : ''

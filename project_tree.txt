@@ -28,14 +28,12 @@
 │   │   │   └── CreateThreadModal.jsx
 │   │   ├── layout
 │   │   │   └── Header.jsx
-│   │   ├── plm
-│   │   │   ├── BatchCreateForm.jsx
-│   │   │   ├── LiteraSelector.jsx
-│   │   │   ├── PLMSidePanel.jsx
-│   │   │   ├── ProductStages.jsx
-│   │   │   └── StageTransferPanel.jsx
-│   │   └── viewer3d
-│   │       └── ModelViewer.jsx
+│   │   └── plm
+│   │       ├── BatchCreateForm.jsx
+│   │       ├── LiteraSelector.jsx
+│   │       ├── PLMSidePanel.jsx
+│   │       ├── ProductStages.jsx
+│   │       └── StageTransferPanel.jsx
 │   ├── contexts
 │   │   ├── AuthContext.jsx
 │   │   ├── IssuesContext.jsx
@@ -76,4 +74,4 @@
 ├── project_tree.txt
 └── vite.config.js
 
-16 directories, 61 files
+15 directories, 60 files

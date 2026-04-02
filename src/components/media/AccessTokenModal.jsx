@@ -72,11 +72,11 @@ export default function AccessTokenModal({ product, docType, onClose }) {
     };
 
     const sel = "w-full border border-gray-600 rounded-lg px-3 py-2 text-sm " +
-        "bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
+        "bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-gray-900 rounded-xl shadow-xl border border-gray-700
+            <div className="bg-neutral-900 rounded-xl shadow-xl border border-gray-700
                             w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
 
                 {/* Шапка */}
@@ -111,7 +111,7 @@ export default function AccessTokenModal({ product, docType, onClose }) {
                             {tokens.map(token => (
                                 <div key={token.id}
                                     className="flex items-center justify-between px-3 py-2
-                                               rounded-lg bg-gray-800 border border-gray-700">
+                                               rounded-lg bg-neutral-800 border border-gray-700">
                                     <div className="min-w-0">
                                         <div className="text-xs text-white">
                                             {token.granted_to_user || token.granted_to_department}
@@ -156,7 +156,7 @@ export default function AccessTokenModal({ product, docType, onClose }) {
                                             transition-colors
                                             ${form.access_type === type
                                                 ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                                : 'bg-neutral-800 text-gray-400 hover:text-white border border-gray-700'
                                             }`}>
                                         {type === 'read' ? '👁 Чтение' : '✎ Запись'}
                                     </button>

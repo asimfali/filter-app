@@ -333,7 +333,7 @@ export default function SpecEditorPage({
                             onChange={e => setDraftName(e.target.value)}
                             placeholder="Название черновика..."
                             className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600
-                 bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+                 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white
                  focus:outline-none focus:ring-1 focus:ring-violet-500 w-48"
                         />
                     )}
@@ -363,13 +363,13 @@ export default function SpecEditorPage({
             </div>
 
             {/* Таблица */}
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-x-auto">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                     <thead>
                         <tr className="border-b border-gray-200 dark:border-gray-700">
                             <th className="text-left px-4 py-3 text-xs font-medium text-gray-500
                              dark:text-gray-400 uppercase tracking-wide sticky left-0
-                             bg-white dark:bg-gray-900 z-10 min-w-48">
+                             bg-white dark:bg-neutral-900 z-10 min-w-48">
                                 Изделие
                             </th>
                             {definitions.map(def => (
@@ -387,11 +387,11 @@ export default function SpecEditorPage({
                             <tr
                                 key={product.id}
                                 className={`border-b border-gray-100 dark:border-gray-800
-                  ${rowIdx % 2 === 0 ? '' : 'bg-gray-50/50 dark:bg-gray-800/30'}`}
+                  ${rowIdx % 2 === 0 ? '' : 'bg-neutral-50/50 dark:bg-neutral-800/30'}`}
                             >
                                 {/* Название — липкая колонка */}
                                 <td className="px-4 py-1.5 sticky left-0 z-10
-                               bg-white dark:bg-gray-900
+                               bg-white dark:bg-neutral-900
                                text-gray-900 dark:text-white font-medium text-sm
                                border-r border-gray-100 dark:border-gray-800">
                                     {product.name}
