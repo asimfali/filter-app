@@ -150,7 +150,6 @@ export function useIssuesSocket({ onNotification } = {}) {
 
         switch (data.type) {
             case 'thread_history':
-                console.log('[thread_history]', data);
                 dispatch({ type: 'THREAD_HISTORY', payload: { thread_id: data.thread_id, messages: data.messages } });
                 break;
             case 'new_message':
@@ -177,7 +176,6 @@ export function useIssuesSocket({ onNotification } = {}) {
                 dispatch({ type: 'ISSUE_STATUS_CHANGED', payload: { thread_id: data.thread_id, issue_id: data.issue_id, new_status: data.new_status } });
                 break;
             case 'notification':
-                console.log('[notification payload]', data.payload);
                 onNotification?.({
                     id: Date.now(),
                     notification_type: data.payload.type,

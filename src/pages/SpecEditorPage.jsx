@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { tokenStorage } from '../api/auth';
 import { sessionsApi } from '../api/sessions';
+import { useAuth } from '../contexts/AuthContext';
+import { can } from '../utils/permissions';
+import { catalogApi } from '../api/catalog';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -12,12 +15,17 @@ export default function SpecEditorPage({
     onReset,
     onSessionSaved,     // ← callback с id созданной/обновлённой сессии
 }) {
+    const { user } = useAuth();
+    const canPushTo1C = can(user, 'catalog.push_to_1c');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const [saveResult, setSaveResult] = useState(null);
     const [changes, setChanges] = useState({});
+    const [pushing, setPushing] = useState(false);
+    const [pushResult, setPushResult] = useState(null);
+    const [pushTaskId, setPushTaskId] = useState(null);
 
     // Выделение диапазона
     // selection: { defId, startRow, endRow } | null
@@ -100,6 +108,74 @@ export default function SpecEditorPage({
         document.addEventListener('paste', handlePaste);
         return () => document.removeEventListener('paste', handlePaste);
     }, [selection, data]);
+
+    // Опрос статуса задачи
+    useEffect(() => {
+        if (!pushTaskId) return;
+
+        const interval = setInterval(async () => {
+            const { ok, data } = await catalogApi.taskStatus(pushTaskId);
+            if (!ok || !data.success) return;
+
+            if (data.data.ready) {
+                clearInterval(interval);
+                setPushTaskId(null);
+                setPushing(false);
+                const result = data.data.result;
+                setPushResult({
+                    ok: result.success,
+                    message: result.success
+                        ? `✓ Выгружено ${result.pushed} из ${result.total} товаров${result.errors?.length ? `, ошибок: ${result.errors.length}` : ''}`
+                        : `✗ Ошибка: ${result.error}`,
+                });
+                setTimeout(() => setPushResult(null), 5000);
+            } else if (data.data.status === 'FAILURE') {
+                clearInterval(interval);
+                setPushTaskId(null);
+                setPushing(false);
+                setPushResult({ ok: false, message: '✗ Задача завершилась с ошибкой' });
+                setTimeout(() => setPushResult(null), 5000);
+            }
+        }, 2000);
+
+        return () => clearInterval(interval);
+    }, [pushTaskId]);
+
+
+    const handlePushTo1C = async () => {
+        if (!confirm(
+            `Отправить характеристики ${products.length} товаров в 1С?\n\n` +
+            `Это обновит дополнительные реквизиты номенклатуры. Действие нельзя отменить.`
+        )) return;
+
+        setPushing(true);
+        setPushResult(null);
+
+        try {
+            const res = await fetch(`${API_BASE}/products/push-to-1c/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${tokenStorage.getAccess()}`,
+                },
+                body: JSON.stringify({ product_ids: productIds }),
+            });
+            const json = await res.json();
+            if (json.success) {
+                setPushTaskId(json.data.task_id);  // ← запускаем опрос
+                setPushResult({
+                    ok: true,
+                    message: `⏳ Выгрузка запущена (${json.data.total} товаров)...`,
+                });
+            } else {
+                setPushing(false);
+                setPushResult({ ok: false, message: json.error || 'Ошибка' });
+            }
+        } catch {
+            setPushing(false);
+            setPushResult({ ok: false, message: 'Ошибка сети' });
+        }
+    };
 
     const handleCellChange = (productId, defId, specId, value) => {
         const key = `${productId}:${defId}`;
@@ -359,6 +435,21 @@ export default function SpecEditorPage({
                             : `Сохранить всё${changesCount ? ` (${changesCount})` : ''}`
                         }
                     </button>
+                    {canPushTo1C && (
+                        <button
+                            onClick={handlePushTo1C}
+                            disabled={pushing}
+                            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
+               bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white"
+                        >
+                            {pushing ? 'Отправка...' : '📤 Выгрузить в 1С'}
+                        </button>
+                    )}
+                    {pushResult && (
+                        <span className={`text-xs ${pushResult.ok ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {pushResult.message}
+                        </span>
+                    )}
                 </div>
             </div>
 

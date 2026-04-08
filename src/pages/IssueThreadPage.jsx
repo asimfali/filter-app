@@ -32,7 +32,6 @@ const STATUS_COLOR = {
 
 
 function MessageBubble({ msg, currentUserId }) {
-    console.log('[attachments]', msg.message_id, msg.attachments, msg.attachments?.[0]);
     const isOwn = msg.author_id === String(currentUserId);
 
     if (msg.is_system) {

@@ -56,7 +56,7 @@ function AxisForm({ productTypeId, axis, onSave, onClose }) {
         name: axis?.name || '',
         code: axis?.code || '',
         order: axis?.order ?? 0,
-        product_type: productTypeId,
+        ...(!isGlobal && { product_type: productTypeId }),
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -161,7 +161,6 @@ function ValueForm({ axisId, value, onSave, onClose }) {
         try {
             const res = await apiFetch(url, { method, body: JSON.stringify(form) });
             const data = await res.json();
-            console.log('Ответ сервера:', data);
             if (res.ok) { onSave(data); onClose(); }
             else setError(parseApiError(data, res.status));
         } catch {
@@ -399,6 +398,7 @@ function BulkAddValues({ axisId, onAdded }) {
 
 export default function ParameterEditorPage() {
     const productTypes = useProductTypes();
+    const [mode, setMode] = useState('typed'); 
     const [typeId, setTypeId] = useState('');
     const [axes, setAxes] = useState([]);
     const [selectedAxis, setSelectedAxis] = useState(null);
@@ -407,10 +407,15 @@ export default function ParameterEditorPage() {
 
     // Загрузка осей при выборе типа
     useEffect(() => {
-        if (!typeId) { setAxes([]); setSelectedAxis(null); return; }
+        if (mode === 'typed' && !typeId) { setAxes([]); setSelectedAxis(null); return; }
         setLoadingAxes(true);
         setSelectedAxis(null);
-        apiFetch(`${API}/parameter-axes/?product_type=${typeId}`)
+
+        const url = mode === 'global'
+            ? `${API}/parameter-axes/?product_type=global`   // ← новый query param
+            : `${API}/parameter-axes/?product_type=${typeId}`;
+
+        apiFetch(url)
             .then(r => r.json())
             .then(data => {
                 const list = (Array.isArray(data) ? data : (data.results || []))
@@ -418,7 +423,7 @@ export default function ParameterEditorPage() {
                 setAxes(list);
                 setLoadingAxes(false);
             });
-    }, [typeId]);
+    }, [typeId, mode]);
 
     const handleDeleteAxis = async (axis) => {
         if (!confirm(`Удалить ось «${axis.name}» и все её значения?`)) return;
@@ -429,93 +434,100 @@ export default function ParameterEditorPage() {
 
     return (
         <div className="space-y-4">
-
-            {/* Заголовок + выбор типа */}
             <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4 flex items-center gap-4">
                 <div className="flex-1">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
                         Редактор осей и значений
                     </h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0">
                         Создавайте оси параметров и заполняйте допустимые значения
                     </p>
                 </div>
-                <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-1">Тип продукции</label>
-                    <select
-                        value={typeId}
-                        onChange={e => setTypeId(e.target.value)}
-                        className="border border-gray-300 dark:border-gray-600
-             bg-white dark:bg-neutral-800
-             text-gray-900 dark:text-white
-             rounded-lg px-3 py-2 text-sm
-             focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-48"
+
+                {/* Переключатель режимов */}
+                <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
+                    <button
+                        onClick={() => setMode('typed')}
+                        className={`px-3 py-1.5 rounded text-sm transition-colors ${mode === 'typed'
+                            ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                            : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        <option value="">— выберите —</option>
-                        {productTypes.map(pt => (
-                            <option key={pt.id} value={pt.id}>{pt.name}</option>
-                        ))}
-                    </select>
+                        По типу продукции
+                    </button>
+                    <button
+                        onClick={() => setMode('global')}
+                        className={`px-3 py-1.5 rounded text-sm transition-colors ${mode === 'global'
+                            ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                            : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        Общие оси
+                    </button>
                 </div>
+
+                {/* Селектор типа — только в режиме typed */}
+                {mode === 'typed' && (
+                    <div>
+                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Тип продукции</label>
+                        <select
+                            value={typeId}
+                            onChange={e => setTypeId(e.target.value)}
+                            className="border border-gray-300 dark:border-gray-600
+                                       bg-white dark:bg-neutral-800 text-gray-900 dark:text-white
+                                       rounded-lg px-3 py-2 text-sm focus:outline-none
+                                       focus:ring-2 focus:ring-blue-500 min-w-48"
+                        >
+                            <option value="">— выберите —</option>
+                            {productTypes.map(pt => (
+                                <option key={pt.id} value={pt.id}>{pt.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
-            {!typeId && (
+            {/* Заглушка если typed и не выбран тип */}
+            {mode === 'typed' && !typeId && (
                 <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-12 text-center text-gray-400 dark:text-gray-500 text-sm">
                     Выберите тип продукции
                 </div>
             )}
 
-            {typeId && (
+            {(mode === 'global' || (mode === 'typed' && typeId)) && (
                 <div className="flex gap-4">
-
-                    {/* Список осей */}
+                    {/* Список осей — без изменений, только кнопка + Ось */}
                     <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-4 w-64 shrink-0">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Оси параметров</span>
                             <button onClick={() => setModal('add-axis')}
-                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs
-                           px-2.5 py-1.5 rounded-lg transition-colors">
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 py-1.5 rounded-lg transition-colors">
                                 + Ось
                             </button>
                         </div>
-
+                        {/* остальное без изменений */}
                         {loadingAxes ? (
                             <div className="text-sm text-gray-400 dark:text-gray-500">Загрузка...</div>
                         ) : axes.length === 0 ? (
-                            <div className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">
-                                Нет осей
-                            </div>
+                            <div className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">Нет осей</div>
                         ) : (
                             <div className="space-y-1">
                                 {axes.map(axis => (
                                     <div key={axis.id}
                                         onClick={() => setSelectedAxis(axis)}
                                         className={`flex items-center justify-between rounded-lg px-3 py-2.5
-                                cursor-pointer group transition-colors ${selectedAxis?.id === axis.id
+                                            cursor-pointer group transition-colors ${selectedAxis?.id === axis.id
                                                 ? 'bg-blue-50 border border-blue-200'
-                                                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:bg-neutral-950 border border-transparent'
-                                            }`}>
+                                                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-transparent'}`}>
                                         <div className="min-w-0">
-                                            <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                                                {axis.name}
-                                            </div>
+                                            <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{axis.name}</div>
                                             <div className="text-xs text-gray-400 dark:text-gray-500">
                                                 order: {axis.order} · {axis.values_count ?? '?'} зн.
                                             </div>
                                         </div>
                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0 ml-1">
-                                            <button
-                                                onClick={e => { e.stopPropagation(); setModal(axis); }}
-                                                className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50"
-                                                title="Редактировать">
-                                                ✎
-                                            </button>
-                                            <button
-                                                onClick={e => { e.stopPropagation(); handleDeleteAxis(axis); }}
-                                                className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50"
-                                                title="Удалить">
-                                                ✕
-                                            </button>
+                                            <button onClick={e => { e.stopPropagation(); setModal(axis); }}
+                                                className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50" title="Редактировать">✎</button>
+                                            <button onClick={e => { e.stopPropagation(); handleDeleteAxis(axis); }}
+                                                className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50" title="Удалить">✕</button>
                                         </div>
                                     </div>
                                 ))}
@@ -523,11 +535,8 @@ export default function ParameterEditorPage() {
                         )}
                     </div>
 
-                    {/* Панель значений */}
                     <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-4 flex-1 min-w-0">
-                        {selectedAxis ? (
-                            <ValuesPanel axis={selectedAxis} />
-                        ) : (
+                        {selectedAxis ? <ValuesPanel axis={selectedAxis} /> : (
                             <div className="h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
                                 Выберите ось для редактирования значений
                             </div>
@@ -536,20 +545,24 @@ export default function ParameterEditorPage() {
                 </div>
             )}
 
-            {/* Модалки осей */}
+            {/* Модалки — передаём mode чтобы AxisForm знал нужен ли product_type */}
             {modal === 'add-axis' && (
                 <Modal title="Новая ось параметра" onClose={() => setModal(null)}>
-                    <AxisForm productTypeId={typeId}
+                    <AxisForm
+                        productTypeId={mode === 'global' ? null : typeId}
+                        isGlobal={mode === 'global'}
                         onSave={axis => setAxes(ax => [...ax, axis].sort((a, b) => a.order - b.order))}
                         onClose={() => setModal(null)} />
                 </Modal>
             )}
             {modal && modal !== 'add-axis' && (
                 <Modal title="Редактировать ось" onClose={() => setModal(null)}>
-                    <AxisForm productTypeId={typeId} axis={modal}
+                    <AxisForm
+                        productTypeId={mode === 'global' ? null : typeId}
+                        isGlobal={mode === 'global'}
+                        axis={modal}
                         onSave={updated => setAxes(ax =>
-                            ax.map(a => a.id === updated.id ? updated : a)
-                                .sort((a, b) => a.order - b.order)
+                            ax.map(a => a.id === updated.id ? updated : a).sort((a, b) => a.order - b.order)
                         )}
                         onClose={() => setModal(null)} />
                 </Modal>

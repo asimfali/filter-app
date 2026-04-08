@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import CreateThreadModal from '../issues/CreateThreadModal.jsx';
 import cytoscape from 'cytoscape';
-import ProductBindingPanel from './ProductBindingPanel.jsx';
+import ProductBindingPanel, { ChainProductsPanel } from './ProductBindingPanel.jsx';
 import BindingGraph from './BindingGraph.jsx';
 import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
 import { can } from '../../utils/permissions';
+import { useChainSearch } from '../../hooks/useChainSearch';
 
 
 const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
@@ -14,6 +15,8 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
   const { user, loading: authLoading } = useAuth();
   const canViewBinding = !authLoading && can(user, 'portal.page.binding');
   const canEditBindings = !authLoading && can(user, 'catalog.binding.write');
+  const [partialSearch, setPartialSearch] = useState(true);
+  const [dragMissingAxes, setDragMissingAxes] = useState([]);
 
   const [productTypes, setProductTypes] = useState([]);
   const [selectedTypeId, setSelectedTypeId] = useState('');
@@ -40,6 +43,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
   const [pendingAssignments, setPendingAssignments] = useState({});
   const [dropResult, setDropResult] = useState(null);
   const bindingGraphRef = useRef(null);
+  const [intersectionIds, setIntersectionIds] = useState([]);
 
   // ── Теги ──────────────────────────────────────────────────────────────────
   const [tagValues, setTagValues] = useState([]);        // все доступные теги
@@ -48,8 +52,31 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
   const [bindingMode, setBindingMode] = useState('attach');
   const [bindingTagValues, setBindingTagValues] = useState([]);
 
+  const [chainProducts, setChainProducts] = useState([]);
+  const [chainLoading, setChainLoading] = useState(false);
+  const [chainFilters, setChainFilters] = useState([]);
+
+  // ── Хуки поиска ───────────────────────────────────────────────────────────
+  const chainSearch = useChainSearch(selectedTypeId, { partial: partialSearch });
+  const filterSearch = useChainSearch(selectedTypeId, { partial: partialSearch });
+
   const axisValues = useRef({});
   const pendingGraphData = useRef(null);
+
+  const handleChainSelection = useCallback(async (chainValueIds) => {
+    setChainFilters(chainValueIds);
+    if (!chainValueIds.length) {
+      chainSearch.reset();
+      setChainProducts([]);  // ← добавь
+      return;
+    }
+    await chainSearch.search(chainValueIds);
+  }, [chainSearch])
+
+  useEffect(() => {
+    setChainProducts(chainSearch.products);
+    setChainLoading(chainSearch.loading);
+}, [chainSearch.products, chainSearch.loading]);
 
   // ── Загрузка типов продукции ───────────────────────────────────────────────
 
@@ -369,6 +396,12 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
         intersection = intersection.filter(node => allChains[i].has(node));
       }
 
+      setIntersectionIds(
+        intersection
+          .filter(n => n.data('type') === 'value')
+          .map(n => n.id().replace('value-', ''))
+      );
+
       // ── Подсветка ──
       const connectingEdges = intersection.edgesWith(intersection);
       connectingEdges.addClass('highlighted');
@@ -392,6 +425,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
     cy.on('select unselect', 'node[type="value"]', updateSelection);
     cy.on('tap', e => {
       if (e.target === cy) {
+        setIntersectionIds([]);
         cy.nodes().unselect();
         cy.elements().removeClass('highlighted dimmed');
         setSelectedNodes([]);
@@ -405,24 +439,23 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
 
   const handleBindingDrop = async (productIds, valueId, valueLabel) => {
     try {
-      const { ok, data } = await catalogApi.attachByIds(
-        productIds, valueId
-      )
-      if (ok && data.success) {
-        setDropResult({
-          ok: true,
-          message: `✓ ${valueLabel}: привязано ${data.data.created}, обновлено ${data.data.updated}`,
-        });
-      } else {
-        setDropResult({ ok: false, message: data.error || 'Ошибка' });
-      }
+        const { ok, data } = await catalogApi.attachByIds(productIds, valueId);
+        if (ok && data.success) {
+            setDropResult({
+                ok: true,
+                message: `✓ ${valueLabel}: привязано ${data.data.created}, обновлено ${data.data.updated}`,
+            });
+            // ← обновляем список — товары должны уйти из неполных
+            await chainSearch.search(chainFilters);
+        } else {
+            setDropResult({ ok: false, message: data.error || 'Ошибка' });
+        }
     } catch {
-      setDropResult({ ok: false, message: 'Ошибка сети' });
+        setDropResult({ ok: false, message: 'Ошибка сети' });
     }
 
-    // Сбрасываем через 3 секунды
     setTimeout(() => setDropResult(null), 3000);
-  };
+};
 
   // ── Обработка тегов ───────────────────────────────────────────────────────
 
@@ -459,13 +492,17 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
   // ── Остальные handlers (без изменений) ────────────────────────────────────
 
   const handleFilterCount = async () => {
-    if (!selectedNodes.length) return;
+    if (!intersectionIds.length) return;
     setCounting(true);
     try {
-      const { ok, data } = await catalogApi.filterCount(
-        selectedNodes.map(n => ({ axis_id: n.axisId, value_id: n.valueId }))
-      );
-      if (ok && data.success) setFilterResult(data.data);
+      const result = await filterSearch.search(intersectionIds);
+      if (result) {
+        setFilterResult({
+          count: result.count,
+          product_ids: result.products.map(p => p.id),
+          product_external_ids: result.products.map(p => p.external_id).filter(Boolean),
+        });
+      }
     } finally {
       setCounting(false);
     }
@@ -721,6 +758,15 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                           </span>
                         ))}
                       </div>
+                      <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={partialSearch}
+                          onChange={e => setPartialSearch(e.target.checked)}
+                          className="rounded"
+                        />
+                        Неполные данные
+                      </label>
                       <button
                         onClick={handleFilterCount}
                         disabled={counting}
@@ -949,8 +995,8 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
           </div>
 
           {/* Граф + панель */}
-          <div className="flex gap-4">
-            <div className="flex-1 bg-white dark:bg-neutral-900 rounded-lg shadow p-4">
+          <div className="flex gap-3 items-stretch">
+            <div className="flex-1 min-w-0 bg-white dark:bg-neutral-900 rounded-lg shadow p-4">
 
               {/* Переключатель режимов */}
               {canEditBindings && (
@@ -976,6 +1022,18 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                       Связать узлы
                     </button>
                   </div>
+                  {/* Неполные данные — только в режиме attach */}
+                  {bindingMode === 'attach' && (
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none ml-2">
+                      <input
+                        type="checkbox"
+                        checked={partialSearch}
+                        onChange={e => setPartialSearch(e.target.checked)}
+                        className="rounded"
+                      />
+                      Неполные данные
+                    </label>
+                  )}
                 </div>
               )}
 
@@ -992,7 +1050,11 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                 selectedTagIds={bindingTags}
                 mode={bindingMode}
                 readOnly={!canEditBindings}
+                dragMissingAxes={dragMissingAxes}
                 onDrop={handleBindingDrop}
+                onSelectionChange={ids => {
+                  handleChainSelection(ids);
+                }}
                 onConnect={async (fromId, toId, addEdge) => {
                   const { ok, data } = await catalogApi.connectValues(fromId, toId);
                   setDropResult(
@@ -1026,9 +1088,70 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                   );
                   setTimeout(() => setDropResult(null), 3000);
                 }}
+                onBulkConnect={async (sourceId, targetIds, addEdges) => {
+                  const connections = targetIds.map(tid => ({
+                    from_value_id: sourceId,
+                    to_value_id: tid,
+                  }));
+                  const { ok, data } = await catalogApi.bulkConnect(connections);
+                  setDropResult(
+                    ok && data.success
+                      ? { ok: true, message: `✓ Создано ${data.data.created} связей` }
+                      : { ok: false, message: data.error || 'Ошибка' }
+                  );
+                  if (ok && data.success) addEdges();
+                  setTimeout(() => setDropResult(null), 3000);
+                }}
               />
             </div>
-            <div className="w-72 shrink-0" style={{ height: 600 }}>
+            {/* Панель изделий цепочки — слева от поиска */}
+            {chainFilters.length > 0 && (
+              <ChainProductsPanel
+                products={chainProducts}
+                partialProducts={chainSearch.partialProducts}
+                loading={chainLoading}
+                filters={chainFilters}
+                chainValueIds={chainFilters}
+                onPartialDragStart={axes => setDragMissingAxes(axes)}
+                onDrop={async (productIds) => {
+                  // Перепроверяем paths_count перед привязкой
+                  const result = await chainSearch.search(chainFilters);
+                  if (!result) return;
+
+                  if (result.paths_count > 1) {
+                    setDropResult({
+                      ok: false,
+                      message: `Неоднозначная цепочка (${result.paths_count} путей). Уточните фильтр.`
+                    });
+                    setTimeout(() => setDropResult(null), 4000);
+                    return;
+                  }
+
+                  const { ok, data } = await catalogApi.attachByIdsBulk(productIds, chainFilters);
+                  setDropResult(
+                    ok && data.success
+                      ? { ok: true, message: `✓ Привязано к ${data.data.axes} осям: создано ${data.data.created}` }
+                      : { ok: false, message: data.error || 'Ошибка' }
+                  );
+                  await handleChainSelection(chainFilters);
+                  setTimeout(() => setDropResult(null), 3000);
+                }}
+                onDetach={async (productIds) => {
+                  // Отвязываем все оси цепочки от выбранных товаров
+                  for (const axisValueId of chainFilters) {
+                    // Получаем axis_id для каждого value_id
+                  }
+                  // Проще — отвязать все параметры из цепочки у этих товаров
+                  const { ok, data } = await catalogApi.detachChain(productIds, chainFilters);
+                  if (ok && data.success) {
+                    setDropResult({ ok: true, message: `✓ Отвязано ${productIds.length} изделий` });
+                    handleChainSelection(chainFilters);
+                  }
+                  setTimeout(() => setDropResult(null), 3000);
+                }}
+              />
+            )}
+            <div className="w-64 shrink-0" style={{ height: 600 }}>
               <ProductBindingPanel
                 productTypeId={selectedTypeId}
                 filterValueIds={[]}

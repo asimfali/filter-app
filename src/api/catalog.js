@@ -27,10 +27,26 @@ export const catalogApi = {
 
     // ── Товары ────────────────────────────────────────────────────────────
 
-    async searchProducts(q, { productTypeId, limit = 15 } = {}) {
-        const params = new URLSearchParams({ q, limit });
+    async searchProducts(q, { productTypeId, limit = 15, regex = false, noParams = false } = {}) {
+        const params = new URLSearchParams({ limit });
+        if (q) params.set('q', q);
         if (productTypeId) params.set('product_type', productTypeId);
+        if (regex) params.set('regex', 'true');
+        if (noParams) params.set('no_params', 'true');
+        console.log('[searchProducts] URL:', `${BASE}/products/search/?${params}`);  // ← добавь
+    
         const res = await apiFetch(`${BASE}/products/search/?${params}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async detachChain(productIds, chainValueIds) {
+        const res = await apiFetch(`${BASE}/products/detach-chain/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                product_ids: productIds,
+                chain_value_ids: chainValueIds,
+            }),
+        });
         return { ok: res.ok, data: await res.json() };
     },
 
@@ -38,6 +54,26 @@ export const catalogApi = {
         const res = await apiFetch(`${BASE}/products/filter-count/`, {
             method: 'POST',
             body: JSON.stringify({ filters }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async filterByAnchor(valueIds) {
+        const res = await apiFetch(`${BASE}/products/filter-by-anchor/`, {
+            method: 'POST',
+            body: JSON.stringify({ value_ids: valueIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async filterByChain(productTypeId, chainValueIds, partial = false) {
+        const res = await apiFetch(`${BASE}/products/filter-by-chain/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                product_type_id: productTypeId,
+                chain_value_ids: chainValueIds,
+                partial,            // ← новое
+            }),
         });
         return { ok: res.ok, data: await res.json() };
     },
@@ -137,6 +173,18 @@ export const catalogApi = {
             method: 'POST',
             body: JSON.stringify({ product_ids: productIds, value_ids: valueIds }),
         });
+        return { ok: res.ok, data: await res.json() };
+    },
+    async bulkConnect(connections) {
+        const res = await apiFetch(`${BASE}/parameter-connections/bulk-connect/`, {
+            method: 'POST',
+            body: JSON.stringify({ connections }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async taskStatus(taskId) {
+        const res = await apiFetch(`${BASE}/products/task-status/${taskId}/`);
         return { ok: res.ok, data: await res.json() };
     },
 };

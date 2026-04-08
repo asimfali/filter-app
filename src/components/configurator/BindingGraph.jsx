@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
 import cytoscape from 'cytoscape';
 import { catalogApi } from '../../api/catalog';
 
@@ -11,14 +11,26 @@ import { catalogApi } from '../../api/catalog';
  * 
  * При drop вызывает onDrop(productIds, valueId).
  */
-const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedTagIds, onDrop, onDropBulk, onConnect, onDisconnect, mode = 'attach', readOnly = false, }, ref) {
+const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedTagIds, onDrop, onDropBulk, onConnect,
+    onDisconnect, onSelectionChange, onBulkConnect, mode = 'attach', readOnly = false, dragMissingAxes = [], }, ref) {
+
+    const dragMissingAxesRef = useRef([]);
     const cyRef = useRef(null);
     const cyInstanceRef = useRef(null);
     const selectedChainRef = useRef([]);
     const selectedNodesRef = useRef([]);
+    const isPartialDragRef = useRef(false);
 
     const modeRef = useRef(mode);
+    const bulkSourceRef = useRef(null);      // узел-источник
+    const bulkTargetsRef = useRef([]);       // целевые узлы
+    const onBulkConnectRef = useRef(onBulkConnect);
+
+    useEffect(() => { onBulkConnectRef.current = onBulkConnect; }, [onBulkConnect]);
     useEffect(() => { modeRef.current = mode; }, [mode]);
+    useEffect(() => {
+        dragMissingAxesRef.current = dragMissingAxes;
+    }, [dragMissingAxes]);
 
     useEffect(() => {
         if (!productTypeId || selectedTagIds.length === 0) {
@@ -50,6 +62,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
     }, [mode]);
 
     const initCytoscape = (nodes, edges) => {
+
         if (!cyRef.current) return;
 
         if (cyInstanceRef.current) {
@@ -102,6 +115,15 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                         'text-valign': 'center',
                         'text-halign': 'center',
                         events: 'no',
+                    },
+                },
+                {
+                    selector: 'node.bulk-target',
+                    style: {
+                        'background-color': '#818cf8',
+                        'border-color': '#4f46e5',
+                        'border-width': 2,
+                        color: '#fff',
                     },
                 },
                 {
@@ -185,22 +207,79 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             cy.fit(undefined, 40);
         }, 100);
 
-        cy.on('tap', 'edge', (e) => {
-            if (modeRef.current !== 'connect' || readOnly) return;
-            const edge = e.target;
-            const sourceId = edge.data('source').replace('value-', '');
-            const targetId = edge.data('target').replace('value-', '');
-        
-            onDisconnect?.(sourceId, targetId, () => {
-                cy.remove(edge);
-            });
+        cy.on('tap', 'node[type="value"]', (e) => {
+            const node = e.target;
+            const nodeId = node.id().replace('value-', '');
+
+            // ── Режим connect ──────────────────────────────────────────
+            if (modeRef.current === 'connect' && !readOnly) {
+                if (e.originalEvent?.shiftKey) {
+                    if (!bulkSourceRef.current) return;
+                    const alreadyIdx = bulkTargetsRef.current.indexOf(nodeId);
+                    if (alreadyIdx !== -1) {
+                        bulkTargetsRef.current.splice(alreadyIdx, 1);
+                        node.removeClass('bulk-target');
+                    } else {
+                        bulkTargetsRef.current.push(nodeId);
+                        node.addClass('bulk-target');
+                    }
+                    return;
+                }
+                if (bulkSourceRef.current) {
+                    bulkSourceRef.current.removeClass('connect-source');
+                    cy.nodes('.bulk-target').removeClass('bulk-target');
+                    bulkTargetsRef.current = [];
+                }
+                bulkSourceRef.current = node;
+                node.addClass('connect-source');
+                return;
+            }
+
+            // ── Режим attach — выделение цепочек ──────────────────────
+            if (modeRef.current === 'attach') {
+                const clickedAxisId = node.data('axis_id');
+
+                // Снять если уже выделен
+                const selectedIndex = selectedNodesRef.current.indexOf(nodeId);
+                if (selectedIndex !== -1) {
+                    selectedNodesRef.current.splice(selectedIndex, 1);
+                    if (selectedNodesRef.current.length === 0) {
+                        cy.nodes().removeClass('chain-selected chain-dimmed');
+                        selectedChainRef.current = [];
+                        onSelectionChange?.([]);
+                        return;
+                    }
+                    highlightIntersection(cy, selectedNodesRef.current);
+                    return;
+                }
+
+                // Если на этой оси уже есть выделенный узел — заменяем его
+                const sameAxisIndex = selectedNodesRef.current.findIndex(id => {
+                    const n = cy.getElementById(`value-${id}`);
+                    return n.data('axis_id') === clickedAxisId;
+                });
+
+                if (sameAxisIndex !== -1) {
+                    // Заменяем узел той же оси
+                    selectedNodesRef.current.splice(sameAxisIndex, 1, nodeId);
+                } else {
+                    // Новая ось — добавляем
+                    selectedNodesRef.current = [...selectedNodesRef.current, nodeId];
+                }
+
+                highlightIntersection(cy, selectedNodesRef.current);
+            }
         });
 
         cy.on('mousedown', 'node[type="value"]', (e) => {
             if (modeRef.current !== 'connect' || readOnly) return;
+
+            // Shift+клик — добавляем в bulk targets
+            if (e.originalEvent?.shiftKey) return; // обрабатываем в tap
+
             connectSource = e.target;
             connectSource.addClass('connect-source');
-            cy.userPanningEnabled(false); // отключаем панорамирование пока тащим
+            cy.userPanningEnabled(false);
         });
 
         cy.on('mouseover', 'edge', (e) => {
@@ -210,7 +289,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                 'width': 3,
             });
         });
-        
+
         cy.on('mouseout', 'edge', (e) => {
             if (modeRef.current !== 'connect' || readOnly) return;
             e.target.style({
@@ -222,34 +301,26 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         cy.on('mouseup', 'node[type="value"]', (e) => {
             if (modeRef.current !== 'connect' || readOnly || !connectSource) return;
             const target = e.target;
-        
-            if (target.id() !== connectSource.id()) {
+
+            // Если это был drag (не просто клик) — одиночный connect
+            if (target.id() !== connectSource.id() && !e.originalEvent?.shiftKey) {
                 const fromId = connectSource.id().replace('value-', '');
                 const toId = target.id().replace('value-', '');
-        
-                // Передаём колбэк который добавит ребро в граф при успехе
+
                 onConnect?.(fromId, toId, () => {
-                    // Добавляем ребро сразу в граф без перезагрузки
                     const edgeId = `conn-new-${fromId}-${toId}`;
                     if (!cy.getElementById(edgeId).length) {
-                        cy.add({
-                            data: {
-                                id: edgeId,
-                                source: `value-${fromId}`,
-                                target: `value-${toId}`,
-                            }
-                        });
+                        cy.add({ data: { id: edgeId, source: `value-${fromId}`, target: `value-${toId}` } });
                     }
                 });
             }
-        
+
             connectSource.removeClass('connect-source');
             connectSource = null;
             cy.userPanningEnabled(true);
         });
 
         cy.on('mouseup', (e) => {
-            // Если отпустили не на узле — сбрасываем
             if (e.target === cy && connectSource) {
                 connectSource.removeClass('connect-source');
                 connectSource = null;
@@ -258,89 +329,108 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         });
 
         cy.on('tap', 'node[type="value"]', (e) => {
-            if (modeRef.current !== 'attach' || readOnly) return;
-        
+            if (modeRef.current !== 'connect' || readOnly) return;
+
             const node = e.target;
             const nodeId = node.id().replace('value-', '');
-        
-            // 🔥 Проверяем по selectedNodesRef, а не по классу!
-            const selectedIndex = selectedNodesRef.current.indexOf(nodeId);
-        
-            if (selectedIndex !== -1) {
-                // Узел уже выбран — убираем его
-                selectedNodesRef.current.splice(selectedIndex, 1);
-                
-                if (selectedNodesRef.current.length === 0) {
-                    cy.nodes().removeClass('chain-selected chain-dimmed');
-                    selectedChainRef.current = [];
+
+            if (e.originalEvent?.shiftKey) {
+                // Shift+клик — bulk режим
+                if (!bulkSourceRef.current) {
+                    // Источник ещё не выбран — первый клик без Shift должен быть источником
                     return;
                 }
-            } else {
-                // Добавляем узел к выбранным
-                selectedNodesRef.current = [...selectedNodesRef.current, nodeId];
+
+                const alreadyIdx = bulkTargetsRef.current.indexOf(nodeId);
+                if (alreadyIdx !== -1) {
+                    // Снимаем выделение
+                    bulkTargetsRef.current.splice(alreadyIdx, 1);
+                    node.removeClass('bulk-target');
+                } else {
+                    bulkTargetsRef.current.push(nodeId);
+                    node.addClass('bulk-target');
+                }
+                return;
             }
-        
-            // 🔥 Подсвечиваем пересечение
-            highlightIntersection(cy, selectedNodesRef.current);
+
+            // Обычный клик — выбираем источник
+            // Если уже был источник — сбрасываем bulk
+            if (bulkSourceRef.current) {
+                bulkSourceRef.current.removeClass('connect-source');
+                cy.nodes('.bulk-target').removeClass('bulk-target');
+                bulkTargetsRef.current = [];
+            }
+
+            bulkSourceRef.current = node;
+            node.addClass('connect-source');
         });
 
         const getReachableNodes = (cy, startNode) => {
-            // Только узлы достижимые через реальные рёбра графа от startNode
             const visited = new Set();
             const result = cy.collection();
-            
+
             const traverse = (node, direction) => {
                 const id = node.id();
                 if (visited.has(id)) return;
                 visited.add(id);
                 result.merge(node);
-                
+
                 if (direction !== 'backward') {
-                    // Идём вперёд (successors — только прямые соседи)
                     node.outgoers('[type="value"]').forEach(n => traverse(n, 'forward'));
                 }
                 if (direction !== 'forward') {
-                    // Идём назад (predecessors — только прямые соседи)
                     node.incomers('[type="value"]').forEach(n => traverse(n, 'backward'));
                 }
             };
-            
-            // Запускаем в обе стороны
+
             traverse(startNode, null);
             return result;
         };
-        
+
         const highlightIntersection = (cy, selectedNodeIds) => {
             if (selectedNodeIds.length === 0) {
                 cy.nodes().removeClass('chain-selected chain-dimmed');
+                selectedChainRef.current = [];
+                onSelectionChange?.([]);  // ← сброс
                 return;
             }
-        
+
             const allChains = selectedNodeIds.map(id => {
                 const node = cy.getElementById(`value-${id}`);
                 if (!node.length) return cy.collection();
                 return getReachableNodes(cy, node);
             });
-        
-            // Пересечение: только узлы присутствующие во ВСЕХ цепочках
+
             let intersection = allChains[0];
             for (let i = 1; i < allChains.length; i++) {
                 intersection = intersection.filter(node => allChains[i].has(node));
             }
-        
+
             cy.nodes('[type="value"]').removeClass('chain-selected chain-dimmed');
             intersection.addClass('chain-selected');
             cy.nodes('[type="value"]').not(intersection).addClass('chain-dimmed');
-        
+
             selectedChainRef.current = intersection.map(n => n.id().replace('value-', ''));
+
+            // ← передаём все узлы цепочки
+            onSelectionChange?.(selectedChainRef.current);
         };
-        
+
         // Клик на пустое место — сброс
         cy.on('tap', (e) => {
             if (e.target !== cy) return;
+            // attach
             cy.nodes().removeClass('chain-selected chain-dimmed');
             selectedNodesRef.current = [];
             selectedChainRef.current = [];
+            onSelectionChange?.([]);
+            // connect
+            if (bulkSourceRef.current) {
+                bulkSourceRef.current.removeClass('connect-source');
+                cy.nodes('.bulk-target').removeClass('bulk-target');
+                bulkSourceRef.current = null;
+                bulkTargetsRef.current = [];
+            }
         });
 
         cy.nodes().ungrabify();
@@ -350,22 +440,28 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
     // ── Drag & Drop через HTML5 DnD API ───────────────────────────────────
 
     const handleDragOver = (e) => {
-        if (modeRef.current === 'connect') return; // ← добавь
+        if (modeRef.current === 'connect') return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
 
-        // Подсвечиваем узел под курсором
         const cy = cyInstanceRef.current;
         if (!cy) return;
 
-        const rect = cyRef.current.getBoundingClientRect();
-        const pos = cy.renderer().projectIntoViewport(
-            e.clientX - rect.left,
-            e.clientY - rect.top,
-        );
+        const missingAxes = dragMissingAxesRef.current;
+        isPartialDragRef.current = missingAxes.length > 0;
 
+        const rect = cyRef.current.getBoundingClientRect();
         cy.nodes('[type="value"]').removeClass('drop-target');
-        const hoveredNode = cy.nodes('[type="value"]').filter(node => {
+
+        // Если drag из partial — подсвечиваем только узлы отсутствующих осей
+        const candidateNodes = missingAxes.length > 0
+            ? cy.nodes('[type="value"]').filter(node => {
+                const axisNode = cy.getElementById(`axis-${node.data('axis_id')}`);
+                return missingAxes.includes(axisNode.data('label'));
+            })
+            : cy.nodes('[type="value"]');
+
+        const hoveredNode = candidateNodes.filter(node => {
             const nodePos = node.renderedPosition();
             const w = node.renderedWidth() / 2;
             const h = node.renderedHeight() / 2;
@@ -376,6 +472,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                 e.clientY - rect.top <= nodePos.y + h
             );
         });
+
         if (hoveredNode.length) {
             hoveredNode.addClass('drop-target');
         }
@@ -405,32 +502,123 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         if (!productIds.length) return;
     
         const valueId = targetNode.id().replace('value-', '');
+    
+        // ── Partial drag — только одна ось, игнорируем цепочку ───────────
+        if (isPartialDragRef.current) {
+            isPartialDragRef.current = false;
+            onDrop?.(productIds, valueId, targetNode.data('label'));
+            return;
+        }
+    
+        // ── Обычный drag — старая логика ─────────────────────────────────
         const chain = selectedChainRef.current;
     
-        // Анимация успеха
         targetNode.addClass('drop-success');
         setTimeout(() => targetNode.removeClass('drop-success'), 1500);
     
         if (chain.length > 1) {
-            // Цепочка выделена — привязываем ко всем узлам
             onDropBulk?.(productIds, chain);
         } else {
-            // Обычный режим — только целевой узел
             onDrop?.(productIds, valueId, targetNode.data('label'));
         }
     };
 
     return (
-        <div
-            ref={cyRef}
-            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg
-                       bg-white dark:bg-neutral-900"
-            style={{ minHeight: 400 }}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-        />
+        <div style={{ position: 'relative' }}>
+            <div
+                ref={cyRef}
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-lg
+                           bg-white dark:bg-neutral-900"
+                style={{ minHeight: 400 }}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+            />
+            {/* Bulk connect панель */}
+            <BulkConnectPanel
+                bulkSourceRef={bulkSourceRef}
+                bulkTargetsRef={bulkTargetsRef}
+                cyInstanceRef={cyInstanceRef}
+                onBulkConnect={onBulkConnect}
+            />
+        </div>
     );
 });
 
 export default BindingGraph;
+
+function BulkConnectPanel({ bulkSourceRef, bulkTargetsRef, cyInstanceRef, onBulkConnect }) {
+    const [count, setCount] = useState(0);
+    const [sourceLabel, setSourceLabel] = useState('');
+
+    // Опрашиваем refs каждые 300ms — простое решение без усложнения архитектуры
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setCount(bulkTargetsRef.current.length);
+            setSourceLabel(bulkSourceRef.current?.data('label') || '');
+        }, 300);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (!sourceLabel) return null;
+
+    const handleConnect = () => {
+        const sourceId = bulkSourceRef.current?.id().replace('value-', '');
+        const targetIds = [...bulkTargetsRef.current];
+        if (!sourceId || !targetIds.length) return;
+
+        onBulkConnect?.(sourceId, targetIds, () => {
+            // Добавляем рёбра в граф
+            const cy = cyInstanceRef.current;
+            targetIds.forEach(tid => {
+                const edgeId = `conn-bulk-${sourceId}-${tid}`;
+                if (!cy.getElementById(edgeId).length) {
+                    cy.add({ data: { id: edgeId, source: `value-${sourceId}`, target: `value-${tid}` } });
+                }
+            });
+            // Сброс
+            bulkSourceRef.current?.removeClass('connect-source');
+            cy.nodes('.bulk-target').removeClass('bulk-target');
+            bulkSourceRef.current = null;
+            bulkTargetsRef.current = [];
+        });
+    };
+
+    const handleReset = () => {
+        bulkSourceRef.current?.removeClass('connect-source');
+        cyInstanceRef.current?.nodes('.bulk-target').removeClass('bulk-target');
+        bulkSourceRef.current = null;
+        bulkTargetsRef.current = [];
+    };
+
+    return (
+        <div className="absolute top-2 right-2 bg-white dark:bg-neutral-800 border
+                        border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2
+                        shadow-md flex items-center gap-3 text-sm">
+            <span className="text-gray-600 dark:text-gray-300">
+                Источник: <strong>{sourceLabel}</strong>
+            </span>
+            {count > 0 && (
+                <span className="text-indigo-600 font-medium">
+                    + {count} узлов
+                </span>
+            )}
+            <span className="text-xs text-gray-400">Shift+клик для выбора целей</span>
+            {count > 0 && (
+                <button
+                    onClick={handleConnect}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs
+                               px-3 py-1.5 rounded-lg transition-colors"
+                >
+                    Связать {count}
+                </button>
+            )}
+            <button
+                onClick={handleReset}
+                className="text-gray-400 hover:text-red-500 text-xs px-2 py-1 rounded"
+            >
+                ✕
+            </button>
+        </div>
+    );
+}

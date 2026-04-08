@@ -8,6 +8,55 @@ import { catalogApi } from '../api/catalog';
 
 const SESSION_TYPE = 'bom_editor';
 
+// ─── Универсальная модалка подтверждения ──────────────────────────────────────
+function ConfirmModal({ message, onConfirm, onCancel, danger = true }) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
+                            border border-gray-200 dark:border-gray-700
+                            w-full max-w-sm p-6 space-y-4">
+                <p className="text-sm text-gray-700 dark:text-gray-300">{message}</p>
+                <div className="flex justify-end gap-2">
+                    <button onClick={onCancel}
+                        className="px-4 py-2 text-sm rounded-lg border
+                                   border-gray-200 dark:border-gray-700
+                                   text-gray-600 dark:text-gray-400
+                                   hover:bg-neutral-50 dark:hover:bg-neutral-800">
+                        Отмена
+                    </button>
+                    <button onClick={onConfirm}
+                        className={`px-4 py-2 text-sm rounded-lg text-white transition-colors
+                                   ${danger
+                                ? 'bg-red-600 hover:bg-red-700'
+                                : 'bg-blue-600 hover:bg-blue-700'}`}>
+                        Подтвердить
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Универсальная модалка уведомления ───────────────────────────────────────
+function AlertModal({ message, onClose }) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
+                            border border-gray-200 dark:border-gray-700
+                            w-full max-w-sm p-6 space-y-4">
+                <p className="text-sm text-gray-700 dark:text-gray-300">{message}</p>
+                <div className="flex justify-end">
+                    <button onClick={onClose}
+                        className="px-4 py-2 text-sm rounded-lg bg-blue-600
+                                   hover:bg-blue-700 text-white transition-colors">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Хук сессии ───────────────────────────────────────────────────────────────
 function useBomSession() {
     const [sessionId, setSessionId] = useState(null);
@@ -48,6 +97,34 @@ function debounce(fn, ms) {
         clearTimeout(timer);
         timer = setTimeout(() => fn(...args), ms);
     };
+}
+
+function useModals() {
+    const [confirm, setConfirm] = useState(null); // { message, onConfirm, danger }
+    const [alert, setAlert] = useState(null);     // message
+
+    const showConfirm = (message, onConfirm, danger = true) =>
+        setConfirm({ message, onConfirm, danger });
+
+    const showAlert = (message) => setAlert(message);
+
+    const modals = (
+        <>
+            {confirm && (
+                <ConfirmModal
+                    message={confirm.message}
+                    danger={confirm.danger}
+                    onConfirm={() => { confirm.onConfirm(); setConfirm(null); }}
+                    onCancel={() => setConfirm(null)}
+                />
+            )}
+            {alert && (
+                <AlertModal message={alert} onClose={() => setAlert(null)} />
+            )}
+        </>
+    );
+
+    return { showConfirm, showAlert, modals };
 }
 
 // ─── Константы ───────────────────────────────────────────────────────────────
@@ -170,6 +247,7 @@ function MaterialGroupsModal({ onClose }) {
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null); // открытая группа
     const [creating, setCreating] = useState(false);
+    const { showConfirm, showAlert, modals } = useModals();
 
     const loadGroups = useCallback(async () => {
         setLoading(true);
@@ -181,16 +259,18 @@ function MaterialGroupsModal({ onClose }) {
     useEffect(() => { loadGroups(); }, [loadGroups]);
 
     const handleDelete = async (id) => {
-        if (!confirm('Удалить группу?')) return;
-        await bomApi.deleteMaterialGroup(id);
-        if (selected?.id === id) setSelected(null);
-        loadGroups();
+        showConfirm('Удалить группу?', async () => {
+            await bomApi.deleteMaterialGroup(id);
+            if (selected?.id === id) setSelected(null);
+            loadGroups();
+        });
     };
 
     return (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-4xl
                             max-h-[90vh] flex flex-col">
+                {modals}
                 {/* Шапка */}
                 <div className="flex items-center justify-between px-5 py-4
                                 border-b border-gray-200 dark:border-gray-700 shrink-0">
@@ -1437,6 +1517,8 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
     const [actionLoading, setActionLoading] = useState(false);
     const [unitWeightOpen, setUnitWeightOpen] = useState(false);
     const [packagingOpen, setPackagingOpen] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const { showConfirm, showAlert, modals } = useModals();
 
     useEffect(() => {
         if (!contextMenu) return;
@@ -1459,7 +1541,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
             setRenameOpen(false);
             onRefresh();
         } else {
-            alert(data.error || 'Ошибка переименования');
+            showAlert(data.error || 'Ошибка переименования');
         }
         setActionLoading(false);
     };
@@ -1472,23 +1554,22 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
             setCloneOpen(false);
             onRefresh();
         } else {
-            alert(data.error || 'Ошибка копирования');
+            showAlert(data.error || 'Ошибка копирования')
         }
         setActionLoading(false);
     };
 
     const handleDelete = async (specId) => {
-        if (!confirm('Удалить спецификацию?')) return;
-        const { ok, data } = await bomApi.deleteSpec(specId);
-        if (ok && data.success) {
-            onRefresh();
-        } else {
-            alert(data.error || 'Ошибка удаления');
-        }
+        showConfirm('Удалить спецификацию?', async () => {
+            const { ok, data } = await bomApi.deleteSpec(specId);
+            if (ok && data.success) onRefresh();
+            else showAlert(data.error || 'Ошибка удаления');
+        });
     };
 
     return (
         <div className="max-w-5xl mx-auto space-y-4">
+            {modals}
             {/* Шапка */}
             <div className="flex items-center justify-between">
                 <div>
@@ -1822,6 +1903,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
     const [headerDirty, setHeaderDirty] = useState(false);
     const [mergeOpen, setMergeOpen] = useState(false);
     const [importJsonOpen, setImportJsonOpen] = useState(false);
+    const { showConfirm, showAlert, modals } = useModals();
 
     useEffect(() => {
         bomApi.getStagePresets().then(({ ok, data }) => {
@@ -1922,13 +2004,14 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
             // Открываем новую спецификацию
             onClose();
         } else {
-            alert(data.error || 'Ошибка копирования');
+            showAlert(data.error || 'Ошибка копирования');
         }
         setCloning(false);
     };
 
     return (
         <div className="w-full space-y-4">
+            {modals}
             {/* Шапка */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -2052,7 +2135,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                             {validating ? 'Проверка...' : '✓ Проверить'}
                         </button>
                     )}
-                    {canPush && (
+                    {canPush && !spec.materials?.every(m => !m.in_process || m.detail_spec) && (
                         <button
                             onClick={handleCreateDetails}
                             disabled={pushing || !spec.default_nomenclature_folder || headerDirty}
@@ -2733,7 +2816,7 @@ function MaterialCombobox({ row, idx, canWrite, onSelect, matRefs }) {
         setQuery(q);
         setOpen(true);
         if (q.length < 2) return;  // ← убрать ранний return, всегда запрашиваем
-    
+
         setLoading(true);
         const { ok, data } = await bomApi.getMaterialGroup(
             row.material_type || '',
@@ -3064,6 +3147,7 @@ function SyncModal({ onClose, onRefresh }) {
     const [messages, setMessages] = useState({});  // { configId: '...' }
     const [globalStatus, setGlobalStatus] = useState('');
     const [globalMessage, setGlobalMessage] = useState('');
+    const { showAlert, modals } = useModals();
 
     useEffect(() => {
         bomApi.getSyncConfigs().then(({ ok, data }) => {
@@ -3287,6 +3371,7 @@ function PackagingModal({ onClose }) {
     const [creating, setCreating] = useState(false);
     const [selected, setSelected] = useState(null);
     const [packSearch, setPackSearch] = useState('');
+    const { showConfirm, showAlert, modals } = useModals();
 
     // Поиск номенклатуры
     const [nomSearch, setNomSearch] = useState('');
@@ -3309,7 +3394,7 @@ function PackagingModal({ onClose }) {
         const t = setTimeout(() => loadItems(), 300);
         return () => clearTimeout(t);
     }, [packSearch]);  // loadItems убрать из зависимостей
-    
+
     const loadItems = useCallback(async () => {
         setLoading(true);
         const { ok, data } = await bomApi.getPackagingItems(packSearch);
@@ -3328,19 +3413,22 @@ function PackagingModal({ onClose }) {
     }, [nomSearch]);
 
     const handleSync = async () => {
-        setSyncing(true);
-        // 1. Пушим грязные записи в 1С
-        const { ok: okSync, data: dataSync } = await bomApi.syncPackagingItems();
-        // 2. Тянем из 1С в локальную БД
-        const { ok: okImport, data: dataImport } = await bomApi.importPackagingFrom1C();
-        // 3. Перезагружаем список
-        await loadItems();
-        setSyncing(false);
-        if (okSync && okImport) {
-            const s = dataSync.data;
-            const i = dataImport.data;
-            alert(`Синхронизировано: ${s.synced} → 1С, импортировано: ${i.created} новых, обновлено: ${i.updated}`);
-        }
+        showConfirm(
+            'Синхронизировать данные пак-тары с 1С?\n\nЛокальные изменения будут отправлены в 1С, данные из 1С будут импортированы.',
+            async () => {
+                setSyncing(true);
+                const { ok: okSync, data: dataSync } = await bomApi.syncPackagingItems();
+                const { ok: okImport, data: dataImport } = await bomApi.importPackagingFrom1C();
+                await loadItems();
+                setSyncing(false);
+                if (okSync && okImport) {
+                    const s = dataSync.data;
+                    const i = dataImport.data;
+                    showAlert(`Синхронизировано: ${s.synced} → 1С, импортировано: ${i.created} новых, обновлено: ${i.updated}`);
+                }
+            },
+            false
+        );
     };
 
     const handleAssign = async () => {
@@ -3368,6 +3456,7 @@ function PackagingModal({ onClose }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-5xl
                             max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700">
+                {modals}
                 {/* Шапка */}
                 <div className="flex items-center justify-between px-5 py-4
                                 border-b border-gray-200 dark:border-gray-700 shrink-0">
@@ -3688,6 +3777,7 @@ function PackagingDetail({ item, packTypes, onUpdated, onDeleted }) {
         qty_on_pallet: item.qty_on_pallet,
         qty_in_order: item.qty_in_order,
     });
+    const { showConfirm, showAlert, modals } = useModals();
     const [saving, setSaving] = useState(false);
     const [matSearch, setMatSearch] = useState('');
     const [matResults, setMatResults] = useState([]);
@@ -3713,9 +3803,10 @@ function PackagingDetail({ item, packTypes, onUpdated, onDeleted }) {
     };
 
     const handleDelete = async () => {
-        if (!confirm(`Удалить тару «${item.name}»?`)) return;
-        const { ok, data } = await bomApi.deletePackagingItem(item.id);
-        if (ok && data.success) onDeleted();
+        showConfirm(`Удалить тару «${item.name}»?`, async () => {
+            const { ok, data } = await bomApi.deletePackagingItem(item.id);
+            if (ok && data.success) onDeleted();
+        });
     };
 
     const handleMatSearch = async (q) => {
