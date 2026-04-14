@@ -5,8 +5,8 @@ import { sessionsApi } from '../api/sessions';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]                   = useState(null);
-  const [loading, setLoading]             = useState(true);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [activeSession, setActiveSession] = useState(null);
 
   // Загружаем активную сессию после успешной авторизации
@@ -58,6 +58,11 @@ export function AuthProvider({ children }) {
     return result;
   }, [loadActiveSession]);
 
+  const refreshUser = useCallback(async () => {
+    const { ok, data } = await authApi.profile();
+    if (ok) setUser(data);
+  }, []);
+
   const logout = useCallback(async () => {
     await authApi.logout(tokenStorage.getRefresh());
     tokenStorage.clear();
@@ -68,7 +73,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, loading, login, login2fa, logout,
-      activeSession, setActiveSession,
+      activeSession, setActiveSession, refreshUser 
     }}>
       {children}
     </AuthContext.Provider>

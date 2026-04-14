@@ -17,9 +17,11 @@ export const tokenStorage = {
 // Базовый fetch с авторизацией
 export async function apiFetch(url, options = {}) {
   const headers = {
-    'Content-Type': 'application/json',
     ...options.headers,
   };
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
   const access = tokenStorage.getAccess();
   if (access) headers['Authorization'] = `Bearer ${access}`;
 

@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { authApi } from '../../api/auth';
 import { bomApi } from '../../api/bom';
 import { useTheme } from '../../contexts/ThemeContext';
+import { externalApi } from '../../api/external';
+import { can } from '../../utils/permissions';
+import SyncModal from '../sync/SyncModal';
 
 export default function ProfileModal({ user, onClose, onUpdated }) {
     const { dark, toggle, setDark } = useTheme();
@@ -13,6 +16,36 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     const [successMsg, setSuccessMsg] = useState('');
     const fileInputRef = useRef(null);
     const [specFolders, setSpecFolders] = useState([]);
+    const [pushing, setPushing] = useState(false);
+    const [pushResult, setPushResult] = useState(null);
+    const [pushTaskId, setPushTaskId] = useState(null);
+    const [syncingPrices, setSyncingPrices] = useState(false);
+    const [syncPricesResult, setSyncPricesResult] = useState(null);
+    const [syncingCatalog, setSyncingCatalog] = useState(false);
+    const [syncCatalogResult, setSyncCatalogResult] = useState(null);
+    const [syncModal, setSyncModal] = useState(null);
+
+    useEffect(() => {
+        if (!pushTaskId) return;
+        const interval = setInterval(async () => {
+            const { ok, data } = await externalApi.taskStatus(pushTaskId);
+            if (!ok || !data.success) return;
+            if (data.data.ready) {
+                clearInterval(interval);
+                setPushTaskId(null);
+                setPushing(false);
+                const result = data.data.result;
+                setPushResult({
+                    ok: result.success,
+                    message: result.success
+                        ? `✓ Отправлено ${result.pushed} товаров`
+                        : `✗ Ошибка: ${result.error}`,
+                });
+                setTimeout(() => setPushResult(null), 5000);
+            }
+        }, 2000);
+        return () => clearInterval(interval);
+    }, [pushTaskId]);
 
     useEffect(() => {
         // Загружаем настройки и пресеты параллельно
@@ -36,6 +69,60 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
             }
         });
     }, []);
+
+    const handlePushToSite = async () => {
+        if (!confirm('Отправить все товары на внешний сайт?')) return;
+        setPushing(true);
+        setPushResult(null);
+        const { ok, data } = await externalApi.pushToSite();
+        if (ok && data.success) {
+            setPushTaskId(data.data.task_id);
+            setPushResult({ ok: true, message: `⏳ Запущено (${data.data.total} товаров)...` });
+        } else {
+            setPushing(false);
+            setPushResult({ ok: false, message: data.error || 'Ошибка' });
+        }
+    };
+
+    const handleSyncPrices = async () => {
+        if (!confirm('Синхронизировать цены из 1С?')) return;
+        setSyncingPrices(true);
+        setSyncPricesResult(null);
+        const { ok, data } = await externalApi.syncPrices();
+        setSyncingPrices(false);
+        if (ok && data.success) {
+            setSyncPricesResult({
+                ok: true,
+                message: `⏳ Запущено (${data.data.configs_count} конфигов)`,
+            });
+        } else {
+            setSyncPricesResult({
+                ok: false,
+                message: data.error || 'Ошибка',
+            });
+        }
+        setTimeout(() => setSyncPricesResult(null), 5000);
+    };
+
+    const handleSyncCatalog = async () => {
+        if (!confirm('Запустить полную синхронизацию каталога из 1С? Это займёт около минуты.')) return;
+        setSyncingCatalog(true);
+        setSyncCatalogResult(null);
+        const { ok, data } = await externalApi.syncCatalog();
+        setSyncingCatalog(false);
+        if (ok && data.success) {
+            setSyncCatalogResult({
+                ok: true,
+                message: `⏳ Запущено (${data.data.configs_count} конфигов)`,
+            });
+        } else {
+            setSyncCatalogResult({
+                ok: false,
+                message: data.error || 'Ошибка',
+            });
+        }
+        setTimeout(() => setSyncCatalogResult(null), 5000);
+    };
 
     const handleThemeChange = async (theme) => {
         if (theme === 'dark') setDark(true);
@@ -182,6 +269,69 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                         px-3 py-2 rounded-lg">
                             ✓ {successMsg}
                         </div>
+                    )}
+
+                    {/* Синхронизация с внешним сайтом */}
+                    {can(user, 'external.push_to_site') && (
+                        <div>
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400
+                      uppercase tracking-wide mb-2">
+                                Внешний сайт
+                            </p>
+                            <button
+                                onClick={handlePushToSite}
+                                disabled={pushing}
+                                className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                       bg-emerald-600 hover:bg-emerald-700
+                       disabled:opacity-40 text-white transition-colors">
+                                {pushing ? '⏳ Отправка...' : '🌐 Синхронизировать сайт'}
+                            </button>
+                            {pushResult && (
+                                <p className={`text-xs mt-1.5 ${pushResult.ok
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : 'text-red-500'}`}>
+                                    {pushResult.message}
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {(can(user, 'external.sync_prices') || can(user, 'external.sync_catalog')) && (
+                        <div>
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400
+                      uppercase tracking-wide mb-2">
+                                Синхронизация с 1С
+                            </p>
+                            <div className="space-y-2">
+                                {can(user, 'external.sync_prices') && (
+                                    <button
+                                        onClick={() => setSyncModal('prices')}
+                                        className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                               bg-blue-600 hover:bg-blue-700
+                               text-white transition-colors">
+                                        💰 Обновить цены
+                                    </button>
+                                )}
+                                {can(user, 'external.sync_catalog') && (
+                                    <button
+                                        onClick={() => setSyncModal('catalog')}
+                                        className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                               bg-violet-600 hover:bg-violet-700
+                               text-white transition-colors">
+                                        🔄 Синхронизировать каталог
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Модалка синхронизации */}
+                    {syncModal && (
+                        <SyncModal
+                            user={user}
+                            mode={syncModal}
+                            onClose={() => setSyncModal(null)}
+                        />
                     )}
 
                     {/* Тема */}

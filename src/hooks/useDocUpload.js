@@ -3,22 +3,23 @@ import { mediaApi } from '../api/media';
 import { can } from '../utils/permissions';
 
 export function useDocTypes(user) {
-    const [docTypes, setDocTypes] = useState([]);
+    const [docTypes, setDocTypes] = useState([]);           // все — для просмотра
+    const [uploadDocTypes, setUploadDocTypes] = useState([]); // только с правом загрузки
     const [activeDocType, setActiveDocType] = useState(null);
 
     useEffect(() => {
         if (!user) return;
         mediaApi.getFormData().then(({ ok, data }) => {
             if (!ok) return;
-            const allowed = (data.doc_types || []).filter(dt =>
-                can(user, dt.upload_permission_code)
-            );
-            setDocTypes(allowed);
-            if (allowed.length > 0) setActiveDocType(allowed[0]);
+            const all = data.doc_types || [];
+            const canUpload = all.filter(dt => can(user, dt.upload_permission_code));
+            setDocTypes(all);
+            setUploadDocTypes(canUpload);
+            if (canUpload.length > 0) setActiveDocType(canUpload[0]);
         });
     }, [user?.permissions]);
 
-    return { docTypes, activeDocType, setActiveDocType };
+    return { docTypes, uploadDocTypes, activeDocType, setActiveDocType };
 }
 
 export function useCommonDocUpload({ onUploaded }) {

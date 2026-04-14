@@ -6,6 +6,7 @@
 │   │   ├── auth.js
 │   │   ├── bom.js
 │   │   ├── catalog.js
+│   │   ├── external.js
 │   │   ├── issues.js
 │   │   ├── media.js
 │   │   ├── plm.js
@@ -28,12 +29,14 @@
 │   │   │   └── CreateThreadModal.jsx
 │   │   ├── layout
 │   │   │   └── Header.jsx
-│   │   └── plm
-│   │       ├── BatchCreateForm.jsx
-│   │       ├── LiteraSelector.jsx
-│   │       ├── PLMSidePanel.jsx
-│   │       ├── ProductStages.jsx
-│   │       └── StageTransferPanel.jsx
+│   │   ├── plm
+│   │   │   ├── BatchCreateForm.jsx
+│   │   │   ├── LiteraSelector.jsx
+│   │   │   ├── PLMSidePanel.jsx
+│   │   │   ├── ProductStages.jsx
+│   │   │   └── StageTransferPanel.jsx
+│   │   └── sync
+│   │       └── SyncModal.jsx
 │   ├── contexts
 │   │   ├── AuthContext.jsx
 │   │   ├── IssuesContext.jsx
@@ -41,6 +44,7 @@
 │   │   └── ThemeContext.jsx
 │   ├── hooks
 │   │   ├── useBatchStages.js
+│   │   ├── useChainSearch.js
 │   │   ├── useDocUpload.js
 │   │   ├── useIssuesSocket.js
 │   │   └── useProductDocUpload.js
@@ -74,4 +78,4 @@
 ├── project_tree.txt
 └── vite.config.js
 
-15 directories, 60 files
+16 directories, 63 files

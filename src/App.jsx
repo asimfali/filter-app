@@ -34,7 +34,7 @@ function AuthPage() {
                       border border-gray-200 dark:border-gray-700 w-full max-w-md p-8">
         <div className="text-center mb-6">
           <div className="text-2xl font-bold text-gray-900 dark:text-white">
-            Теплообменное оборудование
+            Тепломаш
           </div>
           <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Корпоративный портал

@@ -29,13 +29,14 @@ export default function SpecEditorPage({
 
     // Выделение диапазона
     // selection: { defId, startRow, endRow } | null
-    const [selection, setSelection] = useState(null);
+    const [selection, setSelection] = useState([]);
     const [isDragging, setIsDragging] = useState(false);
     const [draftSessionId, setDraftSessionId] = useState(sessionId || null);
     const [draftName, setDraftName] = useState('');
     const [savingDraft, setSavingDraft] = useState(false);
     const [draftSaved, setDraftSaved] = useState(false);
     const dragStart = useRef(null); // { defId, rowIdx }
+    const anchorCell = useRef(null); // { defId, rowIdx } — точка отсчёта для Shift
 
     useEffect(() => {
         if (initialChanges && Object.keys(initialChanges).length > 0) {
@@ -68,7 +69,7 @@ export default function SpecEditorPage({
     // Снять выделение по клику вне таблицы
     useEffect(() => {
         const handler = (e) => {
-            if (!e.target.closest('table')) setSelection(null);
+            if (!e.target.closest('table')) setSelection([]);
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
@@ -77,19 +78,15 @@ export default function SpecEditorPage({
     // ── Paste: вставка в выделенные ячейки ───────────────────────────────────
     useEffect(() => {
         const handlePaste = (e) => {
-            if (!selection || !data) return;
-
+            if (!selection.length || !data) return;
+    
             e.preventDefault();
             const text = e.clipboardData.getData('text').trim();
             if (!text) return;
-
-            const { defId, startRow, endRow } = selection;
-            const minRow = Math.min(startRow, endRow);
-            const maxRow = Math.max(startRow, endRow);
-
+    
             setChanges(prev => {
                 const next = { ...prev };
-                for (let rowIdx = minRow; rowIdx <= maxRow; rowIdx++) {
+                selection.forEach(({ defId, rowIdx }) => {
                     const product = data.products[rowIdx];
                     const spec = product.specs[defId];
                     const key = `${product.id}:${defId}`;
@@ -99,14 +96,78 @@ export default function SpecEditorPage({
                         spec_id: spec?.spec_id ?? null,
                         value: text,
                     };
-                }
+                });
                 return next;
             });
             setSaveResult(null);
         };
-
+    
         document.addEventListener('paste', handlePaste);
         return () => document.removeEventListener('paste', handlePaste);
+    }, [selection, data]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (!selection.length || !data) return;
+            // Не перехватываем если фокус в input
+            if (document.activeElement?.tagName === 'INPUT') return;
+    
+            const { defId, startRow, endRow } = selection;
+            const defIdx = definitions.indexOf(definitions.find(d => d.id === defId));
+            const currentEnd = endRow;
+            const rowCount = data.products.length;
+            const defCount = definitions.length;
+    
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    // Shift+↓ — расширяем вниз
+                    setSelection(prev => ({
+                        ...prev,
+                        endRow: Math.min(currentEnd + 1, rowCount - 1),
+                    }));
+                } else {
+                    // ↓ — перемещаем курсор
+                    const next = Math.min(currentEnd + 1, rowCount - 1);
+                    anchorCell.current = { defId, rowIdx: next };
+                    setSelection({ defId, startRow: next, endRow: next });
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    setSelection(prev => ({
+                        ...prev,
+                        endRow: Math.max(currentEnd - 1, 0),
+                    }));
+                } else {
+                    const next = Math.max(currentEnd - 1, 0);
+                    anchorCell.current = { defId, rowIdx: next };
+                    setSelection({ defId, startRow: next, endRow: next });
+                }
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (defIdx < defCount - 1) {
+                    const nextDef = definitions[defIdx + 1];
+                    const row = e.shiftKey ? endRow : Math.min(startRow, endRow);
+                    anchorCell.current = { defId: nextDef.id, rowIdx: row };
+                    setSelection({ defId: nextDef.id, startRow: row, endRow: row });
+                }
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (defIdx > 0) {
+                    const nextDef = definitions[defIdx - 1];
+                    const row = Math.min(startRow, endRow);
+                    anchorCell.current = { defId: nextDef.id, rowIdx: row };
+                    setSelection({ defId: nextDef.id, startRow: row, endRow: row });
+                }
+            } else if (e.key === 'Escape') {
+                setSelection(null);
+                anchorCell.current = null;
+            }
+        };
+    
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
     }, [selection, data]);
 
     // Опрос статуса задачи
@@ -198,23 +259,50 @@ export default function SpecEditorPage({
 
     const handleMouseDown = (e, defId, rowIdx) => {
         if (e.button !== 0 || e.target.tagName === 'INPUT') return;
+        if (e.shiftKey || e.ctrlKey || e.metaKey) return;
         e.preventDefault();
-        // Снимаем фокус с любого активного input чтобы paste сработал
         document.activeElement?.blur();
+    
+        anchorCell.current = { defId, rowIdx };
         dragStart.current = { defId, rowIdx };
         setIsDragging(true);
-        setSelection({ defId, startRow: rowIdx, endRow: rowIdx });
+        setSelection([{ defId, rowIdx }]);
     };
 
     const handleMouseEnter = (defId, rowIdx) => {
         if (!isDragging || !dragStart.current) return;
-        // Drag только в том же столбце
         if (dragStart.current.defId !== defId) return;
-        setSelection({
-            defId,
-            startRow: dragStart.current.rowIdx,
-            endRow: rowIdx,
-        });
+    
+        const min = Math.min(dragStart.current.rowIdx, rowIdx);
+        const max = Math.max(dragStart.current.rowIdx, rowIdx);
+        const cells = [];
+        for (let i = min; i <= max; i++) {
+            cells.push({ defId, rowIdx: i });
+        }
+        setSelection(cells);
+    };
+
+    const handleCellClick = (e, defId, rowIdx) => {
+        if (e.target.tagName === 'INPUT') return;
+    
+        if (e.shiftKey && anchorCell.current && anchorCell.current.defId === defId) {
+            // Shift — диапазон от anchor до текущей в той же колонке
+            const min = Math.min(anchorCell.current.rowIdx, rowIdx);
+            const max = Math.max(anchorCell.current.rowIdx, rowIdx);
+            const cells = [];
+            for (let i = min; i <= max; i++) {
+                cells.push({ defId, rowIdx: i });
+            }
+            setSelection(cells);
+        } else if (e.ctrlKey || e.metaKey) {
+            // Ctrl — добавляем/убираем одну ячейку
+            anchorCell.current = { defId, rowIdx };
+            setSelection(prev => {
+                const exists = prev.some(s => s.defId === defId && s.rowIdx === rowIdx);
+                if (exists) return prev.filter(s => !(s.defId === defId && s.rowIdx === rowIdx));
+                return [...prev, { defId, rowIdx }];
+            });
+        }
     };
 
     const handleMouseUp = useCallback(() => {
@@ -228,10 +316,7 @@ export default function SpecEditorPage({
     }, [handleMouseUp]);
 
     const isSelected = (defId, rowIdx) => {
-        if (!selection || selection.defId !== defId) return false;
-        const min = Math.min(selection.startRow, selection.endRow);
-        const max = Math.max(selection.startRow, selection.endRow);
-        return rowIdx >= min && rowIdx <= max;
+        return selection.some(s => s.defId === defId && s.rowIdx === rowIdx);
     };
 
     // ── Сохранение ────────────────────────────────────────────────────────────
@@ -325,7 +410,7 @@ export default function SpecEditorPage({
     // ── Подсказка о выделении ─────────────────────────────────────────────────
 
     const selectionInfo = selection
-        ? `Выделено: ${Math.abs(selection.endRow - selection.startRow) + 1} ячеек — скопируйте значение и нажмите Ctrl+V`
+        ? `Выделено: ${selection.length} ячеек — скопируйте значение и нажмите Ctrl+V`
         : null;
 
     // ── Рендер ────────────────────────────────────────────────────────────────
@@ -508,6 +593,7 @@ export default function SpecEditorPage({
                       `}
                                             onMouseDown={e => handleMouseDown(e, def.id, rowIdx)}
                                             onMouseEnter={() => handleMouseEnter(def.id, rowIdx)}
+                                            onClick={e => handleCellClick(e, def.id, rowIdx)}
                                         >
                                             <input
                                                 type="text"
@@ -518,7 +604,7 @@ export default function SpecEditorPage({
                                                     spec?.spec_id ?? null,
                                                     e.target.value,
                                                 )}
-                                                onFocus={() => setSelection(null)}
+                                                onFocus={() => setSelection([])}
                                                 className={`
                           w-full px-2 py-1 text-sm rounded border transition-colors
                           focus:outline-none focus:ring-1 focus:ring-blue-500

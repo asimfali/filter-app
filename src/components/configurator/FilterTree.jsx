@@ -15,6 +15,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
   const { user, loading: authLoading } = useAuth();
   const canViewBinding = !authLoading && can(user, 'portal.page.binding');
   const canEditBindings = !authLoading && can(user, 'catalog.binding.write');
+  const canEditSpecs = !authLoading && can(user, 'catalog.spec.write');
   const [partialSearch, setPartialSearch] = useState(true);
   const [dragMissingAxes, setDragMissingAxes] = useState([]);
 
@@ -796,6 +797,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
 
                 {filterResult?.count > 0 && (
                   <div className="border-t pt-4">
+                    {canEditSpecs && (
                     <button
                       onClick={() => onOpenSpecEditor(filterResult.product_ids)}
                       className="w-full bg-violet-600 hover:bg-violet-700 text-white
@@ -803,6 +805,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                     >
                       Редактировать характеристики ({filterResult.count})
                     </button>
+                    )}
                     <button
                       onClick={() => onOpenSpecPreview(filterResult.product_ids)}
                       className="w-full bg-neutral-100 dark:bg-neutral-800

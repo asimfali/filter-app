@@ -16,7 +16,12 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { user } = useAuth();
-    const { docTypes: uploadDocTypes, activeDocType: activeUploadDocType, setActiveDocType: setActiveUploadDocType } = useDocTypes(user);
+    const {
+        docTypes,           // все типы — для колонок таблицы
+        uploadDocTypes,     // только с правом — для селектора загрузки
+        activeDocType: activeUploadDocType,
+        setActiveDocType: setActiveUploadDocType
+    } = useDocTypes(user);
 
     // Какие группы колонок показывать
     const [showParams, setShowParams] = useState(true);
@@ -267,6 +272,7 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                                     idx={idx}
                                     axes={axes}
                                     definitions={definitions}
+                                    docTypes={docTypes}
                                     uploadDocTypes={uploadDocTypes}
                                     hasImages={hasImages}
                                     showParams={showParams}

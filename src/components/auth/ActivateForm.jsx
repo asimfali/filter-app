@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { authApi } from '../../api/auth';
 
 export default function ActivateForm({ email: initialEmail, onSuccess }) {
-  const [email, setEmail]   = useState(initialEmail || '');
-  const [code, setCode]     = useState('');
-  const [error, setError]   = useState('');
+  const [email, setEmail] = useState(initialEmail || '');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -48,7 +48,8 @@ export default function ActivateForm({ email: initialEmail, onSuccess }) {
           value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
           maxLength={6}
           className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 tracking-widest text-center text-2xl"
+           focus:outline-none focus:ring-2 focus:ring-blue-500 tracking-widest text-center text-2xl
+           dark:bg-neutral-800 dark:text-white"
           placeholder="000000"
         />
       </div>

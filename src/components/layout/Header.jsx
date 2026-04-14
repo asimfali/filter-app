@@ -196,7 +196,7 @@ function NotificationBell({ onNavigate }) {
 }
 
 export default function Header({ currentPage, onNavigate }) {
-  const { user, logout, activeSession } = useAuth();
+  const { user, logout, activeSession, refreshUser } = useAuth();
   const { dark, toggle } = useTheme();
 
   const [query, setQuery] = useState('');
@@ -207,6 +207,7 @@ export default function Header({ currentPage, onNavigate }) {
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  
 
   useEffect(() => {
     if (debouncedQuery.length < 2) {
@@ -389,7 +390,7 @@ export default function Header({ currentPage, onNavigate }) {
                 <ProfileModal
                   user={user}
                   onClose={() => setProfileOpen(false)}
-                  onUpdated={() => {/* обновить user если нужно */ }}
+                  onUpdated={refreshUser}
                 />
               )}
             </div>

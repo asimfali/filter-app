@@ -48,9 +48,14 @@ function MessageBubble({ msg, currentUserId }) {
     return (
         <div className={`flex gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
             {/* Аватар */}
-            <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center
-                      text-white text-xs font-medium shrink-0 mt-1">
-                {msg.author_name?.[0]?.toUpperCase() ?? '?'}
+            <div className="w-7 h-7 rounded-full overflow-hidden bg-blue-500 flex items-center
+                justify-center text-white text-xs font-medium shrink-0 mt-1">
+                {msg.author_avatar_url ? (
+                    <img src={msg.author_avatar_url} alt=""
+                        className="w-full h-full object-cover" />
+                ) : (
+                    msg.author_name?.[0]?.toUpperCase() ?? '?'
+                )}
             </div>
 
             <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
@@ -87,14 +92,14 @@ function MessageBubble({ msg, currentUserId }) {
                         const today = new Date();
                         const isToday = date.toDateString() === today.toDateString();
                         const isThisYear = date.getFullYear() === today.getFullYear();
-                        
+
                         return isToday
                             ? date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
                             : date.toLocaleDateString('ru-RU', {
                                 day: 'numeric',
                                 month: 'short',
                                 ...(isThisYear ? {} : { year: 'numeric' }),
-                              }) + ' ' + date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                            }) + ' ' + date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
                     })()}
                 </span>
             </div>
