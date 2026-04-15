@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authApi } from '../../api/auth';
+import EyeIcon from './EyeIcon';
 
 export default function RegisterForm({ onSuccess }) {
   const [form, setForm] = useState({
@@ -8,10 +9,12 @@ export default function RegisterForm({ onSuccess }) {
     department_id: '', role_id: '',
   });
   const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword2, setShowPassword2] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [departments, setDepartments] = useState([]);  // ← добавили
-  const [roles, setRoles] = useState([]);  // ← добавили
+  const [departments, setDepartments] = useState([]);
+  const [roles, setRoles] = useState([]);
 
   // Загружаем справочники при монтировании
   useEffect(() => {
@@ -120,8 +123,12 @@ focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:tex
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Пароль <span className="text-red-500">*</span>
         </label>
-        <input type="password" required value={form.password} onChange={set('password')}
-          placeholder="Минимум 8 символов" autoComplete="new-password" className={inputClass} />
+        <div className="relative">
+          <input type={showPassword ? 'text' : 'password'} required value={form.password}
+            onChange={set('password')} placeholder="Минимум 8 символов"
+            autoComplete="new-password" className={`${inputClass} pr-9`} />
+          <EyeIcon show={showPassword} onToggle={() => setShowPassword(v => !v)} />
+        </div>
       </div>
 
       {/* Подтверждение пароля */}
@@ -131,15 +138,13 @@ focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:tex
         </label>
         <div className="relative">
           <input
-            type="password" required
+            type={showPassword2 ? 'text' : 'password'} required
             value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)}
             placeholder="Повторите пароль" autoComplete="new-password"
-            className={`${inputClass} ${passwordMismatch ? 'border-red-400 focus:ring-red-400' :
-                passwordMatch ? 'border-green-400 focus:ring-green-400' : ''
-              }`}
+            className={`${inputClass} pr-9 ${passwordMismatch ? 'border-red-400 focus:ring-red-400' :
+              passwordMatch ? 'border-green-400 focus:ring-green-400' : ''}`}
           />
-          {passwordMismatch && <span className="absolute right-3 top-2 text-red-500 text-sm">✗</span>}
-          {passwordMatch && <span className="absolute right-3 top-2 text-green-500 text-sm">✓</span>}
+          <EyeIcon show={showPassword2} onToggle={() => setShowPassword2(v => !v)} />
         </div>
         {passwordMismatch && <p className="text-red-500 text-xs mt-1">Пароли не совпадают</p>}
       </div>

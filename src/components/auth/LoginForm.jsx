@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import EyeIcon from './EyeIcon';
 
 export default function LoginForm({ onSuccess, onNeed2fa, onNeedActivation }) {
   const { login } = useAuth();
-  const [email, setEmail]       = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,13 +52,16 @@ export default function LoginForm({ onSuccess, onNeed2fa, onNeedActivation }) {
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Пароль</label>
-        <input
-          type="password" required
-          value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password"
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:text-white dark:border-gray-600"
-          placeholder="••••••••"
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? 'text' : 'password'} required
+            value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 pr-9 text-sm
+                 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:text-white"
+            placeholder="••••••••"
+          />
+          <EyeIcon show={showPassword} onToggle={() => setShowPassword(v => !v)} />
+        </div>
       </div>
 
       {error && (
