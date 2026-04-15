@@ -99,6 +99,24 @@ export const authApi = {
     return { ok: res.ok, data: await res.json() };
   },
 
+  async passwordResetRequest(email) {
+    const res = await fetch(`${BASE}/password-reset/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    return { ok: res.ok, data: await res.json() };
+  },
+  
+  async passwordResetConfirm(email, code, password, password_confirm) {
+    const res = await fetch(`${BASE}/password-reset/confirm/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code, password, password_confirm }),
+    });
+    return { ok: res.ok, data: await res.json() };
+  },
+
   async logout(refreshToken) {
     await apiFetch(`${BASE}/logout/`, {
       method: 'POST',
@@ -153,4 +171,13 @@ export const authApi = {
     const res = await apiFetch('/api/v1/auth/avatar/', { method: 'DELETE' });
     return { ok: res.ok, data: await res.json() };
   },
+  async saveColumnPrefs(tableKey, columns) {
+    const res = await apiFetch('/api/v1/auth/preferences/', {
+        method: 'PATCH',
+        body: JSON.stringify({
+            table_column_prefs: { [tableKey]: { columns } },
+        }),
+    });
+    return { ok: res.ok, data: await res.json() };
+},
 };

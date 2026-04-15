@@ -75,7 +75,8 @@
 ├── index.html
 ├── package-lock.json
 ├── package.json
+├── prod.sh
 ├── project_tree.txt
 └── vite.config.js
 
-16 directories, 63 files
+16 directories, 64 files

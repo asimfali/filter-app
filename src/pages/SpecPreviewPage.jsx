@@ -10,9 +10,12 @@ import { canPreview3D } from '../utils/fileUtils';
 import { useProductDocUpload } from '../hooks/useProductDocUpload';
 import LiteraSelector from '../components/plm/LiteraSelector';
 import { useBatchStages } from '../hooks/useBatchStages';
+import { useColumnPrefs } from '../hooks/useColumnPrefs';
+import ColumnSettingsModal from '../components/catalog/ColumnSettingsModal';
 
 export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOpenViewer }) {
     const [data, setData] = useState(null);
+    const [showColSettings, setShowColSettings] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { user } = useAuth();
@@ -23,10 +26,22 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
         setActiveDocType: setActiveUploadDocType
     } = useDocTypes(user);
 
+    const { columns, loaded, toggle, reorder } = useColumnPrefs(
+        'spec_preview',
+        data?.axes || [],
+        data?.definitions || [],
+        uploadDocTypes,
+    );
+
     // Какие группы колонок показывать
     const [showParams, setShowParams] = useState(true);
     const [showSpecs, setShowSpecs] = useState(true);
     const [showDocs, setShowDocs] = useState(true);
+
+    // Видимые колонки по типу
+    const visibleAxes = columns.filter(c => c.type === 'axis' && c.visible);
+    const visibleDefs = columns.filter(c => c.type === 'spec' && c.visible);
+    const visibleDocTypes = columns.filter(c => c.type === 'docs' && c.visible);
 
     // Кэш частных документов: { [productId]: { [docTypeCode]: [files] } }
     const [privateDocsCache, setPrivateDocsCache] = useState({});
@@ -45,10 +60,10 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
         setSelectedLitera(litera);
         setLoading(true);
         setError(null);
-    
+
         // stage_id: null = серийные (без литеры), число = конкретная стадия
         const stageId = litera && litera !== 'none' ? litera.id : null;
-    
+
         const { ok, data } = await catalogApi.previewBulk(productIds, stageId);
         if (ok && data.success) setData(data.data);
         else setError(data.error || 'Ошибка загрузки');
@@ -104,6 +119,10 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
     const { axes, definitions, products } = data;
 
     const hasImages = products.some(p => p.images.length > 0);
+
+    console.log('columns:', columns);
+    console.log('visibleAxes:', visibleAxes);
+    console.log('data?.axes:', data?.axes);
 
     return (
         <div className="flex gap-4 items-start">
@@ -184,6 +203,23 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                                 ✎ Редактировать
                             </button>
                         )}
+                        <button
+                            onClick={() => setShowColSettings(true)}
+                            className="px-3 py-2 text-sm rounded-lg bg-neutral-100 dark:bg-neutral-800
+               text-gray-700 dark:text-gray-300 hover:bg-neutral-200
+               dark:hover:bg-neutral-700 transition-colors"
+                            title="Настройка колонок">
+                            ⚙
+                        </button>
+
+                        {showColSettings && (
+                            <ColumnSettingsModal
+                                columns={columns}
+                                onToggle={toggle}
+                                onReorder={reorder}
+                                onClose={() => setShowColSettings(false)}
+                            />
+                        )}
                         {uniqueLiteras.length > 0 && (
                             <LiteraSelector
                                 stages={uniqueLiteras}
@@ -220,38 +256,41 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                                 </th>
 
                                 {/* Параметры осей */}
-                                {showParams && axes.map(axis => (
+                                {showParams && visibleAxes.map(axis => (
                                     <th key={axis.id}
                                         className="px-3 py-3 text-xs font-medium text-left
                                                text-blue-500 dark:text-blue-400
                                                uppercase tracking-wide whitespace-nowrap min-w-28
                                                border-r border-gray-100 dark:border-gray-800">
-                                        {axis.name}
+                                        {axis.label}
                                     </th>
                                 ))}
 
                                 {/* Разделитель */}
-                                {showParams && showSpecs && definitions.length > 0 && axes.length > 0 && (
+                                {showParams && showSpecs && visibleDefs.length > 0 && visibleAxes.length > 0 && (
                                     <th className="w-px bg-neutral-200 dark:bg-neutral-700 p-0" />
                                 )}
 
                                 {/* Характеристики */}
-                                {showSpecs && definitions.map(def => (
+                                {showSpecs && visibleDefs.map(def => (
                                     <th key={def.id}
                                         className="px-3 py-3 text-xs font-medium text-left
                                                text-gray-500 dark:text-gray-400
                                                uppercase tracking-wide whitespace-nowrap min-w-28">
-                                        {def.display_name}
+                                        {def.label.includes(',')
+                                            ? <>{def.label.split(',')[0]}<br /><span className="normal-case">{def.label.split(',').slice(1).join(',').trim()}</span></>
+                                            : def.label
+                                        }
                                     </th>
                                 ))}
 
                                 {/* Документы */}
-                                {showDocs && uploadDocTypes.map(dt => (
-                                    <th key={dt.code}
+                                {showDocs && visibleDocTypes.map(dt => (
+                                    <th key={dt.id}
                                         className="px-3 py-3 text-xs font-medium text-left
                                                text-emerald-600 dark:text-emerald-400
                                                uppercase tracking-wide whitespace-nowrap min-w-28">
-                                        {dt.name}
+                                        {dt.label}
                                     </th>
                                 ))}
                                 {showDocs && hasImages && (
@@ -270,10 +309,9 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                                     key={product.id}
                                     product={product}
                                     idx={idx}
-                                    axes={axes}
-                                    definitions={definitions}
-                                    docTypes={docTypes}
-                                    uploadDocTypes={uploadDocTypes}
+                                    axes={visibleAxes}
+                                    definitions={visibleDefs}
+                                    uploadDocTypes={visibleDocTypes}
                                     hasImages={hasImages}
                                     showParams={showParams}
                                     showSpecs={showSpecs}
@@ -448,15 +486,15 @@ function ProductRow({
             {/* Документы — общие + частные */}
             {showDocs && uploadDocTypes.map(dt => {
                 // Общие документы (из API previewBulk)
-                const commonDoc = product.documents.find(d => d.doc_type_code === dt.code);
+                const commonDoc = product.documents.find(d => d.doc_type_code === dt.id);
                 const filteredFiles = filterFilesByLitera(commonDoc?.files || []);
                 // Частные документы (загружены в этой сессии)
-                const privateFiles = privateDocsCache[dt.code] || [];
+                const privateFiles = privateDocsCache[dt.id] || [];
 
-                const isActiveType = activeUploadDocType?.code === dt.code;
+                const isActiveType = activeUploadDocType?.code === dt.id;
 
                 return (
-                    <td key={dt.code}
+                    <td key={dt.id}
                         className={`px-3 py-2 transition-colors
                             ${isActiveType && canUpload
                                 ? 'bg-emerald-50/50 dark:bg-emerald-900/10'
