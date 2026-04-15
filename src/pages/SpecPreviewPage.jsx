@@ -120,10 +120,6 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
 
     const hasImages = products.some(p => p.images.length > 0);
 
-    console.log('columns:', columns);
-    console.log('visibleAxes:', visibleAxes);
-    console.log('data?.axes:', data?.axes);
-
     return (
         <div className="flex gap-4 items-start">
 

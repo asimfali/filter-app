@@ -51,7 +51,7 @@ function Modal({ title, onClose, children }) {
 
 // ── Форма оси ─────────────────────────────────────────────────────────────
 
-function AxisForm({ productTypeId, axis, onSave, onClose }) {
+function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
     const [form, setForm] = useState({
         name: axis?.name || '',
         code: axis?.code || '',
