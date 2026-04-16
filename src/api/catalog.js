@@ -16,10 +16,12 @@ export const catalogApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    async filteredConfiguration(productTypeId, valueIds = [], allAxes = false) {
+    async filteredConfiguration(productTypeId, valueIds = [], allAxes = false, realProducts = false, realEdges = false) {
         const params = new URLSearchParams();
         if (valueIds.length) params.set('value_ids', valueIds.join(','));
         if (allAxes) params.set('tag_axes', 'all');
+        if (realProducts) params.set('real_products', 'true');
+        if (realEdges) params.set('real_edges', 'true');
         const q = params.toString() ? `?${params}` : '';
         const res = await fetch(`${BASE}/product-types/${productTypeId}/filtered-configuration/${q}`);
         return { ok: res.ok, data: await res.json() };

@@ -41,7 +41,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             return;
         }
         const load = async () => {
-            const { ok, data } = await catalogApi.filteredConfiguration(productTypeId, selectedTagIds);
+            const { ok, data } = await catalogApi.filteredConfiguration(productTypeId, selectedTagIds, false, true, false);
             if (!ok || !data.success || !data.data.nodes.length) return;
             initCytoscape(data.data.nodes, data.data.edges);
         };
