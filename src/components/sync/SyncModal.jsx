@@ -6,6 +6,7 @@ export default function SyncModal({ user, onClose, mode }) {
     const [configs, setConfigs] = useState([]);
     const [results, setResults] = useState({});
     const [runningAll, setRunningAll] = useState(false);
+    const [taskIds, setTaskIds] = useState({});
 
     const isPrices   = mode === 'prices';
     const title      = isPrices ? '💰 Обновить цены' : '🔄 Синхронизировать каталог';
@@ -26,26 +27,60 @@ export default function SyncModal({ user, onClose, mode }) {
         return () => document.removeEventListener('keydown', handler);
     }, [onClose]);
 
+    useEffect(() => {
+        const ids = Object.entries(taskIds);
+        if (!ids.length) return;
+    
+        const interval = setInterval(async () => {
+            for (const [configId, taskId] of ids) {
+                const { ok, data } = await externalApi.taskStatus(taskId);
+                if (!ok || !data.success) continue;
+                if (data.data.ready) {
+                    const result = data.data.result;
+                    setResults(prev => ({
+                        ...prev,
+                        [configId]: {
+                            loading: false,
+                            ok: result.success,
+                            message: result.success
+                                ? `✓ Создано: ${result.created}, обновлено: ${result.updated}${result.errors ? `, ошибок: ${result.errors}` : ''}`
+                                : `✗ ${result.error}`,
+                        },
+                    }));
+                    setTaskIds(prev => {
+                        const next = { ...prev };
+                        delete next[configId];
+                        return next;
+                    });
+                }
+            }
+        }, 2000);
+    
+        return () => clearInterval(interval);
+    }, [taskIds]);
+
     const runSync = async (configId) => {
         setResults(prev => ({
             ...prev,
-            [configId]: { loading: true, ok: null, message: null },
+            [configId]: { loading: true, ok: null, message: '⏳ Запуск...' },
         }));
-
+    
         const { ok, data } = isPrices
             ? await externalApi.syncPrices(configId)
             : await externalApi.syncCatalog(configId);
-
-        setResults(prev => ({
-            ...prev,
-            [configId]: {
-                loading: false,
-                ok: ok && data.success,
-                message: ok && data.success
-                    ? `⏳ Запущено`
-                    : data.error || 'Ошибка',
-            },
-        }));
+    
+        if (ok && data.success) {
+            setTaskIds(prev => ({ ...prev, [configId]: data.data.task_id }));
+            setResults(prev => ({
+                ...prev,
+                [configId]: { loading: true, ok: null, message: '⏳ Выполняется...' },
+            }));
+        } else {
+            setResults(prev => ({
+                ...prev,
+                [configId]: { loading: false, ok: false, message: data.error || 'Ошибка' },
+            }));
+        }
     };
 
     const runAll = async () => {

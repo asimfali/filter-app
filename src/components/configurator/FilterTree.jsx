@@ -170,7 +170,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
 
     const load = async () => {
       try {
-        const { ok, data } = await catalogApi.filteredConfiguration(selectedTypeId, selectedTags);
+        const { ok, data } = await catalogApi.filteredConfiguration(selectedTypeId, selectedTags, false, true, true);
         if (!ok || !data.success) throw new Error('API error');
 
         const { nodes, edges } = data.data;
