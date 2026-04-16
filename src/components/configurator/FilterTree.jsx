@@ -171,6 +171,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
     const load = async () => {
       try {
         const { ok, data } = await catalogApi.filteredConfiguration(selectedTypeId, selectedTags);
+        console.log('product_paths:', data.data.product_paths?.length, data.data.product_paths?.slice(0, 2));
         if (!ok || !data.success) throw new Error('API error');
 
         const { nodes, edges } = data.data;
@@ -200,7 +201,11 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
         );
         setGraphHeight(Math.max(500, maxNodes * 50 + 150));
 
-        pendingGraphData.current = { nodes, edges, byOrder, selectedIds: data.data.selected_ids };
+        pendingGraphData.current = {
+          nodes, edges, byOrder,
+          selectedIds: data.data.selected_ids,
+          productPaths: data.data.product_paths || [],
+      };
         setGraphLoading(false);
       } catch (err) {
         setError(err.message);
@@ -218,19 +223,19 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
     if (!pendingGraphData.current) return;
     if (!cyRef.current) return;
 
-    const { nodes, edges, byOrder, selectedIds } = pendingGraphData.current;
+    const { nodes, edges, byOrder, selectedIds, productPaths } = pendingGraphData.current;
     pendingGraphData.current = null;
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        initCytoscape(nodes, edges, byOrder, selectedIds);
+        initCytoscape(nodes, edges, byOrder, selectedIds, productPaths);
       });
     });
   }, [graphLoading]);
 
   // ── Инициализация Cytoscape ────────────────────────────────────────────────
 
-  const initCytoscape = (nodes, edges, byOrder, selectedIds = []) => {
+  const initCytoscape = (nodes, edges, byOrder, selectedIds = [], productPaths = []) => {
     if (!cyRef.current) return;
 
     if (!byOrder) {
@@ -365,26 +370,28 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
 
       // ── Вспомогательная функция: обход только по реальным рёбрам ──
       const getReachableNodes = (startNode) => {
-        const visited = new Set();
-        const result = cy.collection();
-
-        const traverse = (node, direction) => {
-          const id = node.id();
-          if (visited.has(id)) return;
-          visited.add(id);
-          result.merge(node);
-
-          if (direction !== 'backward') {
-            node.outgoers('[type="value"]').forEach(n => traverse(n, 'forward'));
-          }
-          if (direction !== 'forward') {
-            node.incomers('[type="value"]').forEach(n => traverse(n, 'backward'));
-          }
-        };
-
-        traverse(startNode, null);
-        return result;
-      };
+        const startVid = startNode.id().replace('value-', '');
+    console.log('startVid:', startVid);
+    console.log('productPaths sample:', productPaths.slice(0, 3));
+    const matchingPaths = productPaths.filter(path =>
+        path.map(String).includes(startVid)
+    );
+    console.log('matchingPaths count:', matchingPaths.length);
+    
+        if (!matchingPaths.length) {
+            return cy.collection().merge(startNode);
+        }
+    
+        // Объединяем все value_ids из подходящих товаров
+        const allowed = new Set();
+        matchingPaths.forEach(path => {
+            path.forEach(vid => allowed.add(String(vid)));
+        });
+    
+        return cy.nodes('[type="value"]').filter(n =>
+            allowed.has(n.id().replace('value-', ''))
+        );
+    };
 
       // ── Пересечение цепочек всех выбранных узлов ──
       const allChains = [];
