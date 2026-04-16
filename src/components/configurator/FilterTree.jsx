@@ -171,7 +171,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
     const load = async () => {
       try {
         const { ok, data } = await catalogApi.filteredConfiguration(selectedTypeId, selectedTags);
-        console.log('product_paths:', data.data.product_paths?.length, data.data.product_paths?.slice(0, 2));
         if (!ok || !data.success) throw new Error('API error');
 
         const { nodes, edges } = data.data;
@@ -371,12 +370,9 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
       // ── Вспомогательная функция: обход только по реальным рёбрам ──
       const getReachableNodes = (startNode) => {
         const startVid = startNode.id().replace('value-', '');
-    console.log('startVid:', startVid);
-    console.log('productPaths sample:', productPaths.slice(0, 3));
     const matchingPaths = productPaths.filter(path =>
         path.map(String).includes(startVid)
     );
-    console.log('matchingPaths count:', matchingPaths.length);
     
         if (!matchingPaths.length) {
             return cy.collection().merge(startNode);
