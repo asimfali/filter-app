@@ -113,7 +113,8 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
                                 : 'bg-amber-50/50 dark:bg-amber-900/5 hover:bg-amber-100/50'
                             }`}
                     >
-                        <div className="text-xs text-gray-700 dark:text-gray-300 truncate">
+                        <div className="text-xs text-gray-700 dark:text-gray-300 truncate" title={p.name}>
+                            
                             {p.name}
                         </div>
                         <div className="text-[10px] text-amber-500 truncate">
@@ -157,7 +158,7 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
                                         : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
                                     }`}
                             >
-                                <div className="text-xs text-gray-800 dark:text-gray-200 truncate leading-tight">
+                                <div className="text-xs text-gray-800 dark:text-gray-200 truncate leading-tight" title={p.name}>
                                     {p.name}
                                 </div>
                                 {p.sku && (
@@ -401,7 +402,7 @@ export default function ProductBindingPanel({
                                 {/* Контент */}
                                 <div className="min-w-0 flex-1">
                                     <div className="text-xs font-medium text-gray-800
-                                                    dark:text-gray-200 truncate leading-tight">
+                                                    dark:text-gray-200 truncate leading-tight" title={product.name}>
                                         {product.name}
                                     </div>
                                     {product.sku && (
