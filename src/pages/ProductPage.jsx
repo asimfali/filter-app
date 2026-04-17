@@ -288,10 +288,26 @@ function ProductDocumentGroup({ group, onOpenViewer, product, docTypes }) {
         if (!res.ok) return;
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.click();
+    
+        // было: качало файл
+        // const a = document.createElement('a');
+        // a.href = url;
+        // a.download = fileName;
+        // a.click();
+    
+        // стало: PDF и изображения открываем в новой вкладке
+        const isPdf = name.endsWith('.pdf');
+        const isImage = /\.(jpg|jpeg|png|webp)$/.test(name);
+    
+        if (isPdf || isImage) {
+            window.open(url, '_blank');
+        } else {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+        }
+    
         setTimeout(() => URL.revokeObjectURL(url), 60000);
     };
 
