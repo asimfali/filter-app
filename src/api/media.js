@@ -239,4 +239,44 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    // Прямые привязки — документы
+    async getDocumentProducts(id) {
+        const res = await apiFetch(`${BASE}/documents/${id}/products/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+    async addProductsToDocument(id, productIds) {
+        const res = await apiFetch(`${BASE}/documents/${id}/products/`, {
+            method: 'POST',
+            body: JSON.stringify({ product_ids: productIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+    async removeProductsFromDocument(id, productIds) {
+        const res = await apiFetch(`${BASE}/documents/${id}/products/`, {
+            method: 'DELETE',
+            body: JSON.stringify({ product_ids: productIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    // Прямые привязки — теплообменники
+    async getHeatExchangerProducts(id) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/${id}/products/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+    async addProductsToHeatExchanger(id, productIds) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/${id}/products/`, {
+            method: 'POST',
+            body: JSON.stringify({ product_ids: productIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+    async removeProductsFromHeatExchanger(id, productIds) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/${id}/products/`, {
+            method: 'DELETE',
+            body: JSON.stringify({ product_ids: productIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
 };
