@@ -1,12 +1,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import legacy from '@vitejs/plugin-legacy'
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    legacy({
+      targets: ['chrome >= 49', 'firefox >= 52', 'edge >= 18'],
+      additionalLegacyPolyfills: ['regenerator-runtime/runtime'],
+    }),
+  ],
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // target: 'es2015',
   },
   server: {
     host: true,
