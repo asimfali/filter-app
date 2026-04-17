@@ -6,13 +6,12 @@ export default function CreateIssueModal({ thread, onClose }) {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [departmentId, setDepartmentId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !departmentId) return;
+    if (!title.trim()) return;
 
     setLoading(true);
     setError(null);
@@ -20,7 +19,6 @@ export default function CreateIssueModal({ thread, onClose }) {
       await createIssue(thread.id, {
         title: title.trim(),
         description: description.trim(),
-        assigned_to_department: departmentId,
       });
       onClose();
     } catch (err) {
@@ -31,7 +29,6 @@ export default function CreateIssueModal({ thread, onClose }) {
   };
 
   return (
-    // Backdrop
     <div
       className="fixed inset-0 z-50 flex items-center justify-center
                  bg-black/40 backdrop-blur-sm"
@@ -40,12 +37,16 @@ export default function CreateIssueModal({ thread, onClose }) {
       <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl
                       w-full max-w-md mx-4 overflow-hidden">
 
-        {/* Шапка */}
         <div className="flex items-center justify-between px-6 py-4
                         border-b border-gray-100 dark:border-gray-800">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-            Новое замечание
-          </h2>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              Новое замечание
+            </h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              Исполнитель: {thread.assigned_to_department?.name ?? '—'}
+            </p>
+          </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200
@@ -55,10 +56,8 @@ export default function CreateIssueModal({ thread, onClose }) {
           </button>
         </div>
 
-        {/* Форма */}
         <form onSubmit={handleSubmit} className="px-6 py-4 flex flex-col gap-4">
 
-          {/* Заголовок */}
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
               Заголовок <span className="text-red-500">*</span>
@@ -78,7 +77,6 @@ export default function CreateIssueModal({ thread, onClose }) {
             />
           </div>
 
-          {/* Описание */}
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
               Описание
@@ -97,35 +95,8 @@ export default function CreateIssueModal({ thread, onClose }) {
             />
           </div>
 
-          {/* Исполнитель */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Исполнитель (подразделение) <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg
-                         bg-neutral-50 dark:bg-neutral-800
-                         border border-gray-200 dark:border-gray-700
-                         text-gray-900 dark:text-gray-100
-                         focus:outline-none focus:border-blue-500 transition-colors"
-            >
-              <option value="" disabled>Выберите подразделение</option>
-              {thread.allowed_departments.map((dept) => (
-                <option key={dept.id} value={dept.id}>
-                  {dept.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
 
-          {/* Ошибка */}
-          {error && (
-            <p className="text-xs text-red-500">{error}</p>
-          )}
-
-          {/* Кнопки */}
           <div className="flex gap-2 pt-1">
             <button
               type="button"
@@ -139,7 +110,7 @@ export default function CreateIssueModal({ thread, onClose }) {
             </button>
             <button
               type="submit"
-              disabled={!title.trim() || !departmentId || loading}
+              disabled={!title.trim() || loading}
               className="flex-1 px-4 py-2 text-sm rounded-lg font-medium
                          bg-blue-600 hover:bg-blue-700 text-white
                          disabled:opacity-50 disabled:cursor-not-allowed

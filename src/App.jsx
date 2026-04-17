@@ -23,6 +23,7 @@ import PartEditorPage from './pages/PartEditorPage';
 import PasswordResetForm from './components/auth/PasswordResetForm';
 import HeatExchangersPage from './pages/HeatExchangersPage';
 
+
 // AuthPage без изменений — твой существующий код
 function AuthPage() {
   const [screen, setScreen] = useState('login');
@@ -167,7 +168,13 @@ function MainApp() {
   const [specEditorProductIds, setSpecEditorProductIds] = useState([]);
   const [specEditorSessionId, setSpecEditorSessionId] = useState(null);
   const [specEditorInitialChanges, setSpecEditorInitialChanges] = useState({});
-  const [selectedThreadId, setSelectedThreadId] = useState(null);
+  const [selectedThreadId, setSelectedThreadId] = useState(() => {
+    const path = window.location.pathname.slice(1);
+    if (path === 'issue-thread') {
+        return sessionStorage.getItem('selectedThreadId') || null;
+    }
+    return null;
+});
   const [specPreviewProductIds, setSpecPreviewProductIds] = useState(() => {
     const path = window.location.pathname.slice(1);
     if (path === 'spec-preview') {
@@ -186,7 +193,10 @@ function MainApp() {
       setSelectedProductId(payload);
       if (payload) sessionStorage.setItem('selectedProductId', payload);  // ← добавить
     }
-    if (newPage === 'issue-thread') setSelectedThreadId(payload);
+    if (newPage === 'issue-thread') {
+      setSelectedThreadId(payload);
+      if (payload) sessionStorage.setItem('selectedThreadId', payload);  // ← добавить
+  }
     if (newPage === 'spec-preview' && payload !== null) {
       setSpecPreviewProductIds(payload);
       sessionStorage.setItem('specPreviewProductIds', JSON.stringify(payload));  // ← добавить
@@ -258,6 +268,7 @@ function MainApp() {
               <FilterTreeGraph
                 onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
                 onOpenSpecPreview={ids => handleNavigate('spec-preview', ids)}
+                onOpenThread={id => handleNavigate('issue-thread', id)}
               />
             )}
             {page === 'product' && (

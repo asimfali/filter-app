@@ -9,7 +9,7 @@ import { can } from '../../utils/permissions';
 import { useChainSearch } from '../../hooks/useChainSearch';
 
 
-const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
+const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) => {
   const cyRef = useRef(null);
   const cyInstanceRef = useRef(null);
   const { user, loading: authLoading } = useAuth();
@@ -834,7 +834,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                         onClose={() => setShowCreateThread(false)}
                         onCreated={(thread) => {
                           setShowCreateThread(false);
-                          // thread создан — можно перейти к нему
+                          onOpenThread(thread.id);
                         }}
                       />
                     )}
@@ -1163,8 +1163,8 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview }) => {
                 filterValueIds={[]}
                 readOnly={!canEditBindings}
                 pendingAssignments={pendingAssignments}
-                onDragStart={(ids) => console.log('drag:', ids)}
-                onSelectionChange={(ids) => console.log('selected:', ids)}
+                onDragStart={ids}
+                onSelectionChange={ids}
               />
             </div>
           </div>
