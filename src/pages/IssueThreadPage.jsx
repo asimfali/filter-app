@@ -301,7 +301,9 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
 function StatusDropdown({ issue, onChangeStatus, currentUserId, isThreadCreator }) {
     if (issue.status === 'verified') return null;
     if (issue.status === 'resolved') {
-        if (!isThreadCreator) return null;
+        // Подтвердить может создатель замечания или создатель треда
+        const canVerify = isThreadCreator || String(issue.created_by) === String(currentUserId);
+        if (!canVerify) return null;
         return (
             <div className="flex gap-2">
                 <button onClick={() => onChangeStatus(issue.id, 'verified')}
@@ -399,8 +401,11 @@ export default function IssueThreadPage({ threadId, onBack }) {
                         {currentThread.title}
                     </h1>
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {currentThread.product_ids?.length ?? 0} изделий ·{' '}
-                        {allIssues.length} замечаний
+                    {currentThread.product_external_ids?.length ?? 0} изделий ·{' '}
+                        {allIssues.length} замечаний ·{' '}
+                        <span className="text-gray-500 dark:text-gray-400">
+                            {currentThread.assigned_to_department?.name ?? '—'}
+                        </span>
                     </p>
                 </div>
 

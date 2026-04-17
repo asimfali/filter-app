@@ -44,7 +44,13 @@ function ThreadCard({ thread, onOpen }) {
 
       {/* Изделия */}
       <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
-        {thread.product_ids?.length ?? 0} изделий
+      {thread.product_external_ids?.length ?? 0} изделий ·{' '}
+        {thread.assigned_to_department?.name
+          ? <span className="text-gray-500 dark:text-gray-400">
+            → {thread.assigned_to_department.name}
+          </span>
+          : '—'
+        }
       </p>
 
       {/* Замечания */}

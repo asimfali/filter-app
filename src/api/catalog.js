@@ -35,8 +35,7 @@ export const catalogApi = {
         if (productTypeId) params.set('product_type', productTypeId);
         if (regex) params.set('regex', 'true');
         if (noParams) params.set('no_params', 'true');
-        console.log('[searchProducts] URL:', `${BASE}/products/search/?${params}`);  // ← добавь
-    
+
         const res = await apiFetch(`${BASE}/products/search/?${params}`);
         return { ok: res.ok, data: await res.json() };
     },
