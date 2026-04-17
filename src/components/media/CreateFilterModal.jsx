@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { mediaApi } from '../../api/media';
 
-export default function CreateFilterModal({ docId, axes, currentFilterIds = [], onCreated, onClose }) {
+export default function CreateFilterModal({ docId, heId, axes, currentFilterIds = [], onCreated, onClose }) {
     const [mode, setMode] = useState('existing'); // 'existing' | 'new'
 
     // ── Режим "существующие" ──────────────────────────────────────────────
@@ -47,9 +47,10 @@ export default function CreateFilterModal({ docId, axes, currentFilterIds = [], 
     const handleAttachExisting = async (filterId) => {
         setAttaching(filterId);
         setError('');
-        const { ok, data } = await mediaApi.addFilterToDocument(docId, filterId);
+        const { ok, data } = heId
+            ? await mediaApi.addFilterToHeatExchanger(heId, filterId)
+            : await mediaApi.addFilterToDocument(docId, filterId);
         if (ok && data.success) {
-            // Находим фильтр в списке и передаём наверх
             const filter = allFilters.find(f => f.id === filterId);
             onCreated(filter);
         } else {
@@ -80,7 +81,9 @@ export default function CreateFilterModal({ docId, axes, currentFilterIds = [], 
             const { ok: ok1, data: d1 } = await mediaApi.createFilter(selectedAxisId, selectedValueIds);
             if (!ok1 || !d1.success) { setError(d1.error || 'Ошибка создания'); return; }
 
-            const { ok: ok2, data: d2 } = await mediaApi.addFilterToDocument(docId, d1.filter.id);
+            const { ok: ok2, data: d2 } = heId
+                ? await mediaApi.addFilterToHeatExchanger(heId, d1.filter.id)
+                : await mediaApi.addFilterToDocument(docId, d1.filter.id);
             if (!ok2 || !d2.success) { setError(d2.error || 'Ошибка привязки'); return; }
 
             onCreated(d1.filter);

@@ -16,10 +16,14 @@
 │   ├── components
 │   │   ├── auth
 │   │   │   ├── ActivateForm.jsx
+│   │   │   ├── EyeIcon.jsx
 │   │   │   ├── LoginForm.jsx
+│   │   │   ├── PasswordResetForm.jsx
 │   │   │   ├── ProfileModal.jsx
 │   │   │   ├── RegisterForm.jsx
 │   │   │   └── TwoFAForm.jsx
+│   │   ├── catalog
+│   │   │   └── ColumnSettingsModal.jsx
 │   │   ├── configurator
 │   │   │   ├── BindingGraph.jsx
 │   │   │   ├── FilterTree.jsx
@@ -45,6 +49,7 @@
 │   ├── hooks
 │   │   ├── useBatchStages.js
 │   │   ├── useChainSearch.js
+│   │   ├── useColumnPrefs.js
 │   │   ├── useDocUpload.js
 │   │   ├── useIssuesSocket.js
 │   │   └── useProductDocUpload.js
@@ -79,4 +84,4 @@
 ├── project_tree.txt
 └── vite.config.js
 
-16 directories, 64 files
+17 directories, 68 files
