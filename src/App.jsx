@@ -21,6 +21,7 @@ import ModelViewerPage from './pages/ModelViewerPage';
 import PLMPage from './pages/PLMPage';
 import PartEditorPage from './pages/PartEditorPage';
 import PasswordResetForm from './components/auth/PasswordResetForm';
+import HeatExchangersPage from './pages/HeatExchangersPage';
 
 // AuthPage без изменений — твой существующий код
 function AuthPage() {
@@ -284,6 +285,7 @@ function MainApp() {
                 {page === 'parameters' && <ParameterEditorPage />}
                 {page === 'staff' && <StaffPage />}
                 {page === 'documents' && <DocumentsPage onOpenViewer={payload => handleNavigate('model-viewer', payload)} />}
+                {page === 'heat-exchangers' && <HeatExchangersPage />}
                 {page === 'spec-preview' && (
                   <SpecPreviewPage
                     productIds={specPreviewProductIds}

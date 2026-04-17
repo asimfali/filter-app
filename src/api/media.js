@@ -117,7 +117,7 @@ export const mediaApi = {
         fd.append('doc_type_id', docTypeId);
         fd.append('product_id', productId);
         fd.append('file', file);
-    
+
         const res = await fetch(`${BASE}/product-documents/upload/`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${tokenStorage.getAccess()}` },
@@ -125,7 +125,7 @@ export const mediaApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
-    
+
     async getProductDocuments(productId, docTypeId = null) {
         const params = new URLSearchParams({ product_id: productId });
         if (docTypeId) params.append('doc_type_id', docTypeId);
@@ -139,7 +139,7 @@ export const mediaApi = {
         const res = await apiFetch(`${BASE}/access-tokens/?${params}`);
         return { ok: res.ok, data: await res.json() };
     },
-    
+
     async createAccessToken(payload) {
         const res = await apiFetch(`${BASE}/access-tokens/`, {
             method: 'POST',
@@ -147,7 +147,7 @@ export const mediaApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
-    
+
     async revokeAccessToken(id) {
         const res = await apiFetch(`${BASE}/access-tokens/${id}/revoke/`, {
             method: 'POST',
@@ -166,5 +166,77 @@ export const mediaApi = {
         const res = await apiFetch(`${BASE}/values/${axisId}/`);
         return { ok: res.ok, data: await res.json() };
     },
-    
+
+    // ── Теплообменники ────────────────────────────────────────────────────────
+
+    async getHeatExchangers() {
+        const res = await apiFetch(`${BASE}/heat-exchangers/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async createHeatExchanger(payload) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async updateHeatExchanger(id, payload) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/${id}/`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async deleteHeatExchanger(id) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/${id}/`, { method: 'DELETE' });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async getHeatExchangerFilters(id) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/${id}/filters/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async addFilterToHeatExchanger(id, filterId) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/${id}/filters/`, {
+            method: 'POST',
+            body: JSON.stringify({ filter_id: filterId }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async removeFilterFromHeatExchanger(id, filterId) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/${id}/filters/${filterId}/`, {
+            method: 'DELETE',
+        });
+        return { ok: res.ok, data: res.status !== 204 ? await res.json() : {} };
+    },
+
+    async getHeatExchanger(id) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/${id}/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async uploadHeatExchangerDrawing(id, file) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch(`${BASE}/heat-exchangers/${id}/drawing/`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${tokenStorage.getAccess()}` },
+            body: fd,
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async bulkCreateHeatExchangers(items, updateExisting = false) {
+        const res = await apiFetch(`${BASE}/heat-exchangers/bulk-create/`, {
+            method: 'POST',
+            body: JSON.stringify({ items, update_existing: updateExisting }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
 };
