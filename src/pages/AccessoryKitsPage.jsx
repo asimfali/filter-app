@@ -231,11 +231,10 @@ function KitItemsPanel({ kitId, initialItems, canWrite }) {
                         <div key={item.id}
                             className="flex items-center justify-between py-1.5 gap-3">
                             <div className="flex items-center gap-2 min-w-0">
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                    item.is_required
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.is_required
                                         ? 'bg-emerald-500'
                                         : 'bg-gray-300 dark:bg-gray-600'
-                                }`} title={item.is_required ? 'Обязательное' : 'Опциональное'} />
+                                    }`} title={item.is_required ? 'Обязательное' : 'Опциональное'} />
                                 <span className="text-sm text-gray-900 dark:text-white truncate">
                                     {item.name}
                                 </span>
@@ -307,6 +306,331 @@ function KitItemsPanel({ kitId, initialItems, canWrite }) {
     );
 }
 
+// ── Правила набора ────────────────────────────────────────────────────────
+
+function RuleItem({ kitId, ruleId, item, canWrite, onDeleted }) {
+    const [deleting, setDeleting] = useState(false);
+
+    const handleDelete = async () => {
+        setDeleting(true);
+        await mediaApi.deleteAccessoryKitRuleItem(kitId, ruleId, item.id);
+        onDeleted(item.id);
+        setDeleting(false);
+    };
+
+    return (
+        <div className="flex items-center justify-between py-1 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm text-gray-900 dark:text-white truncate">
+                    {item.name}
+                </span>
+                {item.sku && (
+                    <span className="text-xs text-gray-400 font-mono shrink-0">
+                        {item.sku}
+                    </span>
+                )}
+                <span className="text-xs px-1.5 py-0.5 rounded-full
+                                 bg-neutral-100 dark:bg-neutral-800 text-gray-500 shrink-0">
+                    ×{item.quantity}
+                </span>
+            </div>
+            {canWrite && (
+                <button onClick={handleDelete} disabled={deleting}
+                    className="text-xs text-gray-300 hover:text-red-500
+                               dark:text-gray-600 dark:hover:text-red-400
+                               transition-colors shrink-0">
+                    {deleting ? '···' : '✕'}
+                </button>
+            )}
+        </div>
+    );
+}
+
+function RuleCard({ kitId, rule, canWrite, onUpdated, onDeleted }) {
+    const [search, setSearch] = useState('');
+    const [results, setResults] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const [adding, setAdding] = useState(false);
+    const [items, setItems] = useState(rule.rule_items || []);
+    const [deleting, setDeleting] = useState(false);
+
+    useEffect(() => {
+        if (!search || search.length < 2) { setResults([]); return; }
+        setSearching(true);
+        catalogApi.searchProducts(search, { limit: 10 })
+            .then(({ ok, data }) => { if (ok) setResults(data.data || []); })
+            .finally(() => setSearching(false));
+    }, [search]);
+
+    const handleAddItem = async (product) => {
+        const { ok, data } = await mediaApi.addAccessoryKitRuleItem(kitId, rule.id, {
+            accessory_id: product.id,
+            quantity: 1,
+        });
+        if (ok && data.success) {
+            setItems(prev => [...prev, data.item]);
+            setSearch('');
+            setResults([]);
+            setAdding(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        setDeleting(true);
+        await mediaApi.deleteAccessoryKitRule(kitId, rule.id);
+        onDeleted(rule.id);
+    };
+
+    // Метка правила
+    const ruleParts = [];
+    if (rule.quantity_from != null || rule.quantity_to != null) {
+        const from = rule.quantity_from ?? '1';
+        const to = rule.quantity_to ?? '∞';
+        ruleParts.push(`Кол-во: ${from}–${to}`);
+    }
+    if (rule.is_manual != null) {
+        ruleParts.push(rule.is_manual ? 'Ручное' : 'Авто');
+    }
+    if (rule.power_from != null || rule.power_to != null) {
+        const from = rule.power_from ?? '0';
+        const to = rule.power_to ?? '∞';
+        ruleParts.push(`Мощность: ${from}–${to} кВт`);
+    }
+    if (ruleParts.length === 0) ruleParts.push('Всегда');
+
+    return (
+        <div className="border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden">
+            {/* Шапка правила */}
+            <div className="flex items-center justify-between px-3 py-2
+                            bg-neutral-50 dark:bg-neutral-800/50">
+                <div className="flex flex-wrap gap-1.5">
+                    {ruleParts.map((part, i) => (
+                        <span key={i} className="text-xs px-2 py-0.5 rounded-full
+                                                  bg-blue-50 dark:bg-blue-950
+                                                  border border-blue-200 dark:border-blue-800
+                                                  text-blue-700 dark:text-blue-300">
+                            {part}
+                        </span>
+                    ))}
+                    {rule.priority > 0 && (
+                        <span className="text-xs text-gray-400">
+                            приор. {rule.priority}
+                        </span>
+                    )}
+                </div>
+                {canWrite && (
+                    <button onClick={handleDelete} disabled={deleting}
+                        className="text-xs text-gray-300 hover:text-red-500
+                                   dark:text-gray-600 dark:hover:text-red-400
+                                   transition-colors ml-2 shrink-0">
+                        {deleting ? '···' : '✕'}
+                    </button>
+                )}
+            </div>
+
+            {/* Позиции правила */}
+            <div className="px-3 py-2 space-y-0.5">
+                {items.map(item => (
+                    <RuleItem
+                        key={item.id}
+                        kitId={kitId}
+                        ruleId={rule.id}
+                        item={item}
+                        canWrite={canWrite}
+                        onDeleted={(id) => setItems(prev => prev.filter(i => i.id !== id))}
+                    />
+                ))}
+
+                {/* Добавить изделие в правило */}
+                {canWrite && (
+                    adding ? (
+                        <div className="pt-1 space-y-1">
+                            <div className="relative">
+                                <input
+                                    autoFocus
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    placeholder="Поиск изделия..."
+                                    className="w-full border border-gray-200 dark:border-gray-700
+                                               rounded px-2 py-1 text-xs bg-white dark:bg-neutral-800
+                                               text-gray-900 dark:text-white focus:outline-none
+                                               focus:ring-1 focus:ring-blue-500"
+                                />
+                                {searching && (
+                                    <span className="absolute right-2 top-1.5 text-xs
+                                                     text-gray-400 animate-pulse">···</span>
+                                )}
+                            </div>
+                            {results.length > 0 && (
+                                <div className="border border-gray-100 dark:border-gray-800
+                                                rounded overflow-hidden">
+                                    {results.map(p => (
+                                        <button key={p.id} onClick={() => handleAddItem(p)}
+                                            className="flex items-center justify-between w-full
+                                                       px-2 py-1.5 text-left hover:bg-neutral-50
+                                                       dark:hover:bg-neutral-800 transition-colors
+                                                       border-b border-gray-50 dark:border-gray-800
+                                                       last:border-0">
+                                            <span className="text-xs text-gray-900 dark:text-white">
+                                                {p.name}
+                                            </span>
+                                            <span className="text-xs text-gray-400 font-mono">
+                                                {p.sku || ''}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            <button onClick={() => { setAdding(false); setSearch(''); setResults([]); }}
+                                className="text-xs text-gray-400 hover:text-gray-600">
+                                Отмена
+                            </button>
+                        </div>
+                    ) : (
+                        <button onClick={() => setAdding(true)}
+                            className="text-xs text-blue-500 hover:text-blue-600
+                                       dark:hover:text-blue-400 transition-colors pt-1">
+                            + Добавить изделие
+                        </button>
+                    )
+                )}
+            </div>
+        </div>
+    );
+}
+
+function RulesPanel({ kitId, initialRules, canWrite }) {
+    const [rules, setRules] = useState(initialRules || []);
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState({
+        quantity_from: '', quantity_to: '',
+        is_manual: '',
+        power_from: '', power_to: '',
+        priority: 0,
+    });
+    const [saving, setSaving] = useState(false);
+
+    const handleCreate = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        const payload = {
+            quantity_from: form.quantity_from || null,
+            quantity_to: form.quantity_to || null,
+            is_manual: form.is_manual === '' ? null : form.is_manual === 'true',
+            power_from: form.power_from || null,
+            power_to: form.power_to || null,
+            priority: Number(form.priority) || 0,
+        };
+        const { ok, data } = await mediaApi.createAccessoryKitRule(kitId, payload);
+        if (ok && data.success) {
+            setRules(prev => [...prev, data.rule]);
+            setShowForm(false);
+            setForm({ quantity_from: '', quantity_to: '', is_manual: '', power_from: '', power_to: '', priority: 0 });
+        }
+        setSaving(false);
+    };
+
+    const inp = "border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs " +
+        "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
+        "focus:outline-none focus:ring-1 focus:ring-blue-500";
+
+    return (
+        <div className="px-5 pb-4">
+            <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                    Правила подбора
+                </span>
+                {canWrite && !showForm && (
+                    <button onClick={() => setShowForm(true)}
+                        className="text-xs text-blue-500 hover:text-blue-600
+                                   dark:hover:text-blue-400 transition-colors">
+                        + Добавить правило
+                    </button>
+                )}
+            </div>
+
+            {/* Форма нового правила */}
+            {showForm && (
+                <form onSubmit={handleCreate}
+                    className="mb-3 p-3 border border-gray-200 dark:border-gray-700
+                               rounded-lg bg-neutral-50 dark:bg-neutral-800/50 space-y-2">
+                    <div className="flex flex-wrap gap-3">
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Кол-во от</label>
+                            <input type="number" min="1" value={form.quantity_from}
+                                onChange={e => setForm(f => ({ ...f, quantity_from: e.target.value }))}
+                                placeholder="—" className={inp} style={{ width: 70 }} />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Кол-во до</label>
+                            <input type="number" min="1" value={form.quantity_to}
+                                onChange={e => setForm(f => ({ ...f, quantity_to: e.target.value }))}
+                                placeholder="∞" className={inp} style={{ width: 70 }} />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Управление</label>
+                            <select value={form.is_manual}
+                                onChange={e => setForm(f => ({ ...f, is_manual: e.target.value }))}
+                                className={inp} style={{ width: 100 }}>
+                                <option value="">Любое</option>
+                                <option value="false">Авто</option>
+                                <option value="true">Ручное</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Мощность от, кВт</label>
+                            <input type="number" step="0.01" value={form.power_from}
+                                onChange={e => setForm(f => ({ ...f, power_from: e.target.value }))}
+                                placeholder="—" className={inp} style={{ width: 80 }} />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Мощность до, кВт</label>
+                            <input type="number" step="0.01" value={form.power_to}
+                                onChange={e => setForm(f => ({ ...f, power_to: e.target.value }))}
+                                placeholder="∞" className={inp} style={{ width: 80 }} />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Приоритет</label>
+                            <input type="number" min="0" value={form.priority}
+                                onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
+                                className={inp} style={{ width: 60 }} />
+                        </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                        <button type="submit" disabled={saving}
+                            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50
+                                       text-white text-xs font-medium px-3 py-1.5
+                                       rounded-lg transition-colors">
+                            {saving ? '···' : 'Создать'}
+                        </button>
+                        <button type="button" onClick={() => setShowForm(false)}
+                            className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5">
+                            Отмена
+                        </button>
+                    </div>
+                </form>
+            )}
+
+            {/* Список правил */}
+            {rules.length === 0 && !showForm ? (
+                <p className="text-xs text-gray-400 dark:text-gray-500">Правил нет</p>
+            ) : (
+                <div className="space-y-2">
+                    {rules.map(rule => (
+                        <RuleCard
+                            key={rule.id}
+                            kitId={kitId}
+                            rule={rule}
+                            canWrite={canWrite}
+                            onDeleted={(id) => setRules(prev => prev.filter(r => r.id !== id))}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ── Карточка набора ───────────────────────────────────────────────────────
 
 function AccessoryKitCard({ item, canWrite, axes, onDeleted }) {
@@ -315,6 +639,12 @@ function AccessoryKitCard({ item, canWrite, axes, onDeleted }) {
     const [editing, setEditing] = useState(false);
     const [name, setName] = useState(item.name);
     const [saving, setSaving] = useState(false);
+    const [isManual, setIsManual] = useState(item.is_manual);
+
+    const handleToggleManual = async () => {
+        const { ok } = await mediaApi.updateAccessoryKit(item.id, { is_manual: !isManual });
+        if (ok) setIsManual(v => !v);
+    };
 
     const handleDelete = async () => {
         if (!confirming) { setConfirming(true); return; }
@@ -424,6 +754,33 @@ function AccessoryKitCard({ item, canWrite, axes, onDeleted }) {
             <KitItemsPanel
                 kitId={item.id}
                 initialItems={item.items || []}
+                canWrite={canWrite}
+            />
+
+            {/* Переключатель режима */}
+            {canWrite && (
+                <div className="px-5 pb-3 flex items-center gap-2">
+                    <button
+                        onClick={handleToggleManual}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer
+                        rounded-full border-2 border-transparent transition-colors
+                        ${isManual
+                                ? 'bg-blue-600'
+                                : 'bg-gray-200 dark:bg-gray-700'}`}
+                    >
+                        <span className={`pointer-events-none inline-block h-4 w-4 rounded-full
+                              bg-white shadow transform transition-transform
+                              ${isManual ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </button>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {isManual ? 'Ручное управление набором' : 'Автоподбор по правилам'}
+                    </span>
+                </div>
+            )}
+
+            <RulesPanel
+                kitId={item.id}
+                initialRules={item.rules || []}
                 canWrite={canWrite}
             />
         </div>

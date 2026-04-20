@@ -35,10 +35,10 @@ function DirectProductsPanel({ entityId, entityType, canWrite }) {
         if (!open) return;
         setLoading(true);
         const req = entityType === 'heat-exchanger'
-            ? mediaApi.addProductsToHeatExchanger(entityId, [product.id])
+            ? mediaApi.getHeatExchangerProducts(entityId)
             : entityType === 'accessory-kit'
-                ? mediaApi.addProductsToAccessoryKit(entityId, [product.id])
-                : mediaApi.addProductsToDocument(entityId, [product.id]);
+                ? mediaApi.getAccessoryKitProducts(entityId)
+                : mediaApi.getDocumentProducts(entityId);
         req
             .then(({ ok, data }) => { if (ok) setProducts(data.products || []); })
             .finally(() => setLoading(false));
@@ -83,10 +83,10 @@ function DirectProductsPanel({ entityId, entityType, canWrite }) {
         setSuggestions([]);
         setQuery('');
         const req = entityType === 'heat-exchanger'
-            ? mediaApi.removeProductsFromHeatExchanger(entityId, [productId])
+            ? mediaApi.addProductsToHeatExchanger(entityId, [product.id])
             : entityType === 'accessory-kit'
-                ? mediaApi.removeProductsFromAccessoryKit(entityId, [productId])
-                : mediaApi.removeProductsFromDocument(entityId, [productId]);
+                ? mediaApi.addProductsToAccessoryKit(entityId, [product.id])
+                : mediaApi.addProductsToDocument(entityId, [product.id]);
         const { ok } = await req;
         if (ok) setProducts(prev => [...prev, product]);
         setAdding(null);

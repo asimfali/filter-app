@@ -371,4 +371,50 @@ export const mediaApi = {
         return { ok: res.ok };
     },
 
+    // ── Правила наборов комплектующих ─────────────────────────────────────────
+
+    async getAccessoryKitRules(kitId) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${kitId}/rules/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async createAccessoryKitRule(kitId, payload) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${kitId}/rules/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async updateAccessoryKitRule(kitId, ruleId, payload) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${kitId}/rules/${ruleId}/`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async deleteAccessoryKitRule(kitId, ruleId) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${kitId}/rules/${ruleId}/`, {
+            method: 'DELETE',
+        });
+        return { ok: res.ok };
+    },
+
+    async addAccessoryKitRuleItem(kitId, ruleId, payload) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${kitId}/rules/${ruleId}/items/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async deleteAccessoryKitRuleItem(kitId, ruleId, itemId) {
+        const res = await apiFetch(
+            `${BASE}/accessory-kits/${kitId}/rules/${ruleId}/items/${itemId}/`,
+            { method: 'DELETE' }
+        );
+        return { ok: res.ok };
+    },
+
 };
