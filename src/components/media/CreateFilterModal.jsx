@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { mediaApi } from '../../api/media';
 
-export default function CreateFilterModal({ docId, heId, axes, currentFilterIds = [], onCreated, onClose }) {
+export default function CreateFilterModal({ docId, heId, kitId, axes, currentFilterIds = [], onCreated, onClose }) {
     const [mode, setMode] = useState('existing'); // 'existing' | 'new'
 
     // ── Режим "существующие" ──────────────────────────────────────────────
@@ -49,7 +49,9 @@ export default function CreateFilterModal({ docId, heId, axes, currentFilterIds 
         setError('');
         const { ok, data } = heId
             ? await mediaApi.addFilterToHeatExchanger(heId, filterId)
-            : await mediaApi.addFilterToDocument(docId, filterId);
+            : kitId
+                ? await mediaApi.addFilterToAccessoryKit(kitId, filterId)
+                : await mediaApi.addFilterToDocument(docId, filterId);
         if (ok && data.success) {
             const filter = allFilters.find(f => f.id === filterId);
             onCreated(filter);
@@ -83,7 +85,9 @@ export default function CreateFilterModal({ docId, heId, axes, currentFilterIds 
 
             const { ok: ok2, data: d2 } = heId
                 ? await mediaApi.addFilterToHeatExchanger(heId, d1.filter.id)
-                : await mediaApi.addFilterToDocument(docId, d1.filter.id);
+                : kitId
+                    ? await mediaApi.addFilterToAccessoryKit(kitId, d1.filter.id)
+                    : await mediaApi.addFilterToDocument(docId, d1.filter.id);
             if (!ok2 || !d2.success) { setError(d2.error || 'Ошибка привязки'); return; }
 
             onCreated(d1.filter);
@@ -137,20 +141,18 @@ export default function CreateFilterModal({ docId, heId, axes, currentFilterIds 
                     <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg w-fit">
                         <button
                             onClick={() => setMode('existing')}
-                            className={`px-3 py-1.5 rounded text-xs transition-colors ${
-                                mode === 'existing'
-                                    ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                            }`}>
+                            className={`px-3 py-1.5 rounded text-xs transition-colors ${mode === 'existing'
+                                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                }`}>
                             Выбрать существующий
                         </button>
                         <button
                             onClick={() => { setMode('new'); setStep('axis'); setSelectedAxisId(null); }}
-                            className={`px-3 py-1.5 rounded text-xs transition-colors ${
-                                mode === 'new'
-                                    ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                            }`}>
+                            className={`px-3 py-1.5 rounded text-xs transition-colors ${mode === 'new'
+                                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                }`}>
                             + Создать новый
                         </button>
                     </div>

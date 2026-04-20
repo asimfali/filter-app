@@ -266,6 +266,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'plm', label: 'PLM', code: 'plm.stage.manage' },
                 { id: 'part-editor', label: 'Спецификации', code: 'bom.spec.write' },
                 { id: 'heat-exchangers', label: 'Теплообменники', code: 'portal.heat_exchanger.view' },
+                { id: 'accessory-kits', label: 'Комплектующие', code: 'catalog.accessory.write' },
               ];
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [

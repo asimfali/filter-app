@@ -13,7 +13,9 @@ function FiltersPanel({ entityId, entityType, initialFilters = [], axes, canWrit
         setRemovingId(filterId);
         const fn = entityType === 'heat-exchanger'
             ? mediaApi.removeFilterFromHeatExchanger(entityId, filterId)
-            : mediaApi.removeFilterFromDocument(entityId, filterId);
+            : entityType === 'accessory-kit'
+                ? mediaApi.removeFilterFromAccessoryKit(entityId, filterId)
+                : mediaApi.removeFilterFromDocument(entityId, filterId);
         const { ok } = await fn;
         if (ok) setFilters(prev => prev.filter(f => f.id !== filterId));
         setRemovingId(null);
@@ -23,6 +25,18 @@ function FiltersPanel({ entityId, entityType, initialFilters = [], axes, canWrit
         setFilters(prev => [...prev, newFilter]);
         setShowCreateModal(false);
     };
+
+    const label = {
+        'heat-exchanger': 'Привязка к изделиям по осям',
+        'accessory-kit': 'Привязка к изделиям по осям',
+        'document': 'Фильтры документа',
+    }[entityType] ?? 'Фильтры';
+
+    const hint = {
+        'heat-exchanger': 'Без фильтров теплообменник не привязан ни к одному изделию',
+        'accessory-kit': 'Без фильтров набор не привязан ни к одному изделию',
+        'document': 'Документ без фильтров не показывается в карточке товара',
+    }[entityType] ?? '';
 
     return (
         <>
@@ -66,16 +80,12 @@ function FiltersPanel({ entityId, entityType, initialFilters = [], axes, canWrit
                                 border-b border-gray-100 dark:border-gray-700">
                     <div className="text-xs font-medium text-gray-500 dark:text-gray-400
                                     uppercase tracking-wide mb-2">
-                        {entityType === 'heat-exchanger'
-                            ? 'Привязка к изделиям по осям'
-                            : 'Фильтры документа'}
+                        {label}
                     </div>
 
                     {filters.length === 0 ? (
                         <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-                            {entityType === 'heat-exchanger'
-                                ? 'Без фильтров теплообменник не привязан ни к одному изделию'
-                                : 'Документ без фильтров не показывается в карточке товара'}
+                            {hint}
                         </p>
                     ) : (
                         <div className="space-y-1.5 mb-2">
@@ -124,6 +134,7 @@ function FiltersPanel({ entityId, entityType, initialFilters = [], axes, canWrit
                 <CreateFilterModal
                     docId={entityType === 'document' ? entityId : undefined}
                     heId={entityType === 'heat-exchanger' ? entityId : undefined}
+                    kitId={entityType === 'accessory-kit' ? entityId : undefined}
                     axes={axes}
                     currentFilterIds={filters.map(f => f.id)}
                     onCreated={handleFilterCreated}
