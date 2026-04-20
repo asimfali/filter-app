@@ -157,6 +157,7 @@ const PROCESS_TYPES = [
 
 export default function PartEditorPage() {
     const { user } = useAuth();
+    const canView = can(user, 'bom.spec.view');
     const canWrite = can(user, 'bom.spec.write');
     const canPush = can(user, 'bom.spec.push');
 
@@ -233,6 +234,7 @@ export default function PartEditorPage() {
             specs={specs}
             loading={loading}
             canWrite={canWrite}
+            canView={canView} 
             onOpen={handleOpenSpec}
             onRefresh={loadSpecs}
             onSearch={handleSearch}
@@ -1502,7 +1504,7 @@ function ModalFooter({ onClose, onConfirm, loading, disabled, confirmLabel, clos
 
 // ─── Список спецификаций ──────────────────────────────────────────────────────
 
-function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
+function SpecList({ specs, loading, canWrite, canView, onOpen, onRefresh, onSearch }) {
     const [pullOpen, setPullOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
@@ -1596,13 +1598,6 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             ↻ Синхронизация данных
                         </button>
                         <button
-                            onClick={() => setPullOpen(true)}
-                            className="px-3 py-1.5 text-sm rounded-lg
-                       bg-blue-600 hover:bg-blue-700
-                       text-white transition-colors">
-                            ↓ Загрузить из 1С
-                        </button>
-                        <button
                             onClick={() => setGroupsOpen(true)}
                             className="px-3 py-1.5 text-sm rounded-lg border
                                     border-gray-200 dark:border-gray-700
@@ -1632,10 +1627,20 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             ⚖ Масса единицы
                         </button>
 
+                        <button onClick={() => setImportOpen(true)}
+            className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors">
+            ↑ Импорт из Excel
+        </button>
+
                         {unitWeightOpen && <UnitWeightModal onClose={() => setUnitWeightOpen(false)} />}
                     </div>
 
                 )}
+                {/* Загрузка из 1С — доступна всем у кого есть view */}
+                <button onClick={() => setPullOpen(true)}
+                    className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                    ↓ Загрузить из 1С
+                </button>
             </div>
 
             <div className="flex gap-2">
@@ -1657,14 +1662,6 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                     onPulled={() => { setPullOpen(false); onRefresh(); }}
                 />
             )}
-
-            <button
-                onClick={() => setImportOpen(true)}
-                className="px-3 py-1.5 text-sm rounded-lg
-               bg-emerald-600 hover:bg-emerald-700
-               text-white transition-colors">
-                ↑ Импорт из Excel
-            </button>
 
             {importOpen && (
                 <ImportExcelModal

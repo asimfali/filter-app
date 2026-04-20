@@ -264,7 +264,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'documents', label: 'Документы', code: 'portal.page.documents' },
                 { id: 'issues', label: 'Замечания', code: 'portal.page.issues' },
                 { id: 'plm', label: 'PLM', code: 'plm.stage.manage' },
-                { id: 'part-editor', label: 'Спецификации', code: 'bom.spec.write' },
+                { id: 'part-editor', label: 'Спецификации', code: 'bom.spec.view' },
                 { id: 'heat-exchangers', label: 'Теплообменники', code: 'portal.heat_exchanger.view' },
                 { id: 'accessory-kits', label: 'Комплектующие', code: 'catalog.accessory.write' },
               ];
