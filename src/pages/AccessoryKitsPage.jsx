@@ -232,8 +232,8 @@ function KitItemsPanel({ kitId, initialItems, canWrite }) {
                             className="flex items-center justify-between py-1.5 gap-3">
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.is_required
-                                        ? 'bg-emerald-500'
-                                        : 'bg-gray-300 dark:bg-gray-600'
+                                    ? 'bg-emerald-500'
+                                    : 'bg-gray-300 dark:bg-gray-600'
                                     }`} title={item.is_required ? 'Обязательное' : 'Опциональное'} />
                                 <span className="text-sm text-gray-900 dark:text-white truncate">
                                     {item.name}
@@ -308,14 +308,28 @@ function KitItemsPanel({ kitId, initialItems, canWrite }) {
 
 // ── Правила набора ────────────────────────────────────────────────────────
 
-function RuleItem({ kitId, ruleId, item, canWrite, onDeleted }) {
+function RuleItem({ kitId, ruleId, item, canWrite, onDeleted, onUpdated }) {
     const [deleting, setDeleting] = useState(false);
+    const [editingQty, setEditingQty] = useState(false);
+    const [qty, setQty] = useState(item.quantity);
+    const [saving, setSaving] = useState(false);
 
     const handleDelete = async () => {
         setDeleting(true);
         await mediaApi.deleteAccessoryKitRuleItem(kitId, ruleId, item.id);
         onDeleted(item.id);
         setDeleting(false);
+    };
+
+    const handleSaveQty = async () => {
+        if (qty === item.quantity) { setEditingQty(false); return; }
+        setSaving(true);
+        const { ok, data } = await mediaApi.updateAccessoryKitRuleItem(kitId, ruleId, item.id, { quantity: qty });
+        if (ok && data.success) {
+            onUpdated(item.id, qty);
+        }
+        setSaving(false);
+        setEditingQty(false);
     };
 
     return (
@@ -329,10 +343,41 @@ function RuleItem({ kitId, ruleId, item, canWrite, onDeleted }) {
                         {item.sku}
                     </span>
                 )}
-                <span className="text-xs px-1.5 py-0.5 rounded-full
-                                 bg-neutral-100 dark:bg-neutral-800 text-gray-500 shrink-0">
-                    ×{item.quantity}
-                </span>
+                {/* Количество — кликабельное */}
+                {editingQty ? (
+                    <div className="flex items-center gap-1">
+                        <input
+                            autoFocus
+                            type="number" min={1}
+                            value={qty}
+                            onChange={e => setQty(Number(e.target.value))}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') handleSaveQty();
+                                if (e.key === 'Escape') { setQty(item.quantity); setEditingQty(false); }
+                            }}
+                            className="w-14 border border-blue-400 rounded px-1.5 py-0.5
+                                text-xs text-center bg-white dark:bg-neutral-700
+                                text-gray-900 dark:text-white
+                                focus:outline-none"
+                        />
+                        <button onClick={handleSaveQty} disabled={saving}
+                            className="text-xs text-blue-500 hover:text-blue-600">
+                            {saving ? '···' : '✓'}
+                        </button>
+                        <button onClick={() => { setQty(item.quantity); setEditingQty(false); }}
+                            className="text-xs text-gray-400">✕</button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => canWrite && setEditingQty(true)}
+                        disabled={!canWrite}
+                        className={`text-xs px-1.5 py-0.5 rounded-full
+                                    bg-neutral-100 dark:bg-neutral-800 text-gray-500
+                                    ${canWrite ? 'hover:text-blue-500 cursor-pointer' : 'cursor-default'}`}
+                    >
+                        ×{qty}
+                    </button>
+                )}
             </div>
             {canWrite && (
                 <button onClick={handleDelete} disabled={deleting}
@@ -438,6 +483,7 @@ function RuleCard({ kitId, rule, canWrite, onUpdated, onDeleted }) {
                         item={item}
                         canWrite={canWrite}
                         onDeleted={(id) => setItems(prev => prev.filter(i => i.id !== id))}
+                        onUpdated={(id, qty) => setItems(prev => prev.map(i => i.id === id ? { ...i, quantity: qty } : i))}
                     />
                 ))}
 
