@@ -6,6 +6,59 @@ import { can } from '../utils/permissions';
 import FiltersPanel from '../components/media/FiltersPanel';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
 
+function QuantityEditor({ value, canWrite, onSave }) {
+    const [editing, setEditing] = useState(false);
+    const [qty, setQty] = useState(value);
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+        if (qty === value) { setEditing(false); return; }
+        setSaving(true);
+        await onSave(qty);
+        setSaving(false);
+        setEditing(false);
+    };
+
+    if (editing) {
+        return (
+            <div className="flex items-center gap-1">
+                <input
+                    autoFocus
+                    type="number" min={1}
+                    value={qty}
+                    onChange={e => setQty(Number(e.target.value))}
+                    onKeyDown={e => {
+                        if (e.key === 'Enter') handleSave();
+                        if (e.key === 'Escape') { setQty(value); setEditing(false); }
+                    }}
+                    className="w-14 border border-blue-400 rounded px-1.5 py-0.5
+                               text-xs text-center
+                               bg-white dark:bg-neutral-700
+                               text-gray-900 dark:text-white
+                               focus:outline-none"
+                />
+                <button onClick={handleSave} disabled={saving}
+                    className="text-xs text-blue-500 hover:text-blue-600">
+                    {saving ? '···' : '✓'}
+                </button>
+                <button onClick={() => { setQty(value); setEditing(false); }}
+                    className="text-xs text-gray-400">✕</button>
+            </div>
+        );
+    }
+
+    return (
+        <button
+            onClick={() => canWrite && setEditing(true)}
+            disabled={!canWrite}
+            className={`text-xs px-1.5 py-0.5 rounded-full
+                        bg-neutral-100 dark:bg-neutral-800 text-gray-500
+                        ${canWrite ? 'hover:text-blue-500 cursor-pointer' : 'cursor-default'}`}
+        >
+            ×{qty}
+        </button>
+    );
+}
 // ── Хук загрузки ─────────────────────────────────────────────────────────
 
 function useAccessoryKits() {
@@ -251,49 +304,21 @@ function KitItemsPanel({ kitId, initialItems, canWrite }) {
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
-                                {editingId === item.id ? (
-                                    <div className="flex items-center gap-1">
-                                        <input
-                                            type="number" min={1}
-                                            value={editQty}
-                                            onChange={e => setEditQty(Number(e.target.value))}
-                                            className="w-14 border border-blue-400 rounded
-                                                       px-1.5 py-0.5 text-sm text-center
-                                                       bg-white dark:bg-neutral-800
-                                                       focus:outline-none"
-                                        />
-                                        <button onClick={() => handleUpdateQty(item)}
-                                            className="text-xs text-blue-500 hover:text-blue-600">
-                                            ✓
-                                        </button>
-                                        <button onClick={() => setEditingId(null)}
-                                            className="text-xs text-gray-400">
-                                            ✕
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={() => {
-                                            if (!canWrite) return;
-                                            setEditingId(item.id);
-                                            setEditQty(item.quantity);
-                                        }}
-                                        disabled={!canWrite}
-                                        className={`text-xs px-2 py-0.5 rounded-full
-                                            bg-neutral-100 dark:bg-neutral-800 text-gray-500
-                                            ${canWrite
-                                                ? 'hover:text-blue-500 cursor-pointer'
-                                                : 'cursor-default'}`}
-                                    >
-                                        ×{item.quantity}
-                                    </button>
-                                )}
-
+                                <QuantityEditor
+                                    value={item.quantity}
+                                    canWrite={canWrite}
+                                    onSave={async (qty) => {
+                                        const { ok, data } = await mediaApi.updateAccessoryKitItem(kitId, item.id, { quantity: qty });
+                                        if (ok && data.success) {
+                                            setItems(prev => prev.map(i => i.id === item.id ? data.item : i));
+                                        }
+                                    }}
+                                />
                                 {canWrite && (
                                     <button onClick={() => handleDelete(item.id)}
                                         className="text-xs text-gray-300 hover:text-red-500
-                                                   dark:text-gray-600 dark:hover:text-red-400
-                                                   transition-colors">
+                       dark:text-gray-600 dark:hover:text-red-400
+                       transition-colors">
                                         ✕
                                     </button>
                                 )}
@@ -310,26 +335,12 @@ function KitItemsPanel({ kitId, initialItems, canWrite }) {
 
 function RuleItem({ kitId, ruleId, item, canWrite, onDeleted, onUpdated }) {
     const [deleting, setDeleting] = useState(false);
-    const [editingQty, setEditingQty] = useState(false);
-    const [qty, setQty] = useState(item.quantity);
-    const [saving, setSaving] = useState(false);
 
     const handleDelete = async () => {
         setDeleting(true);
         await mediaApi.deleteAccessoryKitRuleItem(kitId, ruleId, item.id);
         onDeleted(item.id);
         setDeleting(false);
-    };
-
-    const handleSaveQty = async () => {
-        if (qty === item.quantity) { setEditingQty(false); return; }
-        setSaving(true);
-        const { ok, data } = await mediaApi.updateAccessoryKitRuleItem(kitId, ruleId, item.id, { quantity: qty });
-        if (ok && data.success) {
-            onUpdated(item.id, qty);
-        }
-        setSaving(false);
-        setEditingQty(false);
     };
 
     return (
@@ -343,41 +354,16 @@ function RuleItem({ kitId, ruleId, item, canWrite, onDeleted, onUpdated }) {
                         {item.sku}
                     </span>
                 )}
-                {/* Количество — кликабельное */}
-                {editingQty ? (
-                    <div className="flex items-center gap-1">
-                        <input
-                            autoFocus
-                            type="number" min={1}
-                            value={qty}
-                            onChange={e => setQty(Number(e.target.value))}
-                            onKeyDown={e => {
-                                if (e.key === 'Enter') handleSaveQty();
-                                if (e.key === 'Escape') { setQty(item.quantity); setEditingQty(false); }
-                            }}
-                            className="w-14 border border-blue-400 rounded px-1.5 py-0.5
-                                text-xs text-center bg-white dark:bg-neutral-700
-                                text-gray-900 dark:text-white
-                                focus:outline-none"
-                        />
-                        <button onClick={handleSaveQty} disabled={saving}
-                            className="text-xs text-blue-500 hover:text-blue-600">
-                            {saving ? '···' : '✓'}
-                        </button>
-                        <button onClick={() => { setQty(item.quantity); setEditingQty(false); }}
-                            className="text-xs text-gray-400">✕</button>
-                    </div>
-                ) : (
-                    <button
-                        onClick={() => canWrite && setEditingQty(true)}
-                        disabled={!canWrite}
-                        className={`text-xs px-1.5 py-0.5 rounded-full
-                                    bg-neutral-100 dark:bg-neutral-800 text-gray-500
-                                    ${canWrite ? 'hover:text-blue-500 cursor-pointer' : 'cursor-default'}`}
-                    >
-                        ×{qty}
-                    </button>
-                )}
+                <QuantityEditor
+                    value={item.quantity}
+                    canWrite={canWrite}
+                    onSave={async (qty) => {
+                        const { ok, data } = await mediaApi.updateAccessoryKitItem(kitId, item.id, { quantity: qty });
+                        if (ok && data.success) {
+                            setItems(prev => prev.map(i => i.id === item.id ? data.item : i));
+                        }
+                    }}
+                />
             </div>
             {canWrite && (
                 <button onClick={handleDelete} disabled={deleting}
@@ -685,12 +671,6 @@ function AccessoryKitCard({ item, canWrite, axes, onDeleted }) {
     const [editing, setEditing] = useState(false);
     const [name, setName] = useState(item.name);
     const [saving, setSaving] = useState(false);
-    const [isManual, setIsManual] = useState(item.is_manual);
-
-    const handleToggleManual = async () => {
-        const { ok } = await mediaApi.updateAccessoryKit(item.id, { is_manual: !isManual });
-        if (ok) setIsManual(v => !v);
-    };
 
     const handleDelete = async () => {
         if (!confirming) { setConfirming(true); return; }
@@ -802,27 +782,6 @@ function AccessoryKitCard({ item, canWrite, axes, onDeleted }) {
                 initialItems={item.items || []}
                 canWrite={canWrite}
             />
-
-            {/* Переключатель режима */}
-            {canWrite && (
-                <div className="px-5 pb-3 flex items-center gap-2">
-                    <button
-                        onClick={handleToggleManual}
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer
-                        rounded-full border-2 border-transparent transition-colors
-                        ${isManual
-                                ? 'bg-blue-600'
-                                : 'bg-gray-200 dark:bg-gray-700'}`}
-                    >
-                        <span className={`pointer-events-none inline-block h-4 w-4 rounded-full
-                              bg-white shadow transform transition-transform
-                              ${isManual ? 'translate-x-4' : 'translate-x-0'}`} />
-                    </button>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {isManual ? 'Ручное управление набором' : 'Автоподбор по правилам'}
-                    </span>
-                </div>
-            )}
 
             <RulesPanel
                 kitId={item.id}
