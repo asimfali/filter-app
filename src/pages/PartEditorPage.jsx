@@ -157,6 +157,7 @@ const PROCESS_TYPES = [
 
 export default function PartEditorPage() {
     const { user } = useAuth();
+    const canView = can(user, 'bom.spec.view');
     const canWrite = can(user, 'bom.spec.write');
     const canPush = can(user, 'bom.spec.push');
 
@@ -223,6 +224,7 @@ export default function PartEditorPage() {
                 onClose={handleCloseEditor}
                 onSaved={handleSpecSaved}
                 canWrite={canWrite}
+                canView={canView}
                 canPush={canPush}
             />
         );
@@ -233,6 +235,7 @@ export default function PartEditorPage() {
             specs={specs}
             loading={loading}
             canWrite={canWrite}
+            canView={canView}
             onOpen={handleOpenSpec}
             onRefresh={loadSpecs}
             onSearch={handleSearch}
@@ -1502,7 +1505,7 @@ function ModalFooter({ onClose, onConfirm, loading, disabled, confirmLabel, clos
 
 // ─── Список спецификаций ──────────────────────────────────────────────────────
 
-function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
+function SpecList({ specs, loading, canWrite, canView, onOpen, onRefresh, onSearch }) {
     const [pullOpen, setPullOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
@@ -1596,13 +1599,6 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             ↻ Синхронизация данных
                         </button>
                         <button
-                            onClick={() => setPullOpen(true)}
-                            className="px-3 py-1.5 text-sm rounded-lg
-                       bg-blue-600 hover:bg-blue-700
-                       text-white transition-colors">
-                            ↓ Загрузить из 1С
-                        </button>
-                        <button
                             onClick={() => setGroupsOpen(true)}
                             className="px-3 py-1.5 text-sm rounded-lg border
                                     border-gray-200 dark:border-gray-700
@@ -1632,10 +1628,20 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                             ⚖ Масса единицы
                         </button>
 
+                        <button onClick={() => setImportOpen(true)}
+                            className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors">
+                            ↑ Импорт из Excel
+                        </button>
+
                         {unitWeightOpen && <UnitWeightModal onClose={() => setUnitWeightOpen(false)} />}
                     </div>
 
                 )}
+                {/* Загрузка из 1С — доступна всем у кого есть view */}
+                <button onClick={() => setPullOpen(true)}
+                    className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                    ↓ Загрузить из 1С
+                </button>
             </div>
 
             <div className="flex gap-2">
@@ -1657,14 +1663,6 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
                     onPulled={() => { setPullOpen(false); onRefresh(); }}
                 />
             )}
-
-            <button
-                onClick={() => setImportOpen(true)}
-                className="px-3 py-1.5 text-sm rounded-lg
-               bg-emerald-600 hover:bg-emerald-700
-               text-white transition-colors">
-                ↑ Импорт из Excel
-            </button>
 
             {importOpen && (
                 <ImportExcelModal
@@ -1889,7 +1887,7 @@ function SpecList({ specs, loading, canWrite, onOpen, onRefresh, onSearch }) {
 
 // ─── Редактор спецификации ────────────────────────────────────────────────────
 
-function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) {
+function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush, canView }) {
     const [spec, setSpec] = useState(initialSpec);
     const [saving, setSaving] = useState(false);
     const [validating, setValidating] = useState(false);
@@ -2214,6 +2212,7 @@ function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush }) 
                         onSave={handleMaterialsSave}
                         saving={saving}
                         canWrite={canWrite}
+                        canView={canView}
                         validation={validation}
                     />
                 </div>
@@ -2386,7 +2385,7 @@ function SpecHeaderForm({ spec, onSave, saving, canWrite, onDirtyChange }) {
 
 // ─── Панель материалов ────────────────────────────────────────────────────────
 
-function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, canWrite, validation }) {
+function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, canWrite, canView, validation }) {
     const [rows, setRows] = useState(materials);
     const [partSearch, setPartSearch] = useState({});
     const [partResults, setPartResults] = useState({});
@@ -2623,7 +2622,7 @@ function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, can
                                             <MaterialCombobox
                                                 row={row}
                                                 idx={idx}
-                                                canWrite={canWrite}
+                                                canWrite={canWrite || canView}
                                                 onSelect={handleMatSelect}
                                                 matRefs={matRefs}
                                             />
@@ -2700,7 +2699,7 @@ function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, can
             )}
 
             {/* Липкая нижняя панель действий */}
-            {canWrite && (
+            {(canWrite || canView) && (
                 <div className="sticky bottom-0 left-0 right-0 -mx-4 -mb-4 mt-2
                                 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md
                                 border-t border-gray-100 dark:border-gray-800
@@ -2717,32 +2716,36 @@ function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, can
                     </button>
 
                     <div className="flex items-center gap-4">
-                        {dirty && (
-                            <span className="text-xs text-amber-600 dark:text-amber-400 animate-pulse">
-                                Есть несохраненные изменения
-                            </span>
+                        {canWrite && (
+                            <>
+                                {dirty && (
+                                    <span className="text-xs text-amber-600 dark:text-amber-400 animate-pulse">
+                                        Есть несохраненные изменения
+                                    </span>
+                                )}
+                                <button
+                                    onClick={() => onSave(rows)}
+                                    disabled={saving || !dirty}
+                                    className={`px-6 py-2 text-sm font-semibold rounded-lg shadow-sm
+                            transition-all duration-200
+                            ${dirty
+                                            ? 'bg-blue-600 hover:bg-blue-700 text-white scale-105'
+                                            : 'bg-neutral-100 dark:bg-neutral-800 text-gray-400 cursor-not-allowed'
+                                        }
+                            disabled:opacity-50`}
+                                >
+                                    {saving ? (
+                                        <span className="flex items-center gap-2">
+                                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Сохранение...
+                                        </span>
+                                    ) : 'Сохранить изменения'}
+                                </button>
+                            </>
                         )}
-                        <button
-                            onClick={() => onSave(rows)}
-                            disabled={saving || !dirty}
-                            className={`px-6 py-2 text-sm font-semibold rounded-lg shadow-sm
-                                        transition-all duration-200
-                                        ${dirty
-                                    ? 'bg-blue-600 hover:bg-blue-700 text-white scale-105'
-                                    : 'bg-neutral-100 dark:bg-neutral-800 text-gray-400 cursor-not-allowed'
-                                }
-                                        disabled:opacity-50`}
-                        >
-                            {saving ? (
-                                <span className="flex items-center gap-2">
-                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Сохранение...
-                                </span>
-                            ) : 'Сохранить изменения'}
-                        </button>
                     </div>
                 </div>
             )}
@@ -2905,12 +2908,36 @@ function MaterialCombobox({ row, idx, canWrite, onSelect, matRefs }) {
 }
 
 // ─── Модалка pull из 1С ───────────────────────────────────────────────────────
-
 function PullModal({ onClose, onPulled }) {
     const [mode, setMode] = useState('product'); // product | name
     const [value, setValue] = useState('');
+    const [selected, setSelected] = useState(null); // выбранный Product из каталога
+    const [suggestions, setSuggestions] = useState([]);
+    const [searching, setSearching] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const inputRef = useRef(null);
+
+    // Поиск в локальном каталоге
+    useEffect(() => {
+        if (mode !== 'product') { setSuggestions([]); return; }
+        if (value.length < 2) { setSuggestions([]); return; }
+        if (selected && selected.name === value) { setSuggestions([]); return; }
+
+        setSearching(true);
+        const t = setTimeout(async () => {
+            const { ok, data } = await catalogApi.searchProducts(value, { limit: 10 });
+            if (ok) setSuggestions(data.data || []);
+            setSearching(false);
+        }, 250);
+        return () => { clearTimeout(t); setSearching(false); };
+    }, [value, mode, selected]);
+
+    const handleSelect = (product) => {
+        setSelected(product);
+        setValue(product.name);
+        setSuggestions([]);
+    };
 
     const handlePull = async () => {
         if (!value.trim()) return;
@@ -2938,8 +2965,7 @@ function PullModal({ onClose, onPulled }) {
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                         Загрузить спецификацию из 1С
                     </h2>
-                    <button
-                        onClick={onClose}
+                    <button onClick={onClose}
                         className="text-gray-400 hover:text-gray-600
                                    dark:hover:text-gray-300 text-xl leading-none">
                         ×
@@ -2952,9 +2978,14 @@ function PullModal({ onClose, onPulled }) {
                         { id: 'product', label: 'По изделию' },
                         { id: 'name', label: 'По имени спецификации' },
                     ].map(m => (
-                        <button
-                            key={m.id}
-                            onClick={() => { setMode(m.id); setValue(''); setError(''); }}
+                        <button key={m.id}
+                            onClick={() => {
+                                setMode(m.id);
+                                setValue('');
+                                setSelected(null);
+                                setSuggestions([]);
+                                setError('');
+                            }}
                             className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors
                                 ${mode === m.id
                                     ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm'
@@ -2966,25 +2997,59 @@ function PullModal({ onClose, onPulled }) {
                 </div>
 
                 <div className="space-y-2">
-                    <input
-                        value={value}
-                        onChange={e => { setValue(e.target.value); setError(''); }}
-                        onKeyDown={e => e.key === 'Enter' && handlePull()}
-                        placeholder={mode === 'product'
-                            ? 'КЭВ-4П1141Е'
-                            : 'КЭВ-4П1141Е(Сборка)'
-                        }
-                        className={`${inputCls} w-full`}
-                        autoFocus
-                    />
+                    <div className="relative">
+                        <input
+                            ref={inputRef}
+                            value={value}
+                            onChange={e => {
+                                setValue(e.target.value);
+                                setSelected(null);
+                                setError('');
+                            }}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter' && !suggestions.length) handlePull();
+                                if (e.key === 'Escape') setSuggestions([]);
+                            }}
+                            placeholder={mode === 'product' ? 'КЭВ-4П1141Е' : 'КЭВ-4П1141Е(Сборка)'}
+                            className={`${inputCls} w-full`}
+                            autoFocus
+                        />
+                        {searching && (
+                            <span className="absolute right-3 top-2.5 text-xs
+                                             text-gray-400 animate-pulse">···</span>
+                        )}
+                    </div>
+
+                    {/* Автокомплит из каталога */}
+                    {suggestions.length > 0 && (
+                        <div className="border border-gray-200 dark:border-gray-700
+                                        rounded-lg overflow-hidden divide-y
+                                        divide-gray-50 dark:divide-gray-800 max-h-48 overflow-y-auto">
+                            {suggestions.map(p => (
+                                <button key={p.id} onClick={() => handleSelect(p)}
+                                    className="flex items-center justify-between w-full
+                                               px-3 py-2 text-left hover:bg-neutral-50
+                                               dark:hover:bg-neutral-800 transition-colors">
+                                    <span className="text-sm text-gray-900 dark:text-white truncate">
+                                        {p.name}
+                                    </span>
+                                    {p.sku && (
+                                        <span className="text-xs text-gray-400 font-mono shrink-0 ml-2">
+                                            {p.sku}
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     {error && (
                         <p className="text-xs text-red-500 dark:text-red-400">{error}</p>
                     )}
                 </div>
 
                 <div className="flex justify-end gap-2">
-                    <button
-                        onClick={onClose}
+                    <button onClick={onClose}
                         className="px-4 py-2 text-sm rounded-lg border
                                    border-gray-200 dark:border-gray-700
                                    text-gray-600 dark:text-gray-400
@@ -2992,8 +3057,7 @@ function PullModal({ onClose, onPulled }) {
                                    transition-colors">
                         Отмена
                     </button>
-                    <button
-                        onClick={handlePull}
+                    <button onClick={handlePull}
                         disabled={loading || !value.trim()}
                         className="px-4 py-2 text-sm rounded-lg bg-blue-600
                                    hover:bg-blue-700 text-white
