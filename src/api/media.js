@@ -417,4 +417,12 @@ export const mediaApi = {
         return { ok: res.ok };
     },
 
+    async updateAccessoryKitRuleItem(kitId, ruleId, itemId, payload) {
+        const res = await apiFetch(
+            `${BASE}/accessory-kits/${kitId}/rules/${ruleId}/items/${itemId}/`,
+            { method: 'PATCH', body: JSON.stringify(payload) }
+        );
+        return { ok: res.ok, data: await res.json() };
+    },
+
 };
