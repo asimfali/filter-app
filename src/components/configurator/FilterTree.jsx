@@ -77,7 +77,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
   useEffect(() => {
     setChainProducts(chainSearch.products);
     setChainLoading(chainSearch.loading);
-}, [chainSearch.products, chainSearch.loading]);
+  }, [chainSearch.products, chainSearch.loading]);
 
   // ── Загрузка типов продукции ───────────────────────────────────────────────
 
@@ -204,7 +204,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
           nodes, edges, byOrder,
           selectedIds: data.data.selected_ids,
           productPaths: data.data.product_paths || [],
-      };
+        };
         setGraphLoading(false);
       } catch (err) {
         setError(err.message);
@@ -370,24 +370,24 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
       // ── Вспомогательная функция: обход только по реальным рёбрам ──
       const getReachableNodes = (startNode) => {
         const startVid = startNode.id().replace('value-', '');
-    const matchingPaths = productPaths.filter(path =>
-        path.map(String).includes(startVid)
-    );
-    
+        const matchingPaths = productPaths.filter(path =>
+          path.map(String).includes(startVid)
+        );
+
         if (!matchingPaths.length) {
-            return cy.collection().merge(startNode);
+          return cy.collection().merge(startNode);
         }
-    
+
         // Объединяем все value_ids из подходящих товаров
         const allowed = new Set();
         matchingPaths.forEach(path => {
-            path.forEach(vid => allowed.add(String(vid)));
+          path.forEach(vid => allowed.add(String(vid)));
         });
-    
+
         return cy.nodes('[type="value"]').filter(n =>
-            allowed.has(n.id().replace('value-', ''))
+          allowed.has(n.id().replace('value-', ''))
         );
-    };
+      };
 
       // ── Пересечение цепочек всех выбранных узлов ──
       const allChains = [];
@@ -443,23 +443,23 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
 
   const handleBindingDrop = async (productIds, valueId, valueLabel) => {
     try {
-        const { ok, data } = await catalogApi.attachByIds(productIds, valueId);
-        if (ok && data.success) {
-            setDropResult({
-                ok: true,
-                message: `✓ ${valueLabel}: привязано ${data.data.created}, обновлено ${data.data.updated}`,
-            });
-            // ← обновляем список — товары должны уйти из неполных
-            await chainSearch.search(chainFilters);
-        } else {
-            setDropResult({ ok: false, message: data.error || 'Ошибка' });
-        }
+      const { ok, data } = await catalogApi.attachByIds(productIds, valueId);
+      if (ok && data.success) {
+        setDropResult({
+          ok: true,
+          message: `✓ ${valueLabel}: привязано ${data.data.created}, обновлено ${data.data.updated}`,
+        });
+        // ← обновляем список — товары должны уйти из неполных
+        await chainSearch.search(chainFilters);
+      } else {
+        setDropResult({ ok: false, message: data.error || 'Ошибка' });
+      }
     } catch {
-        setDropResult({ ok: false, message: 'Ошибка сети' });
+      setDropResult({ ok: false, message: 'Ошибка сети' });
     }
 
     setTimeout(() => setDropResult(null), 3000);
-};
+  };
 
   // ── Обработка тегов ───────────────────────────────────────────────────────
 
@@ -801,13 +801,13 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                 {filterResult?.count > 0 && (
                   <div className="border-t pt-4">
                     {canEditSpecs && (
-                    <button
-                      onClick={() => onOpenSpecEditor(filterResult.product_ids)}
-                      className="w-full bg-violet-600 hover:bg-violet-700 text-white
+                      <button
+                        onClick={() => onOpenSpecEditor(filterResult.product_ids)}
+                        className="w-full bg-violet-600 hover:bg-violet-700 text-white
                  text-sm py-2 rounded-lg transition-colors"
-                    >
-                      Редактировать характеристики ({filterResult.count})
-                    </button>
+                      >
+                        Редактировать характеристики ({filterResult.count})
+                      </button>
                     )}
                     <button
                       onClick={() => onOpenSpecPreview(filterResult.product_ids)}
@@ -1163,8 +1163,8 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                 filterValueIds={[]}
                 readOnly={!canEditBindings}
                 pendingAssignments={pendingAssignments}
-                onDragStart={ids}
-                onSelectionChange={ids}
+                onDragStart={(ids) => setPendingAssignments(prev => ({ ...prev, dragging: ids }))}
+                onSelectionChange={(ids) => { }}
               />
             </div>
           </div>
