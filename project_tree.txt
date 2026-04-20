@@ -81,8 +81,10 @@
 ├── index.html
 ├── package-lock.json
 ├── package.json
+├── postcss.config.js
 ├── prod.sh
 ├── project_tree.txt
+├── tailwind.config.js
 └── vite.config.js
 
-17 directories, 69 files
+17 directories, 71 files

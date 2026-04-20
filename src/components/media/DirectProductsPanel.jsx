@@ -35,8 +35,10 @@ function DirectProductsPanel({ entityId, entityType, canWrite }) {
         if (!open) return;
         setLoading(true);
         const req = entityType === 'heat-exchanger'
-            ? mediaApi.getHeatExchangerProducts(entityId)
-            : mediaApi.getDocumentProducts(entityId);
+            ? mediaApi.addProductsToHeatExchanger(entityId, [product.id])
+            : entityType === 'accessory-kit'
+                ? mediaApi.addProductsToAccessoryKit(entityId, [product.id])
+                : mediaApi.addProductsToDocument(entityId, [product.id]);
         req
             .then(({ ok, data }) => { if (ok) setProducts(data.products || []); })
             .finally(() => setLoading(false));
@@ -81,8 +83,10 @@ function DirectProductsPanel({ entityId, entityType, canWrite }) {
         setSuggestions([]);
         setQuery('');
         const req = entityType === 'heat-exchanger'
-            ? mediaApi.addProductsToHeatExchanger(entityId, [product.id])
-            : mediaApi.addProductsToDocument(entityId, [product.id]);
+            ? mediaApi.removeProductsFromHeatExchanger(entityId, [productId])
+            : entityType === 'accessory-kit'
+                ? mediaApi.removeProductsFromAccessoryKit(entityId, [productId])
+                : mediaApi.removeProductsFromDocument(entityId, [productId]);
         const { ok } = await req;
         if (ok) setProducts(prev => [...prev, product]);
         setAdding(null);
@@ -91,8 +95,10 @@ function DirectProductsPanel({ entityId, entityType, canWrite }) {
     const handleRemove = async (productId) => {
         setRemovingId(productId);
         const req = entityType === 'heat-exchanger'
-            ? mediaApi.removeProductsFromHeatExchanger(entityId, [productId])
-            : mediaApi.removeProductsFromDocument(entityId, [productId]);
+            ? mediaApi.getHeatExchangerProducts(entityId)
+            : entityType === 'accessory-kit'
+                ? mediaApi.getAccessoryKitProducts(entityId)
+                : mediaApi.getDocumentProducts(entityId);
         const { ok } = await req;
         if (ok) setProducts(prev => prev.filter(p => p.id !== productId));
         setRemovingId(null);

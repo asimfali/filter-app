@@ -22,6 +22,7 @@ import PLMPage from './pages/PLMPage';
 import PartEditorPage from './pages/PartEditorPage';
 import PasswordResetForm from './components/auth/PasswordResetForm';
 import HeatExchangersPage from './pages/HeatExchangersPage';
+import AccessoryKitsPage from './pages/AccessoryKitsPage';
 
 
 // AuthPage без изменений — твой существующий код
@@ -297,6 +298,7 @@ function MainApp() {
                 {page === 'staff' && <StaffPage />}
                 {page === 'documents' && <DocumentsPage onOpenViewer={payload => handleNavigate('model-viewer', payload)} />}
                 {page === 'heat-exchangers' && <HeatExchangersPage />}
+                {page === 'accessory-kits' && <AccessoryKitsPage />}
                 {page === 'spec-preview' && (
                   <SpecPreviewPage
                     productIds={specPreviewProductIds}

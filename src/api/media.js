@@ -279,4 +279,96 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    // ── Наборы комплектующих ──────────────────────────────────────────────────
+
+    async getAccessoryKits() {
+        const res = await apiFetch(`${BASE}/accessory-kits/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async createAccessoryKit(payload) {
+        const res = await apiFetch(`${BASE}/accessory-kits/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async updateAccessoryKit(id, payload) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${id}/`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async deleteAccessoryKit(id) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${id}/`, { method: 'DELETE' });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async getAccessoryKitFilters(id) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${id}/filters/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async addFilterToAccessoryKit(id, filterId) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${id}/filters/`, {
+            method: 'POST',
+            body: JSON.stringify({ filter_id: filterId }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async removeFilterFromAccessoryKit(id, filterId) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${id}/filters/${filterId}/`, {
+            method: 'DELETE',
+        });
+        return { ok: res.ok, data: res.status !== 204 ? await res.json() : {} };
+    },
+
+    async getAccessoryKitProducts(id) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${id}/products/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async addProductsToAccessoryKit(id, productIds) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${id}/products/`, {
+            method: 'POST',
+            body: JSON.stringify({ product_ids: productIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async removeProductsFromAccessoryKit(id, productIds) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${id}/products/`, {
+            method: 'DELETE',
+            body: JSON.stringify({ product_ids: productIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async addAccessoryKitItem(kitId, payload) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${kitId}/items/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async updateAccessoryKitItem(kitId, itemId, payload) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${kitId}/items/${itemId}/`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async deleteAccessoryKitItem(kitId, itemId) {
+        const res = await apiFetch(`${BASE}/accessory-kits/${kitId}/items/${itemId}/`, {
+            method: 'DELETE',
+        });
+        return { ok: res.ok };
+    },
+
 };

@@ -12,6 +12,7 @@ import { plmApi } from '../api/plm';
 import ProductStages from '../components/plm/ProductStages';
 import LiteraSelector from '../components/plm/LiteraSelector';
 import { useProductStages } from '../hooks/useBatchStages';
+import { catalogApi } from '../api/catalog';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -288,17 +289,17 @@ function ProductDocumentGroup({ group, onOpenViewer, product, docTypes }) {
         if (!res.ok) return;
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-    
+
         // было: качало файл
         // const a = document.createElement('a');
         // a.href = url;
         // a.download = fileName;
         // a.click();
-    
+
         // стало: PDF и изображения открываем в новой вкладке
         const isPdf = name.endsWith('.pdf');
         const isImage = /\.(jpg|jpeg|png|webp)$/.test(name);
-    
+
         if (isPdf || isImage) {
             window.open(url, '_blank');
         } else {
@@ -307,7 +308,7 @@ function ProductDocumentGroup({ group, onOpenViewer, product, docTypes }) {
             a.download = fileName;
             a.click();
         }
-    
+
         setTimeout(() => URL.revokeObjectURL(url), 60000);
     };
 
@@ -537,6 +538,226 @@ function HeatExchangerSection({ heatExchangers, onOpenViewer }) {
                     </div>
                 ))}
             </div>
+        </div>
+    );
+}
+
+// ── Комплектующие / Автоматика ────────────────────────────────────────────
+
+function AccessoriesSection({ productId, initialAccessories, canEdit }) {
+    const [accessories, setAccessories] = useState(initialAccessories || []);
+    const [adding, setAdding] = useState(false);
+    const [search, setSearch] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [editQty, setEditQty] = useState(1);
+
+    // Поиск изделий для добавления
+    useEffect(() => {
+        if (!search || search.length < 2) { setSearchResults([]); return; }
+        setSearching(true);
+        catalogApi.searchProducts(search, { limit: 10 })
+            .then(({ ok, data }) => {
+                if (ok) setSearchResults(data.data || []);
+            })
+            .finally(() => setSearching(false));
+    }, [search]);
+
+    const handleAdd = async (item) => {
+        const { ok, data } = await catalogApi.addAccessory(productId, {
+            accessory: item.id,
+            quantity: 1,
+            is_required: false,
+        });
+        if (ok && data.success) {
+            setAccessories(prev => [...prev, data.data]);
+            setSearch('');
+            setSearchResults([]);
+            setAdding(false);
+        }
+    };
+
+    const handleDelete = async (accessoryId) => {
+        const { ok } = await catalogApi.deleteAccessory(productId, accessoryId);
+        if (ok) setAccessories(prev => prev.filter(a => a.id !== accessoryId));
+    };
+
+    const handleUpdateQty = async (a) => {
+        const { ok, data } = await catalogApi.updateAccessory(productId, a.id, {
+            quantity: editQty,
+        });
+        if (ok && data.success) {
+            setAccessories(prev => prev.map(x => x.id === a.id ? data.data : x));
+            setEditingId(null);
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
+            <div className="flex items-center justify-between mb-3">
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400
+                                uppercase tracking-wide">
+                    Комплектующие / Автоматика
+                </div>
+                {canEdit && !adding && (
+                    <button
+                        onClick={() => setAdding(true)}
+                        className="text-xs text-blue-500 hover:text-blue-600
+                                   dark:hover:text-blue-400 transition-colors"
+                    >
+                        + Добавить
+                    </button>
+                )}
+            </div>
+
+            {/* Форма добавления */}
+            {adding && (
+                <div className="mb-3 space-y-2">
+                    <div className="relative">
+                        <input
+                            autoFocus
+                            type="text"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="Поиск изделия..."
+                            className="w-full border border-gray-200 dark:border-gray-700
+                                       rounded-lg px-3 py-2 text-sm bg-white dark:bg-neutral-800
+                                       text-gray-900 dark:text-white focus:outline-none
+                                       focus:ring-1 focus:ring-blue-500"
+                        />
+                        {searching && (
+                            <span className="absolute right-3 top-2.5 text-xs
+                                             text-gray-400 animate-pulse">
+                                Поиск...
+                            </span>
+                        )}
+                    </div>
+
+                    {searchResults.length > 0 && (
+                        <div className="border border-gray-100 dark:border-gray-800
+                                        rounded-lg overflow-hidden divide-y
+                                        divide-gray-50 dark:divide-gray-800">
+                            {searchResults.map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => handleAdd(item)}
+                                    className="flex items-center justify-between w-full
+                                               px-3 py-2 text-left hover:bg-neutral-50
+                                               dark:hover:bg-neutral-800 transition-colors"
+                                >
+                                    <span className="text-sm text-gray-900 dark:text-white">
+                                        {item.name}
+                                    </span>
+                                    <span className="text-xs text-gray-400 font-mono">
+                                        {item.sku || ''}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    <button
+                        onClick={() => { setAdding(false); setSearch(''); setSearchResults([]); }}
+                        className="text-xs text-gray-400 hover:text-gray-600
+                                   dark:hover:text-gray-300"
+                    >
+                        Отмена
+                    </button>
+                </div>
+            )}
+
+            {/* Список комплектующих */}
+            {accessories.length === 0 && !adding ? (
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                    Не указано
+                </p>
+            ) : (
+                <div className="space-y-1">
+                    {accessories.map(a => (
+                        <div key={a.id}
+                            className="flex items-center justify-between text-sm
+                                       py-1.5 gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                                {a.is_required && (
+                                    <span className="text-xs text-emerald-500
+                                                     shrink-0" title="Обязательное">
+                                        ●
+                                    </span>
+                                )}
+                                <span className="text-gray-900 dark:text-white truncate">
+                                    {a.accessory_name}
+                                </span>
+                                {a.accessory_sku && (
+                                    <span className="text-xs text-gray-400
+                                                     font-mono shrink-0">
+                                        {a.accessory_sku}
+                                    </span>
+                                )}
+                                {a.notes && (
+                                    <span className="text-xs text-gray-400 italic truncate">
+                                        {a.notes}
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                                {/* Количество */}
+                                {editingId === a.id ? (
+                                    <div className="flex items-center gap-1">
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            value={editQty}
+                                            onChange={e => setEditQty(Number(e.target.value))}
+                                            className="w-14 border border-blue-400 rounded
+                                                       px-1.5 py-0.5 text-sm text-center
+                                                       bg-white dark:bg-neutral-800
+                                                       focus:outline-none"
+                                        />
+                                        <button
+                                            onClick={() => handleUpdateQty(a)}
+                                            className="text-xs text-blue-500 hover:text-blue-600"
+                                        >
+                                            ✓
+                                        </button>
+                                        <button
+                                            onClick={() => setEditingId(null)}
+                                            className="text-xs text-gray-400"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => { setEditingId(a.id); setEditQty(a.quantity); }}
+                                        className={`text-xs px-2 py-0.5 rounded-full
+                                                    transition-colors
+                                                    ${canEdit
+                                                ? 'bg-neutral-100 dark:bg-neutral-800 text-gray-500 hover:text-blue-500'
+                                                : 'bg-neutral-100 dark:bg-neutral-800 text-gray-500 cursor-default'}`}
+                                        disabled={!canEdit}
+                                    >
+                                        ×{a.quantity}
+                                    </button>
+                                )}
+
+                                {canEdit && (
+                                    <button
+                                        onClick={() => handleDelete(a.id)}
+                                        className="text-xs text-gray-300 hover:text-red-500
+                                                   dark:text-gray-600 dark:hover:text-red-400
+                                                   transition-colors"
+                                        title="Удалить"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -774,6 +995,12 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
             <HeatExchangerSection
                 heatExchangers={product.heat_exchangers}
                 onOpenViewer={onOpenViewer}
+            />
+
+            <AccessoriesSection
+                productId={productId}
+                initialAccessories={product.accessories || []}
+                canEdit={can(user, 'catalog.accessory.write')}
             />
 
             {/* Характеристики */}
