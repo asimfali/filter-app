@@ -365,6 +365,17 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             node.addClass('connect-source');
         });
 
+        cy.on('tap', 'edge', (e) => {
+            if (modeRef.current !== 'connect' || readOnly) return;
+            const edge = e.target;
+            const fromId = edge.data('source').replace('value-', '');
+            const toId = edge.data('target').replace('value-', '');
+        
+            onDisconnect?.(fromId, toId, () => {
+                edge.remove();
+            });
+        });
+
         const getReachableNodes = (cy, startNode) => {
             const visited = new Set();
             const result = cy.collection();
