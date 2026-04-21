@@ -7,8 +7,6 @@ import { canPreview3D } from '../utils/fileUtils';
 import { useCommonDocUpload } from '../hooks/useDocUpload';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
 import FiltersPanel from '../components/media/FiltersPanel';
-import FolderUpload from '../components/media/FolderUpload';
-import { buildPassportParser } from '../utils/passportPathParser';
 
 const MEDIA = '/media';
 
@@ -323,6 +321,14 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
   return (
     <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm
                       border border-gray-200 dark:border-gray-700 overflow-hidden">
+
+      {/* Название документа */}
+      {item.name && (
+        <div className="px-5 pt-3 pb-1 text-sm font-medium
+                        text-gray-900 dark:text-white">
+          {item.name}
+        </div>
+      )}
 
       <FiltersPanel
         entityId={item.id}
@@ -806,133 +812,6 @@ function UploadForm({ docTypes, onUploaded }) {
   );
 }
 
-
-
-function FolderUploadForm({ docTypes, axes, onUploaded }) {
-  const [docTypeId, setDocTypeId] = useState('');
-  const [items, setItems] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(null);
-
-  // Строим парсер из осей backend — пересоздаётся только при смене axes
-  const parser = React.useMemo(
-    () => axes?.length ? buildPassportParser(axes) : null,
-    [axes]
-  );
-
-  const handleUpload = async () => {
-    if (!docTypeId || !items.length) return;
-    setUploading(true);
-    setProgress({ done: 0, total: items.length, errors: [] });
-
-    for (const item of items) {
-      try {
-        const { ok, data } = await mediaApi.uploadDocument(docTypeId, item.externalId, item.file);
-        if (!ok || !data.success) {
-          setProgress(prev => ({
-            ...prev, done: prev.done + 1,
-            errors: [...prev.errors, `${item.externalId}: ${data?.error || 'Ошибка'}`],
-          }));
-        } else {
-          setProgress(prev => ({ ...prev, done: prev.done + 1 }));
-        }
-      } catch {
-        setProgress(prev => ({
-          ...prev, done: prev.done + 1,
-          errors: [...prev.errors, `${item.externalId}: Ошибка сети`],
-        }));
-      }
-    }
-    setUploading(false);
-    onUploaded();
-  };
-
-  // Статистика по группам для превью
-  const stats = React.useMemo(() => {
-    return items.reduce((acc, p) => {
-      const key = [p.series, p.design, p.heating].filter(Boolean).join(' / ') || '—';
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-  }, [items]);
-
-  const sel = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-    "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-          Тип документа
-        </label>
-        <select required value={docTypeId} onChange={e => setDocTypeId(e.target.value)} className={sel}>
-          <option value="">— выберите —</option>
-          {docTypes.map(dt => <option key={dt.id} value={dt.id}>{dt.name}</option>)}
-        </select>
-      </div>
-
-      <FolderUpload
-        parseFn={parser ? parser.parseFolder : () => []}
-        onParsed={setItems}
-        renderRow={item => (
-          <div className="flex items-center gap-2 px-3 py-1.5 text-xs">
-            <span className="text-gray-400 w-6 shrink-0">{item.heating || '—'}</span>
-            <span className="text-blue-500 w-28 shrink-0 truncate">{item.design || '—'}</span>
-            <span className="text-gray-600 dark:text-gray-400 truncate flex-1">{item.externalId}</span>
-          </div>
-        )}
-      />
-
-      {/* Статистика групп */}
-      {Object.keys(stats).length > 0 && (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-neutral-50 dark:bg-neutral-800 text-xs text-gray-500
-                          border-b border-gray-200 dark:border-gray-700">
-            Групп: {Object.keys(stats).length}
-          </div>
-          {Object.entries(stats).map(([key, count]) => (
-            <div key={key} className="flex justify-between px-3 py-1.5 text-xs
-                                       border-b border-gray-50 dark:border-gray-800 last:border-0">
-              <span className="text-gray-700 dark:text-gray-300">{key}</span>
-              <span className="text-gray-400">{count} файл(ов)</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Прогресс */}
-      {progress && (
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>{progress.done} / {progress.total}</span>
-            {progress.errors.length > 0 &&
-              <span className="text-red-500">Ошибок: {progress.errors.length}</span>}
-          </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-            <div className="bg-blue-600 h-1.5 rounded-full transition-all"
-              style={{ width: `${(progress.done / progress.total) * 100}%` }} />
-          </div>
-          {progress.errors.map((e, i) => (
-            <div key={i} className="text-xs text-red-500">{e}</div>
-          ))}
-          {!uploading && progress.done === progress.total && (
-            <div className="text-xs text-emerald-600 dark:text-emerald-400">✓ Загрузка завершена</div>
-          )}
-        </div>
-      )}
-
-      <button onClick={handleUpload}
-        disabled={uploading || !docTypeId || !items.length}
-        className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50
-                   text-white text-sm font-medium py-2 rounded-lg transition-colors">
-        {uploading
-          ? `Загрузка ${progress?.done}/${progress?.total}...`
-          : `Загрузить ${items.length} файлов`}
-      </button>
-    </div>
-  );
-}
-
 // ── Главная страница ──────────────────────────────────────────────────────
 
 export default function DocumentsPage({ onOpenViewer, onFolderUpload }) {
@@ -1011,13 +890,6 @@ export default function DocumentsPage({ onOpenViewer, onFolderUpload }) {
                 }`}>
               Добавить несколько
             </button>
-            <button onClick={() => setUploadMode('folder')}
-              className={`px-3 py-1.5 rounded text-sm transition-colors ${uploadMode === 'folder'
-                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800'
-                }`}>
-              📁 Папка
-            </button>
           </div>
 
           {uploadMode === 'single' && (
@@ -1039,18 +911,6 @@ export default function DocumentsPage({ onOpenViewer, onFolderUpload }) {
               <BulkCreateForm
                 docTypes={docTypes}
                 onCreated={reload}
-              />
-            </>
-          )}
-          {uploadMode === 'folder' && (
-            <>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
-                Загрузка из папки
-              </h3>
-              <FolderUploadForm
-                docTypes={docTypes}
-                axes={axes}
-                onUploaded={reload}
               />
             </>
           )}
