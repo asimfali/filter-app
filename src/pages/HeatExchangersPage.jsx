@@ -340,6 +340,12 @@ function HeatExchangerCard({ item, canWrite, axes, onUpdated, onDeleted }) {
         <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm
                         border border-gray-200 dark:border-gray-700 overflow-hidden">
 
+            {/* Марка */}
+            <div className="px-5 pt-3 pb-1 text-sm font-medium
+                        text-gray-900 dark:text-white">
+                {item.mark}
+            </div>
+
             <FiltersPanel
                 entityId={item.id}
                 entityType="heat-exchanger"

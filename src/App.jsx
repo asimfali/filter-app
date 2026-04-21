@@ -23,6 +23,7 @@ import PartEditorPage from './pages/PartEditorPage';
 import PasswordResetForm from './components/auth/PasswordResetForm';
 import HeatExchangersPage from './pages/HeatExchangersPage';
 import AccessoryKitsPage from './pages/AccessoryKitsPage';
+import FolderUploadPage from './pages/FolderUploadPage';
 
 
 // AuthPage без изменений — твой существующий код
@@ -172,10 +173,10 @@ function MainApp() {
   const [selectedThreadId, setSelectedThreadId] = useState(() => {
     const path = window.location.pathname.slice(1);
     if (path === 'issue-thread') {
-        return sessionStorage.getItem('selectedThreadId') || null;
+      return sessionStorage.getItem('selectedThreadId') || null;
     }
     return null;
-});
+  });
   const [specPreviewProductIds, setSpecPreviewProductIds] = useState(() => {
     const path = window.location.pathname.slice(1);
     if (path === 'spec-preview') {
@@ -197,7 +198,7 @@ function MainApp() {
     if (newPage === 'issue-thread') {
       setSelectedThreadId(payload);
       if (payload) sessionStorage.setItem('selectedThreadId', payload);  // ← добавить
-  }
+    }
     if (newPage === 'spec-preview' && payload !== null) {
       setSpecPreviewProductIds(payload);
       sessionStorage.setItem('specPreviewProductIds', JSON.stringify(payload));  // ← добавить
@@ -296,7 +297,10 @@ function MainApp() {
               <>
                 {page === 'parameters' && <ParameterEditorPage />}
                 {page === 'staff' && <StaffPage />}
-                {page === 'documents' && <DocumentsPage onOpenViewer={payload => handleNavigate('model-viewer', payload)} />}
+                {page === 'documents' && <DocumentsPage
+                  onOpenViewer={payload => handleNavigate('model-viewer', payload)}
+                  onFolderUpload={() => handleNavigate('folder-upload')}
+                />}
                 {page === 'heat-exchangers' && <HeatExchangersPage />}
                 {page === 'accessory-kits' && <AccessoryKitsPage />}
                 {page === 'spec-preview' && (
@@ -306,6 +310,9 @@ function MainApp() {
                     onOpenEditor={(ids) => handleNavigate('spec-editor', ids)}
                     onOpenViewer={payload => handleNavigate('model-viewer', payload)}
                   />
+                )}
+                {page === 'folder-upload' && (
+                  <FolderUploadPage onBack={() => handleNavigate('documents')} />
                 )}
                 {page === 'spec-editor' && (
                   <SpecEditorPage

@@ -54,6 +54,7 @@
 │   │   ├── useIssuesSocket.js
 │   │   └── useProductDocUpload.js
 │   ├── pages
+│   │   ├── AccessoryKitsPage.jsx
 │   │   ├── DocumentsPage.jsx
 │   │   ├── HeatExchangersPage.jsx
 │   │   ├── IssueThreadPage.jsx
@@ -87,4 +88,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-17 directories, 71 files
+17 directories, 72 files

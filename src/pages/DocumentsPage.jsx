@@ -322,6 +322,14 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
     <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm
                       border border-gray-200 dark:border-gray-700 overflow-hidden">
 
+      {/* Название документа */}
+      {item.name && (
+        <div className="px-5 pt-3 pb-1 text-sm font-medium
+                        text-gray-900 dark:text-white">
+          {item.name}
+        </div>
+      )}
+
       <FiltersPanel
         entityId={item.id}
         entityType="document"
@@ -806,7 +814,7 @@ function UploadForm({ docTypes, onUploaded }) {
 
 // ── Главная страница ──────────────────────────────────────────────────────
 
-export default function DocumentsPage({ onOpenViewer }) {
+export default function DocumentsPage({ onOpenViewer, onFolderUpload }) {
   const { user } = useAuth();
   const canUpload = can(user, 'portal.documents.upload');
   const canDelete = can(user, 'portal.documents.delete');
@@ -845,13 +853,22 @@ export default function DocumentsPage({ onOpenViewer }) {
           </p>
         </div>
         {canUpload && (
-          <button onClick={() => setShowUpload(o => !o)}
-            className={`text-sm px-4 py-2 rounded-lg transition-colors ${showUpload
-              ? 'bg-neutral-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}>
-            {showUpload ? '← Назад' : '+ Загрузить'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowUpload(o => !o)}
+              className={`text-sm px-4 py-2 rounded-lg transition-colors ${showUpload
+                ? 'bg-neutral-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}>
+              {showUpload ? '← Назад' : '+ Загрузить'}
+            </button>
+            <button onClick={onFolderUpload}
+              className="text-sm px-4 py-2 rounded-lg transition-colors
+                       bg-neutral-100 dark:bg-neutral-800
+                       text-gray-700 dark:text-gray-300
+                       hover:bg-neutral-200 dark:hover:bg-neutral-700">
+              📁 Из папки
+            </button>
+          </div>
         )}
       </div>
 
@@ -875,7 +892,7 @@ export default function DocumentsPage({ onOpenViewer }) {
             </button>
           </div>
 
-          {uploadMode === 'single' ? (
+          {uploadMode === 'single' && (
             <>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
                 Загрузка документа
@@ -885,7 +902,8 @@ export default function DocumentsPage({ onOpenViewer }) {
                 onUploaded={() => { reload(); setShowUpload(false); }}
               />
             </>
-          ) : (
+          )}
+          {uploadMode === 'bulk' && (
             <>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
                 Пакетное создание документов
