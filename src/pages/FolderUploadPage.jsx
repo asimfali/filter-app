@@ -6,20 +6,22 @@ import { can } from '../utils/permissions';
 import { filterLatestPassports } from '../utils/filterLatestPassports';
 
 function buildDocumentName(template, docTypeName, item) {
-    const byAxis = {};
+    const byAxisCode = {};
     for (const f of item.filters) {
-        // ключ = название оси в нижнем регистре без пробелов
-        const key = f.axis.toLowerCase().replace(/\s+/g, '_');
-        byAxis[key] = f.values.join(', ');
+        // используем axis_code если есть, иначе транслитерируем axis name
+        const code = f.axis_code || f.axis.toLowerCase().replace(/\s+/g, '_');
+        byAxisCode[code] = f.values.join(', ');
     }
 
-    return template
-        .replace('{doc_type}', docTypeName || '')
-        .replace('{series}', byAxis['серия'] || byAxis['series'] || '')
-        .replace('{heating}', byAxis['вид_нагрева'] || byAxis['heating'] || '')
-        .replace('{design}', byAxis['дизайн'] || byAxis['design'] || '')
-        .replace(/\s+/g, ' ')
-        .trim();
+    // Заменяем {doc_type}
+    let result = template.replace('{doc_type}', docTypeName || '');
+
+    // Заменяем любые {axis_code} динамически
+    result = result.replace(/\{(\w+)\}/g, (match, key) => {
+        return byAxisCode[key] ?? '';
+    });
+
+    return result.replace(/\s+/g, ' ').trim();
 }
 
 function FilterCell({ axisId, axisName, filters, allFilters, onAdd, onRemove }) {
@@ -141,7 +143,7 @@ export default function FolderUploadPage({ onBack }) {
     const [excludeFolders, setExcludeFolders] = useState('Архив, archive');
     const [folderMarker, setFolderMarker] = useState('ПАСПОРТ');
     const exclude = excludeFolders.split(',').map(s => s.trim()).filter(Boolean);
-    const [nameTemplate, setNameTemplate] = useState('{doc_type} {series} {heating} {design}');
+    const [nameTemplate, setNameTemplate] = useState('{doc_type} {series}{heating} {design}');
 
     // Загружаем типы документов и типы продукции
     useEffect(() => {
@@ -157,6 +159,17 @@ export default function FolderUploadPage({ onBack }) {
                 setProductTypes(Array.isArray(types) ? types : []);
             });
     }, []);
+
+    const availableCodes = useMemo(() => {
+        const codes = new Set();
+        for (const item of items) {
+            for (const f of item.filters) {
+                const code = f.axis_code || f.axis.toLowerCase().replace(/\s+/g, '_');
+                codes.add(code);
+            }
+        }
+        return Array.from(codes);
+    }, [items]);
 
     // Динамические колонки осей из результатов парсинга
     const axisColumns = useMemo(() => {
@@ -232,7 +245,7 @@ export default function FolderUploadPage({ onBack }) {
                     docTypeId,
                     item.external_id,
                     item.file,
-                    generatedName, 
+                    generatedName,
                 );
 
                 if (!ok || !data.success) {
@@ -372,7 +385,8 @@ export default function FolderUploadPage({ onBack }) {
                             placeholder="{doc_type} {series} {heating} {design}"
                         />
                         <div className="text-xs text-gray-400 mt-1">
-                            Переменные: {'{doc_type}'} {'{series}'} {'{heating}'} {'{design}'}
+                            Переменные: {'{doc_type}'}
+                            {availableCodes.map(c => ` {${c}}`).join('')}
                         </div>
                     </div>
 
