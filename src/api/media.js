@@ -17,11 +17,12 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    async uploadDocument(docTypeId, externalId, file) {
+    async uploadDocument(docTypeId, externalId, file, name = '') {
         const fd = new FormData();
         fd.append('doc_type_id', docTypeId);
         fd.append('external_id', externalId);
         fd.append('file', file);
+        if (name) fd.append('name', name);
 
         // FormData — не передаём Content-Type, браузер сам выставит boundary
         const res = await fetch(`${BASE}/upload/`, {
@@ -425,4 +426,23 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    async parseFolderPaths(paths, productTypeId = null, excludeFolders = ['Архив', 'archive']) {
+        const res = await apiFetch(`${BASE}/parse-folder-paths/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                paths,
+                product_type_id: productTypeId,
+                exclude_folders: excludeFolders,
+            }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async bulkSetDocumentFilters(docId, filterIds) {
+        const res = await apiFetch(`${BASE}/documents/${docId}/filters/bulk/`, {
+            method: 'POST',
+            body: JSON.stringify({ filter_ids: filterIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
 };
