@@ -5,6 +5,7 @@ import { can } from '../utils/permissions';
 export function useDocTypes(user) {
     const [docTypes, setDocTypes] = useState([]);           // все — для просмотра
     const [uploadDocTypes, setUploadDocTypes] = useState([]); // только с правом загрузки
+    const [viewDocTypes, setViewDocTypes] = useState([]); 
     const [activeDocType, setActiveDocType] = useState(null);
 
     useEffect(() => {
@@ -13,13 +14,18 @@ export function useDocTypes(user) {
             if (!ok) return;
             const all = data.doc_types || [];
             const canUpload = all.filter(dt => can(user, dt.upload_permission_code));
+            // Просмотр: view_permission_code пустой = доступен всем, иначе проверяем право
+            const canView = all.filter(dt =>
+                !dt.view_permission_code || can(user, dt.view_permission_code)
+            );
             setDocTypes(all);
             setUploadDocTypes(canUpload);
+            setViewDocTypes(canView);
             if (canUpload.length > 0) setActiveDocType(canUpload[0]);
         });
     }, [user?.permissions]);
 
-    return { docTypes, uploadDocTypes, activeDocType, setActiveDocType };
+    return { docTypes, uploadDocTypes, viewDocTypes, activeDocType, setActiveDocType };
 }
 
 export function useCommonDocUpload({ onUploaded }) {
