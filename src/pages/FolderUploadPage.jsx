@@ -1,5 +1,5 @@
 // src/pages/FolderUploadPage.jsx
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { mediaApi } from '../api/media';
 import { useAuth } from '../contexts/AuthContext';
 import { can } from '../utils/permissions';
@@ -140,21 +140,54 @@ export default function FolderUploadPage({ onBack }) {
     const [productTypes, setProductTypes] = useState([]);
     const [docTypeId, setDocTypeId] = useState('');
     const [productTypeId, setProductTypeId] = useState('');
-
-    const [items, setItems] = useState([]); // [{file, path, external_id, filters}]
+    const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [progress, setProgress] = useState(null); // {done, total, errors}
+    const [progress, setProgress] = useState(null);
     const [excludeFolders, setExcludeFolders] = useState('Архив, archive');
     const [folderMarker, setFolderMarker] = useState('ПАСПОРТ');
-    const exclude = excludeFolders.split(',').map(s => s.trim()).filter(Boolean);
     const [nameTemplate, setNameTemplate] = useState('{doc_type} {series}{heating} {design}');
     const [axes, setAxes] = useState([]);
-    const selectedDocType = docTypes.find(dt => dt.id === +docTypeId);
-    const uploadMode = selectedDocType?.upload_mode || 'filters';
     const [folderUploadSettings, setFolderUploadSettings] = useState([]);
     const [sessionId, setSessionId] = useState(null);
+    const sessionApplied = useRef(false);
 
+    const exclude = excludeFolders.split(',').map(s => s.trim()).filter(Boolean);
+    const selectedDocType = docTypes.find(dt => dt.id === +docTypeId);
+    const uploadMode = selectedDocType?.upload_mode || 'filters';
+
+    // ← activeSettings ЗДЕСЬ — до useEffect которые его используют
+    const activeSettings = useMemo(() => {
+        let s = folderUploadSettings.find(
+            s => s.doc_type_id === +docTypeId && s.product_type_id === +productTypeId
+        );
+        if (!s) s = folderUploadSettings.find(
+            s => s.doc_type_id === +docTypeId && s.product_type_id === null
+        );
+        return s?.settings || {};
+    }, [docTypeId, productTypeId, folderUploadSettings]);
+
+    // ← saveSession ЗДЕСЬ — до useEffect который его вызывает
+    const saveSession = useCallback(async (patch = {}) => {
+        const sessionData = {
+            page: 'folder-upload',
+            doc_type_id: docTypeId || null,
+            product_type_id: productTypeId || null,
+            exclude_folders: excludeFolders,
+            folder_marker: folderMarker,
+            name_template: nameTemplate,
+            items: items.map(({ file, ...rest }) => rest),
+            ...patch,
+        };
+        if (sessionId) {
+            await sessionsApi.update(sessionId, { data: sessionData });
+        } else {
+            const res = await sessionsApi.create('folder_upload', 'Загрузка из папки', sessionData);
+            if (res.id) setSessionId(res.id);
+        }
+    }, [sessionId, docTypeId, productTypeId, excludeFolders, folderMarker, nameTemplate, items]);
+
+    // 1. Загрузка сессии
     useEffect(() => {
         sessionsApi.list('folder_upload').then(data => {
             const sessions = data.results || data;
@@ -166,47 +199,34 @@ export default function FolderUploadPage({ onBack }) {
                 const d = existing.data || {};
                 if (d.doc_type_id) setDocTypeId(String(d.doc_type_id));
                 if (d.product_type_id) setProductTypeId(String(d.product_type_id));
-                if (d.exclude_folders) setExcludeFolders(d.exclude_folders);
+                if (d.exclude_folders !== undefined) setExcludeFolders(d.exclude_folders);
                 if (d.folder_marker !== undefined) setFolderMarker(d.folder_marker);
-                if (d.name_template) setNameTemplate(d.name_template);
-                // items восстанавливаем без file — только метаданные
-                if (d.items?.length) {
-                    setItems(d.items.map(item => ({ ...item, file: null })));
-                }
+                if (d.name_template !== undefined) setNameTemplate(d.name_template);
+                if (d.items?.length) setItems(d.items.map(item => ({ ...item, file: null })));
+                sessionApplied.current = true;
             }
         });
     }, []);
 
-    const saveSession = useCallback(async (patch = {}) => {
-        const sessionData = {
-            page: 'folder-upload',
-            doc_type_id: docTypeId || null,
-            product_type_id: productTypeId || null,
-            exclude_folders: excludeFolders,
-            folder_marker: folderMarker,
-            name_template: nameTemplate,
-            // Сохраняем метаданные без file
-            items: items.map(({ file, ...rest }) => rest),
-            ...patch,
-        };
-
-        if (sessionId) {
-            await sessionsApi.update(sessionId, { data: sessionData });
-        } else {
-            const res = await sessionsApi.create('folder_upload', 'Загрузка из папки', sessionData);
-            if (res.id) setSessionId(res.id);
-        }
-    }, [sessionId, docTypeId, productTypeId, excludeFolders, folderMarker, nameTemplate, items]);
-
-    // Автосохранение при изменении ключевых полей
+    // 2. activeSettings → применяем если сессия не была восстановлена
     useEffect(() => {
         if (!docTypeId) return;
+        if (sessionApplied.current) {
+            sessionApplied.current = false;
+            return;
+        }
+        setExcludeFolders(activeSettings.exclude_folders?.join(', ') ?? '');
+        setFolderMarker(activeSettings.folder_marker ?? '');
+        setNameTemplate(activeSettings.name_template ?? '');
+    }, [activeSettings]);
+
+    // 3. Автосохранение
+    useEffect(() => {
         const t = setTimeout(() => saveSession(), 500);
         return () => clearTimeout(t);
     }, [docTypeId, productTypeId, excludeFolders, folderMarker, nameTemplate]);
 
-
-    // Загружаем типы документов и типы продукции
+    // 4. Загрузка данных
     useEffect(() => {
         mediaApi.getFormData().then(({ ok, data }) => {
             if (!ok) return;
@@ -214,10 +234,6 @@ export default function FolderUploadPage({ onBack }) {
             setAxes(data.axes || []);
             setFolderUploadSettings(data.folder_upload_settings || []);
         });
-
-
-
-        // Типы продукции из catalog
         fetch('/api/v1/catalog/product-types/')
             .then(r => r.json())
             .then(data => {
@@ -225,18 +241,6 @@ export default function FolderUploadPage({ onBack }) {
                 setProductTypes(Array.isArray(types) ? types : []);
             });
     }, []);
-
-    const activeSettings = useMemo(() => {
-        // Сначала ищем точное совпадение doc_type + product_type
-        let s = folderUploadSettings.find(
-            s => s.doc_type_id === +docTypeId && s.product_type_id === +productTypeId
-        );
-        // Потом doc_type + any product_type
-        if (!s) s = folderUploadSettings.find(
-            s => s.doc_type_id === +docTypeId && s.product_type_id === null
-        );
-        return s?.settings || {};
-    }, [docTypeId, productTypeId, folderUploadSettings]);
 
     const availableCodes = useMemo(() => {
         const codes = new Set();
@@ -248,22 +252,6 @@ export default function FolderUploadPage({ onBack }) {
         }
         return Array.from(codes);
     }, [items]);
-
-    useEffect(() => {
-        if (!docTypeId) return;
-
-        setExcludeFolders(
-            activeSettings.exclude_folders
-                ? activeSettings.exclude_folders.join(', ')
-                : ''
-        );
-        setFolderMarker(
-            activeSettings.folder_marker || ''
-        );
-        setNameTemplate(
-            activeSettings.name_template || ''
-        );
-    }, [activeSettings]);
 
     // Динамические колонки осей из результатов парсинга
     const axisColumns = useMemo(() => {
@@ -442,6 +430,25 @@ export default function FolderUploadPage({ onBack }) {
         "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
         "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
+    if (!user) return null;
+
+    if (!can(user, 'portal.documents.upload')) {
+        return (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+                <div className="text-4xl">🔒</div>
+                <div className="text-gray-500 dark:text-gray-400 text-sm">
+                    Нет доступа к этой странице
+                </div>
+                {onBack && (
+                    <button onClick={onBack}
+                        className="text-sm text-blue-500 hover:text-blue-700">
+                        ← Назад
+                    </button>
+                )}
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-4">
 
@@ -451,7 +458,7 @@ export default function FolderUploadPage({ onBack }) {
                     {onBack && (
                         <button onClick={onBack}
                             className="text-sm text-gray-500 dark:text-gray-400
-                         hover:text-gray-700 dark:hover:text-gray-300">
+                        hover:text-gray-700 dark:hover:text-gray-300">
                             ← Назад
                         </button>
                     )}
@@ -468,7 +475,7 @@ export default function FolderUploadPage({ onBack }) {
                     {/* Тип документа */}
                     <div>
                         <label className="block text-xs font-medium text-gray-500
-                               dark:text-gray-400 mb-1">
+                            dark:text-gray-400 mb-1">
                             Тип документа
                         </label>
                         <select value={docTypeId} onChange={e => setDocTypeId(e.target.value)}
@@ -483,7 +490,7 @@ export default function FolderUploadPage({ onBack }) {
                     {/* Тип продукции */}
                     <div>
                         <label className="block text-xs font-medium text-gray-500
-                               dark:text-gray-400 mb-1">
+                            dark:text-gray-400 mb-1">
                             Тип продукции
                         </label>
                         <select value={productTypeId}
@@ -539,12 +546,12 @@ export default function FolderUploadPage({ onBack }) {
                     {/* Выбор папки */}
                     <div>
                         <label className="block text-xs font-medium text-gray-500
-                               dark:text-gray-400 mb-1">
+                            dark:text-gray-400 mb-1">
                             Папка
                         </label>
                         <label className={`flex items-center gap-2 cursor-pointer px-4 py-2
-                               rounded-lg border transition-colors text-sm
-                               ${loading
+                            rounded-lg border transition-colors text-sm
+                            ${loading
                                 ? 'border-blue-400 text-blue-500'
                                 : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-400'
                             }`}>
@@ -570,8 +577,8 @@ export default function FolderUploadPage({ onBack }) {
                                 onClick={handleUpload}
                                 disabled={uploading || !docTypeId || allDone}
                                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700
-                           disabled:opacity-50 text-white text-sm
-                           font-medium rounded-lg transition-colors">
+                        disabled:opacity-50 text-white text-sm
+                        font-medium rounded-lg transition-colors">
                                 {uploading
                                     ? `Загрузка ${done}/${total}...`
                                     : allDone
@@ -604,14 +611,14 @@ export default function FolderUploadPage({ onBack }) {
             </div>
 
             {/* Предупреждение о восстановленной сессии */}
-{items.some(i => !i.file) && (
-    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200
-                    dark:border-amber-800 rounded-lg px-4 py-2 text-xs
-                    text-amber-700 dark:text-amber-400">
-        ⚠ Сессия восстановлена — выберите папку заново для загрузки файлов.
-        Метаданные и привязки сохранены.
-    </div>
-)}
+            {items.some(i => !i.file) && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200
+                dark:border-amber-800 rounded-lg px-4 py-2 text-xs
+                text-amber-700 dark:text-amber-400">
+                    ⚠ Сессия восстановлена — выберите папку заново для загрузки файлов.
+                    Метаданные и привязки сохранены.
+                </div>
+            )}
 
             {/* Таблица */}
             {items.length > 0 && (
@@ -620,34 +627,34 @@ export default function FolderUploadPage({ onBack }) {
                         <thead>
                             <tr className="border-b border-gray-200 dark:border-gray-700">
                                 <th className="text-left px-4 py-3 text-xs font-medium
-                               text-gray-500 dark:text-gray-400 uppercase
-                               tracking-wide min-w-64">
+                            text-gray-500 dark:text-gray-400 uppercase
+                            tracking-wide min-w-64">
                                     Файл
                                 </th>
                                 <th className="text-left px-4 py-3 text-xs font-medium
-               text-gray-500 dark:text-gray-400 uppercase
-               tracking-wide min-w-48">
+            text-gray-500 dark:text-gray-400 uppercase
+            tracking-wide min-w-48">
                                     Имя документа
                                 </th>
                                 {uploadMode === 'products' ? (
                                     <th className="text-left px-4 py-3 text-xs font-medium
-                   text-emerald-500 dark:text-emerald-400 uppercase
-                   tracking-wide min-w-64">
+                text-emerald-500 dark:text-emerald-400 uppercase
+                tracking-wide min-w-64">
                                         Изделия
                                     </th>
                                 ) : (
                                     axisColumns.map(col => (
                                         <th key={`axis-col-${col.axis_id}`}
                                             className="text-left px-4 py-3 text-xs font-medium
-                       text-blue-500 dark:text-blue-400 uppercase
-                       tracking-wide whitespace-nowrap">
+                    text-blue-500 dark:text-blue-400 uppercase
+                    tracking-wide whitespace-nowrap">
                                             {col.axis}
                                         </th>
                                     ))
                                 )}
                                 <th className="text-left px-4 py-3 text-xs font-medium
-                               text-gray-500 dark:text-gray-400 uppercase
-                               tracking-wide w-24">
+                            text-gray-500 dark:text-gray-400 uppercase
+                            tracking-wide w-24">
                                     Статус
                                 </th>
                             </tr>

@@ -584,21 +584,21 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
 
       {/* Выбор типа продукции */}
       <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
-        <label className="block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-          Тип продукции
-        </label>
-        <select
-          value={selectedTypeId}
-          onChange={e => setSelectedTypeId(e.target.value)}
-          className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-neutral-800
-                     text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">— выберите —</option>
+        <div className="flex flex-wrap gap-2">
           {productTypes.map(pt => (
-            <option key={pt.id} value={pt.id}>{pt.name}</option>
+            <button
+              key={pt.id}
+              onClick={() => setSelectedTypeId(pt.id)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all
+          ${selectedTypeId === pt.id
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                }`}
+            >
+              {pt.name}
+            </button>
           ))}
-        </select>
+        </div>
       </div>
 
       {/* ── Переключатель режимов (показываем если тип выбран) ── */}
