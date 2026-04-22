@@ -426,13 +426,15 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    async parseFolderPaths(paths, productTypeId = null, excludeFolders = ['Архив', 'archive']) {
+    async parseFolderPaths(paths, productTypeId = null, excludeFolders = ['Архив', 'archive'], docTypeId = null, uploadMode = 'filters') {
         const res = await apiFetch(`${BASE}/parse-folder-paths/`, {
             method: 'POST',
             body: JSON.stringify({
                 paths,
                 product_type_id: productTypeId,
+                doc_type_id: docTypeId,
                 exclude_folders: excludeFolders,
+                upload_mode: uploadMode,
             }),
         });
         return { ok: res.ok, data: await res.json() };
@@ -442,6 +444,18 @@ export const mediaApi = {
         const res = await apiFetch(`${BASE}/documents/${docId}/filters/bulk/`, {
             method: 'POST',
             body: JSON.stringify({ filter_ids: filterIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async matchProductsByArticle(articles, docTypeId = null, productTypeId = null) {
+        const res = await apiFetch(`${BASE}/match-products-by-article/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                articles,
+                doc_type_id: docTypeId,
+                product_type_id: productTypeId,
+            }),
         });
         return { ok: res.ok, data: await res.json() };
     },
