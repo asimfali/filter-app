@@ -259,6 +259,203 @@ function BulkImportForm({ onImported }) {
     );
 }
 
+function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
+    const [drawingFiles, setDrawingFiles] = useState(item.drawing_files || []);
+    const [draggingOver, setDraggingOver] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [uploadMsg, setUploadMsg] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const [showSearch, setShowSearch] = useState(false);
+
+    // Поиск существующих документов типа heart_exchanger
+    useEffect(() => {
+        if (searchQuery.length < 2) { setSearchResults([]); return; }
+        const t = setTimeout(async () => {
+            setSearching(true);
+            const { ok, data } = await mediaApi.searchDocuments(
+                String(drawingDocTypeId), searchQuery
+            );
+            if (ok) setSearchResults(data.results || []);
+            setSearching(false);
+        }, 300);
+        return () => clearTimeout(t);
+    }, [searchQuery]);
+
+    const handleDrop = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDraggingOver(false);
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        setUploading(true);
+        setUploadMsg(null);
+        const { ok, data } = await mediaApi.uploadHeatExchangerDrawing(item.id, file);
+        if (ok && data.success) {
+            const { ok: ok2, data: d2 } = await mediaApi.getHeatExchangers();
+            if (ok2) {
+                const updated = (d2.data || []).find(h => h.id === item.id);
+                if (updated) setDrawingFiles(updated.drawing_files || []);
+            }
+            setUploadMsg({ ok: true, text: '✓ Загружен' });
+        } else {
+            setUploadMsg({ ok: false, text: data.error || 'Ошибка' });
+        }
+        setUploading(false);
+    };
+
+    const handleClick = async (e, relPath) => {
+        e.preventDefault();
+        const res = await mediaApi.downloadFile(relPath);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+    };
+
+    const handleDetach = async () => {
+        // Отвязываем чертёж — PATCH с drawing_id: null
+        const { ok, data } = await mediaApi.updateHeatExchanger(item.id, { drawing_id: null });
+        if (ok && data.success) {
+            setDrawingFiles([]);
+            setUploadMsg({ ok: true, text: '✓ Чертёж отвязан' });
+        }
+    };
+
+    const handleAttach = async (doc) => {
+        // Привязываем существующий документ
+        const { ok, data } = await mediaApi.updateHeatExchanger(item.id, { drawing_id: doc.id });
+        if (ok && data.success) {
+            // Перезагружаем файлы
+            const { ok: ok2, data: d2 } = await mediaApi.getHeatExchangers();
+            if (ok2) {
+                const updated = (d2.data || []).find(h => h.id === item.id);
+                if (updated) setDrawingFiles(updated.drawing_files || []);
+            }
+            setShowSearch(false);
+            setSearchQuery('');
+            setUploadMsg({ ok: true, text: `✓ Привязан: ${doc.external_id}` });
+        }
+    };
+
+    return (
+        <div className="mx-5 mb-3 space-y-2">
+            {/* Файлы чертежа */}
+            <div
+                className={`rounded-lg border-2 border-dashed transition-colors
+                    ${draggingOver
+                        ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700'}`}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDraggingOver(true); }}
+                onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDraggingOver(false); }}
+                onDrop={handleDrop}
+            >
+                {uploading ? (
+                    <div className="px-3 py-2 text-xs text-gray-400">Загрузка...</div>
+                ) : drawingFiles.length > 0 ? (
+                    <div className="space-y-0.5 py-1">
+                        {drawingFiles.map(f => (
+                            <div key={f.rel_path}
+                                className="flex items-center justify-between px-3 py-1.5
+                                           hover:bg-neutral-50 dark:hover:bg-neutral-800
+                                           rounded-lg group transition-colors">
+                                <a href="#" onClick={e => handleClick(e, f.rel_path)}
+                                    className="flex items-center gap-2 min-w-0">
+                                    <span className="text-red-400 shrink-0">📄</span>
+                                    <span className="text-xs text-gray-700 dark:text-gray-300 truncate">
+                                        {f.name}
+                                    </span>
+                                </a>
+                                <div className="flex items-center gap-3 shrink-0 ml-2">
+                                    <span className="text-xs text-gray-400">{f.size}</span>
+                                    {canWrite && (
+                                        <button onClick={handleDetach}
+                                            className="text-xs text-gray-300 hover:text-red-500
+                                                       opacity-0 group-hover:opacity-100
+                                                       transition-all">
+                                            ✕
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex items-center justify-between px-3 py-2">
+                        <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+                            Чертёж
+                        </span>
+                        <span className="text-xs text-gray-300 dark:text-gray-600">
+                            {draggingOver ? 'Отпустите для загрузки' : 'Перетащите файл'}
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            {/* Кнопки управления */}
+            {canWrite && (
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setShowSearch(o => !o)}
+                        className="text-xs text-blue-500 hover:text-blue-700
+                                   transition-colors">
+                        {showSearch ? '✕ Отмена' : '🔗 Привязать существующий'}
+                    </button>
+                </div>
+            )}
+
+            {/* Поиск существующего документа */}
+            {showSearch && (
+                <div className="relative">
+                    <input
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Поиск по external_id..."
+                        className="w-full border border-gray-200 dark:border-gray-700
+                                   rounded-lg px-3 py-1.5 text-xs
+                                   bg-white dark:bg-neutral-800
+                                   text-gray-900 dark:text-white
+                                   focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    {searching && (
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2
+                                         text-gray-400 text-xs">···</span>
+                    )}
+                    {searchResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 z-50
+                                        bg-white dark:bg-neutral-900
+                                        border border-gray-200 dark:border-gray-700
+                                        rounded-lg shadow-lg overflow-hidden">
+                            {searchResults.map(doc => (
+                                <button key={doc.id} type="button"
+                                    onClick={() => handleAttach(doc)}
+                                    className="w-full text-left px-3 py-2 text-xs
+                                               hover:bg-neutral-50 dark:hover:bg-neutral-800
+                                               border-b border-gray-50 dark:border-gray-800
+                                               last:border-0 text-gray-800 dark:text-gray-200">
+                                    {doc.external_id}
+                                    {doc.name && (
+                                        <span className="ml-2 text-gray-400">{doc.name}</span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {uploadMsg && (
+                <div className={`text-xs px-1 ${uploadMsg.ok
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-red-500'}`}>
+                    {uploadMsg.text}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ── Карточка теплообменника ───────────────────────────────────────────────
 
 function HeatExchangerCard({ item, canWrite, axes, onUpdated, onDeleted }) {
@@ -388,63 +585,11 @@ function HeatExchangerCard({ item, canWrite, axes, onUpdated, onDeleted }) {
             </div>
 
             {/* Чертёж */}
-            <div
-                className={`mx-5 mb-3 rounded-lg border-2 border-dashed transition-colors
-                ${draggingOver
-                        ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-700'}`}
-                onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDraggingOver(true); }}
-                onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDraggingOver(false); }}
-                onDrop={handleDrawingDrop}
-            >
-                {uploading ? (
-                    <div className="px-3 py-2 text-xs text-gray-400">Загрузка...</div>
-                ) : drawingFiles.length > 0 ? (
-                    <div className="space-y-0.5 py-1">
-                        {drawingFiles.map(f => (
-                            <div key={f.rel_path}
-                                className="flex items-center justify-between px-3 py-1.5
-                               hover:bg-neutral-50 dark:hover:bg-neutral-800
-                               rounded-lg group transition-colors">
-                                <a href="#" onClick={e => handleDrawingClick(e, f.rel_path)}
-                                    className="flex items-center gap-2 min-w-0">
-                                    <span className="text-red-400 shrink-0">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                                                d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586
-                                       a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                    </span>
-                                    <span className="text-xs text-gray-700 dark:text-gray-300 truncate">
-                                        {f.name}
-                                    </span>
-                                </a>
-                                <div className="flex items-center gap-3 shrink-0 ml-2">
-                                    <span className="text-xs text-gray-400">{f.size}</span>
-                                    <span className="text-xs text-blue-500 opacity-0
-                                         group-hover:opacity-100 transition-opacity">
-                                        Открыть ↗
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
-                        {uploadMsg && (
-                            <div className={`px-3 pb-1 text-xs ${uploadMsg.ok
-                                ? 'text-green-600 dark:text-green-400'
-                                : 'text-red-500'}`}>
-                                {uploadMsg.text}
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="flex items-center justify-between px-3 py-2">
-                        <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">Чертёж</span>
-                        <span className="text-xs text-gray-300 dark:text-gray-600">
-                            {draggingOver ? 'Отпустите для загрузки' : 'Перетащите файл'}
-                        </span>
-                    </div>
-                )}
-            </div>
+            <DrawingPanel
+                item={item}
+                canWrite={canWrite}
+                onDrawingUpdated={() => { }}
+            />
         </div>
     );
 }
@@ -459,6 +604,16 @@ export default function HeatExchangersPage() {
     const [showCreate, setShowCreate] = useState(false);
     const [search, setSearch] = useState('');
     const [createMode, setCreateMode] = useState('single'); // 'single' | 'import'
+    const [docTypes, setDocTypes] = useState([]);
+
+    useEffect(() => {
+        mediaApi.getFormData().then(({ ok, data }) => {
+            if (ok) setDocTypes(data.doc_types || []);
+        });
+    }, []);
+
+    // ← вычислять после загрузки
+    const drawingDocTypeId = docTypes.find(dt => dt.code === 'heart_exchanger')?.id;
 
     const filtered = search.trim()
         ? items.filter(i =>
@@ -582,6 +737,7 @@ export default function HeatExchangersPage() {
                                     item={item}
                                     canWrite={canWrite}
                                     axes={axes}
+                                    drawingDocTypeId={drawingDocTypeId}  // ← добавить
                                     onUpdated={handleUpdated}
                                     onDeleted={reload}
                                 />
