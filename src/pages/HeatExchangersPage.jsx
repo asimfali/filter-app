@@ -5,6 +5,7 @@ import { can } from '../utils/permissions';
 import CreateFilterModal from '../components/media/CreateFilterModal.jsx';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
 import FiltersPanel from '../components/media/FiltersPanel';
+import DocumentSearch from '../components/common/DocumentSearch';
 
 // ── Хук загрузки ─────────────────────────────────────────────────────────
 
@@ -34,12 +35,17 @@ function useHeatExchangers() {
 
 function useFormData() {
     const [axes, setAxes] = useState([]);
+    const [docTypes, setDocTypes] = useState([]);  // ← добавить
+
     useEffect(() => {
         mediaApi.getFormData().then(({ ok, data }) => {
-            if (ok) setAxes(data.axes || []);
+            if (ok) {
+                setAxes(data.axes || []);
+                setDocTypes(data.doc_types || []);  // ← добавить
+            }
         });
     }, []);
-    return { axes };
+    return { axes, docTypes };  // ← добавить
 }
 
 // ── Форма создания / редактирования ──────────────────────────────────────
@@ -260,6 +266,7 @@ function BulkImportForm({ onImported }) {
 }
 
 function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
+    console.log('DrawingPanel:', { drawingDocTypeId, canWrite });
     const [drawingFiles, setDrawingFiles] = useState(item.drawing_files || []);
     const [draggingOver, setDraggingOver] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -271,7 +278,10 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
 
     // Поиск существующих документов типа heart_exchanger
     useEffect(() => {
-        if (searchQuery.length < 2) { setSearchResults([]); return; }
+        if (!drawingDocTypeId || searchQuery.length < 2) {
+            setSearchResults([]);
+            return;
+        }
         const t = setTimeout(async () => {
             setSearching(true);
             const { ok, data } = await mediaApi.searchDocuments(
@@ -281,7 +291,7 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
             setSearching(false);
         }, 300);
         return () => clearTimeout(t);
-    }, [searchQuery]);
+    }, [searchQuery, drawingDocTypeId]);
 
     const handleDrop = async (e) => {
         e.preventDefault();
@@ -407,42 +417,11 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
 
             {/* Поиск существующего документа */}
             {showSearch && (
-                <div className="relative">
-                    <input
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        placeholder="Поиск по external_id..."
-                        className="w-full border border-gray-200 dark:border-gray-700
-                                   rounded-lg px-3 py-1.5 text-xs
-                                   bg-white dark:bg-neutral-800
-                                   text-gray-900 dark:text-white
-                                   focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    {searching && (
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2
-                                         text-gray-400 text-xs">···</span>
-                    )}
-                    {searchResults.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 z-50
-                                        bg-white dark:bg-neutral-900
-                                        border border-gray-200 dark:border-gray-700
-                                        rounded-lg shadow-lg overflow-hidden">
-                            {searchResults.map(doc => (
-                                <button key={doc.id} type="button"
-                                    onClick={() => handleAttach(doc)}
-                                    className="w-full text-left px-3 py-2 text-xs
-                                               hover:bg-neutral-50 dark:hover:bg-neutral-800
-                                               border-b border-gray-50 dark:border-gray-800
-                                               last:border-0 text-gray-800 dark:text-gray-200">
-                                    {doc.external_id}
-                                    {doc.name && (
-                                        <span className="ml-2 text-gray-400">{doc.name}</span>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                <DocumentSearch
+                    docTypeId={drawingDocTypeId}
+                    onSelect={handleAttach}
+                    placeholder="Поиск по external_id..."
+                />
             )}
 
             {uploadMsg && (
@@ -458,64 +437,10 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
 
 // ── Карточка теплообменника ───────────────────────────────────────────────
 
-function HeatExchangerCard({ item, canWrite, axes, onUpdated, onDeleted }) {
+function HeatExchangerCard({ item, canWrite, axes, drawingDocTypeId, onUpdated, onDeleted }) {
     const [editing, setEditing] = useState(false);
     const [confirming, setConfirming] = useState(false);
-    const [deleting, setDeleting] = useState(false);
     const [editData, setEditData] = useState(null);
-    const [drawingFiles, setDrawingFiles] = useState(item.drawing_files || []);
-    const [draggingOver, setDraggingOver] = useState(false);
-    const [uploading, setUploading] = useState(false);
-    const [uploadMsg, setUploadMsg] = useState(null);
-
-
-    const handleDrawingDrop = async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDraggingOver(false);
-        const file = e.dataTransfer.files[0];
-        if (!file) return;
-        setUploading(true);
-        setUploadMsg(null);
-        const { ok, data } = await mediaApi.uploadHeatExchangerDrawing(item.id, file);
-        if (ok && data.success) {
-            // Перезагружаем файлы через тот же список
-            const { ok: ok2, data: d2 } = await mediaApi.getHeatExchangers();
-            if (ok2) {
-                const updated = (d2.data || []).find(h => h.id === item.id);
-                if (updated) setDrawingFiles(updated.drawing_files || []);
-            }
-            setUploadMsg({ ok: true, text: '✓ Загружен' });
-        } else {
-            setUploadMsg({ ok: false, text: data.error || 'Ошибка' });
-        }
-        setUploading(false);
-    };
-
-    const handleDrawingClick = async (e, relPath) => {
-        e.preventDefault();
-        const res = await mediaApi.downloadFile(relPath);
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
-    };
-
-    const handleEdit = async () => {
-        const { ok, data } = await mediaApi.getHeatExchanger(item.id);
-        if (ok && data.success) {
-            setEditData(data.data);
-            setEditing(true);
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!confirming) { setConfirming(true); return; }
-        setDeleting(true);
-        const { ok } = await mediaApi.deleteHeatExchanger(item.id);
-        if (ok) onDeleted();
-        else { setDeleting(false); setConfirming(false); }
-    };
 
     if (editing) {
         return (
@@ -588,7 +513,7 @@ function HeatExchangerCard({ item, canWrite, axes, onUpdated, onDeleted }) {
             <DrawingPanel
                 item={item}
                 canWrite={canWrite}
-                onDrawingUpdated={() => { }}
+                drawingDocTypeId={drawingDocTypeId}
             />
         </div>
     );
@@ -600,17 +525,11 @@ export default function HeatExchangersPage() {
     const { user } = useAuth();
     const canWrite = can(user, 'portal.heat_exchanger.write');
     const { items, loading, error, reload } = useHeatExchangers();
-    const { axes } = useFormData();
     const [showCreate, setShowCreate] = useState(false);
     const [search, setSearch] = useState('');
     const [createMode, setCreateMode] = useState('single'); // 'single' | 'import'
-    const [docTypes, setDocTypes] = useState([]);
 
-    useEffect(() => {
-        mediaApi.getFormData().then(({ ok, data }) => {
-            if (ok) setDocTypes(data.doc_types || []);
-        });
-    }, []);
+    const { axes, docTypes } = useFormData();
 
     // ← вычислять после загрузки
     const drawingDocTypeId = docTypes.find(dt => dt.code === 'heart_exchanger')?.id;
