@@ -5,7 +5,7 @@ import { can } from '../utils/permissions';
 import CreateFilterModal from '../components/media/CreateFilterModal.jsx';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
 import FiltersPanel from '../components/media/FiltersPanel';
-import DocumentSearch from '../components/common/DocumentSearch';
+import SmartSelect from '../components/common/SmartSelect';
 
 // ── Хук загрузки ─────────────────────────────────────────────────────────
 
@@ -417,10 +417,20 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
 
             {/* Поиск существующего документа */}
             {showSearch && (
-                <DocumentSearch
-                    docTypeId={drawingDocTypeId}
+                <SmartSelect
+                    endpoint={`/api/v1/media/documents/search/?doc_type_id=${drawingDocTypeId}`}
                     onSelect={handleAttach}
                     placeholder="Поиск по external_id..."
+                    renderItem={doc => (
+                        <>
+                            <span className="text-gray-900 dark:text-white font-medium block">
+                                {doc.external_id}
+                            </span>
+                            {doc.name && (
+                                <span className="text-gray-400">{doc.name}</span>
+                            )}
+                        </>
+                    )}
                 />
             )}
 

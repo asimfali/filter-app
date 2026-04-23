@@ -4,7 +4,7 @@ import { mediaApi } from '../api/media';
 import { useAuth } from '../contexts/AuthContext';
 import { can } from '../utils/permissions';
 import { filterLatestPassports } from '../utils/filterLatestPassports';
-import ProductSearch from '../components/common/ProductSearch';
+import SmartSelect from '../components/common/SmartSelect';
 import { sessionsApi } from '../api/sessions';
 
 function buildDocumentName(template, docTypeName, item) {
@@ -749,7 +749,8 @@ function TableRow({ item, idx, axisColumns, onUpdateFilters, onUpdateProducts,
                                     </span>
                                 </label>
                             ))}
-                            <ProductSearch
+                            <SmartSelect
+                                endpoint="/api/v1/catalog/products/search/"
                                 excludeIds={new Set((item.matchedProducts || []).map(p => p.id))}
                                 onSelect={(p) => {
                                     const updated = [...(item.matchedProducts || []),

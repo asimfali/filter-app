@@ -24,6 +24,9 @@
 │   │   │   └── TwoFAForm.jsx
 │   │   ├── catalog
 │   │   │   └── ColumnSettingsModal.jsx
+│   │   ├── common
+│   │   │   ├── DocumentSearch.jsx
+│   │   │   └── ProductSearch.jsx
 │   │   ├── configurator
 │   │   │   ├── BindingGraph.jsx
 │   │   │   ├── FilterTree.jsx
@@ -56,6 +59,7 @@
 │   ├── pages
 │   │   ├── AccessoryKitsPage.jsx
 │   │   ├── DocumentsPage.jsx
+│   │   ├── FolderUploadPage.jsx
 │   │   ├── HeatExchangersPage.jsx
 │   │   ├── IssueThreadPage.jsx
 │   │   ├── IssuesPage.jsx
@@ -69,6 +73,7 @@
 │   │   └── StaffPage.jsx
 │   ├── utils
 │   │   ├── fileUtils.js
+│   │   ├── filterLatestPassports.js
 │   │   └── permissions.js
 │   ├── App.css
 │   ├── App.jsx
@@ -88,4 +93,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-17 directories, 72 files
+18 directories, 76 files
