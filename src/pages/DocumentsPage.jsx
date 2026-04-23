@@ -413,7 +413,7 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
 // ── Группа документов одного типа ─────────────────────────────────────────
 
 function DocumentGroup({ typeName, items, canDelete, canManageFilters, axes, onDeleted, onOpenViewer }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   return (
     <div className="space-y-2">
       <button onClick={() => setCollapsed(o => !o)}

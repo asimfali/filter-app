@@ -156,6 +156,11 @@ export default function FolderUploadPage({ onBack }) {
     const selectedDocType = docTypes.find(dt => dt.id === +docTypeId);
     const uploadMode = selectedDocType?.upload_mode || 'filters';
 
+    const docTypeCode = selectedDocType?.code || '';
+    const allowedExtensions = docTypeCode === 'models'
+        ? ['.pdf', '.step', '.stp', '.stl', '.obj', '.gltf', '.glb']
+        : ['.pdf'];
+
     // ← activeSettings ЗДЕСЬ — до useEffect которые его используют
     const activeSettings = useMemo(() => {
         let s = folderUploadSettings.find(
@@ -286,7 +291,7 @@ export default function FolderUploadPage({ onBack }) {
             .map(p => p.toLowerCase());
 
         const withoutExcluded = Array.from(e.target.files).filter(f => {
-            if (!f.name.toLowerCase().endsWith('.pdf')) return false;
+            if (!allowedExtensions.some(ext => f.name.toLowerCase().endsWith(ext))) return false;
 
             // Исключаем по сегментам пути
             const segments = f.webkitRelativePath.split('/').map(s => s.toLowerCase());
@@ -557,7 +562,7 @@ export default function FolderUploadPage({ onBack }) {
                             }`}>
                             <input type="file" className="hidden"
                                 // @ts-ignore
-                                webkitdirectory="" multiple accept=".pdf"
+                                webkitdirectory="" multiple accept={allowedExtensions.join(',')}
                                 onChange={handleFolderChange} />
                             {loading ? '⏳ Анализ...' : '📁 Выбрать папку'}
                         </label>
@@ -604,6 +609,11 @@ export default function FolderUploadPage({ onBack }) {
                         {allDone && (
                             <div className="text-xs text-emerald-600 dark:text-emerald-400">
                                 ✓ Загрузка завершена
+                            </div>
+                        )}
+                        {allDone && items.some(i => i.file?.name?.toLowerCase().match(/\.(step|stp)$/)) && (
+                            <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                ⏳ STEP файлы конвертируются в GLB — обновите страницу через 1-2 минуты
                             </div>
                         )}
                     </div>

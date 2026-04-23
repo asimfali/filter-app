@@ -345,7 +345,7 @@ function ProductDocumentGroup({ group, onOpenViewer, product, docTypes }) {
                                    a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 truncate">
-                            {file.name}
+                            {file.name.replace(/\.[^.]+$/, '')}
                         </span>
                         <span className="text-xs text-blue-500 opacity-0
                                          group-hover:opacity-100 transition-opacity shrink-0">
@@ -693,11 +693,10 @@ function AccessoryKitView({ kit }) {
                         <div key={item.id}
                             className="flex items-center justify-between text-sm py-1 gap-3">
                             <div className="flex items-center gap-2 min-w-0">
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                    item.is_required
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.is_required
                                         ? 'bg-emerald-500'
                                         : 'bg-gray-300 dark:bg-gray-600'
-                                }`} />
+                                    }`} />
                                 <span className="text-gray-900 dark:text-white truncate">
                                     {item.name}
                                 </span>
