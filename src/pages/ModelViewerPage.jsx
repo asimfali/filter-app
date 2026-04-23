@@ -997,11 +997,11 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         const camera = cameraRef.current;
         const scene = sceneRef.current;
         const controls = controlsRef.current;
-    
+
         if (e.button === 0) {
             mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
         }
-    
+
         if (e.button === 2 && e.buttons === 3) {
             e.preventDefault();
             e.stopPropagation();
@@ -1015,22 +1015,22 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             };
             return;
         }
-    
+
         if (e.button !== 1) return;
         e.preventDefault();
         if (!container || !camera || !scene || !controls) return;
-    
+
         const rect = container.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width) * 2 - 1,
             -((e.clientY - rect.top) / rect.height) * 2 + 1,
         );
-    
+
         raycasterRef.current.setFromCamera(mouse, camera);
         const meshes = [];
         scene.traverse(c => { if (c.isMesh && c.visible) meshes.push(c); });
         const hits = raycasterRef.current.intersectObjects(meshes, false);
-    
+
         if (hits.length > 0) {
             controls.target.copy(hits[0].point);
             controls.update();
@@ -1198,8 +1198,9 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             <div className={`flex items-center justify-between px-4 py-2 border-b shrink-0
                 ${dark ? 'bg-neutral-900 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center gap-3">
-                    <span className={`text-sm font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>{fname}</span>
-                    <span className="text-xs text-gray-500 uppercase">{getExt(fname)}</span>
+                    <span className={`text-sm font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>
+                        {fname.replace(/\.[^.]+$/, '')}
+                    </span>
                 </div>
                 <div className="flex items-center gap-3">
                     <button onClick={showAll}

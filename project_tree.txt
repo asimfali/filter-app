@@ -22,11 +22,30 @@
 │   │   │   ├── ProfileModal.jsx
 │   │   │   ├── RegisterForm.jsx
 │   │   │   └── TwoFAForm.jsx
+│   │   ├── bom
+│   │   │   ├── CreateDetailsModal.jsx
+│   │   │   ├── CreateSpecModal.jsx
+│   │   │   ├── FolderPicker.jsx
+│   │   │   ├── ImportExcelModal.jsx
+│   │   │   ├── ImportJsonModal.jsx
+│   │   │   ├── MaterialCombobox.jsx
+│   │   │   ├── MaterialGroupsModal.jsx
+│   │   │   ├── MergeExcelModal.jsx
+│   │   │   ├── PackagingModal.jsx
+│   │   │   ├── PullModal.jsx
+│   │   │   ├── SyncModal.jsx
+│   │   │   ├── UnitWeightModal.jsx
+│   │   │   └── ValidationReport.jsx
 │   │   ├── catalog
 │   │   │   └── ColumnSettingsModal.jsx
 │   │   ├── common
-│   │   │   ├── DocumentSearch.jsx
-│   │   │   └── ProductSearch.jsx
+│   │   │   ├── AlertModal.jsx
+│   │   │   ├── ConfirmModal.jsx
+│   │   │   ├── Dropdown.jsx
+│   │   │   ├── FileDropZone.jsx
+│   │   │   ├── ModalFooter.jsx
+│   │   │   ├── SmartSelect.jsx
+│   │   │   └── WarningsList.jsx
 │   │   ├── configurator
 │   │   │   ├── BindingGraph.jsx
 │   │   │   ├── FilterTree.jsx
@@ -54,10 +73,18 @@
 │   │   ├── useChainSearch.js
 │   │   ├── useColumnPrefs.js
 │   │   ├── useDocUpload.js
+│   │   ├── useExcelImport.js
 │   │   ├── useIssuesSocket.js
+│   │   ├── useModals.jsx
 │   │   └── useProductDocUpload.js
 │   ├── pages
+│   │   ├── bom
+│   │   │   ├── MaterialsPanel.jsx
+│   │   │   ├── SpecEditor.jsx
+│   │   │   ├── SpecHeaderForm.jsx
+│   │   │   └── SpecList.jsx
 │   │   ├── AccessoryKitsPage.jsx
+│   │   ├── DefectActPage.jsx
 │   │   ├── DocumentsPage.jsx
 │   │   ├── FolderUploadPage.jsx
 │   │   ├── HeatExchangersPage.jsx
@@ -71,10 +98,13 @@
 │   │   ├── SpecEditorPage.jsx
 │   │   ├── SpecPreviewPage.jsx
 │   │   └── StaffPage.jsx
+│   ├── status
+│   │   └── SPEC_EDITOR_FRONTEND_PROGRESS.md
 │   ├── utils
 │   │   ├── fileUtils.js
 │   │   ├── filterLatestPassports.js
-│   │   └── permissions.js
+│   │   ├── permissions.js
+│   │   └── styles.js
 │   ├── App.css
 │   ├── App.jsx
 │   ├── index.css
@@ -93,4 +123,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-18 directories, 76 files
+21 directories, 103 files

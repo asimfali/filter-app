@@ -584,7 +584,7 @@ function DocFileLink({ folder, fname, relPath = null, isNew = false, onOpenViewe
                     : 'text-blue-600 dark:text-blue-400'
                 }`}>
             <span>{loading ? '···' : '↓'}</span>
-            <span className="truncate max-w-32" title={fname}>{fname}</span>
+            <span className="truncate max-w-32" title={fname}>{fname.replace(/\.[^.]+$/, '')}</span>
             {isNew && <span className="text-[10px] text-emerald-400">new</span>}
         </button>
     );
