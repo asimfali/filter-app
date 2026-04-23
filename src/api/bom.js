@@ -204,4 +204,31 @@ export const bomApi = {
         request('POST', `${BASE}/packaging-items/import-from-1c/`),
     trackPartUse: (partId) =>
         request('POST', `${BASE}/parts/${partId}/use/`),
+
+    // Акты дефектации
+    getDefectActs: (params = {}) => {
+        const qs = new URLSearchParams();
+        if (params.date_from) qs.set('date_from', params.date_from);
+        if (params.date_to) qs.set('date_to', params.date_to);
+        if (params.q) qs.set('q', params.q);
+        return request('GET', `${BASE}/defect-acts/?${qs}`);
+    },
+    createDefectAct: (payload) => request('POST', `${BASE}/defect-acts/`, payload),
+    updateDefectAct: (id, payload) => request('PATCH', `${BASE}/defect-acts/${id}/`, payload),
+    deleteDefectAct: (id) => request('DELETE', `${BASE}/defect-acts/${id}/`),
+    getDefectTypes: (q = '') => {
+        const qs = new URLSearchParams();
+        if (q) qs.set('q', q);
+        return request('GET', `${BASE}/defect-types/?${qs}`);
+    },
+    createDefectType: (name) => request('POST', `${BASE}/defect-types/`, { name }),
+    downloadDefectActsPdf: (params = {}) => {
+        const qs = new URLSearchParams();
+        if (params.date_from) qs.set('date_from', params.date_from);
+        if (params.date_to) qs.set('date_to', params.date_to);
+        if (params.q) qs.set('q', params.q);
+        return fetch(`${BASE}/defect-acts/pdf/?${qs}`, {
+            headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` },
+        });
+    },
 };

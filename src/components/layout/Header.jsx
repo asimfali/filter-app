@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext.jsx';
 import { can } from '../../utils/permissions';
-import ProductSearch from '../common/ProductSearch';
+import SmartSelect from '../common/SmartSelect';
 import ProfileModal from '../auth/ProfileModal';
-
-const API_BASE = '/api/v1/catalog';
 
 const NOTIFICATION_LABEL = {
   'issues.new_issue': 'Новое замечание',
@@ -44,16 +41,6 @@ function notificationSubtitle(n) {
     default:
       return null;
   }
-}
-
-// Debounce hook
-function useDebounce(value, delay) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
 }
 
 // ─── Колокольчик ─────────────────────────────────────────────────────────────
@@ -198,55 +185,7 @@ function NotificationBell({ onNavigate }) {
 
 export default function Header({ currentPage, onNavigate }) {
   const { user, logout, activeSession, refreshUser } = useAuth();
-  const { dark, toggle } = useTheme();
-
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [open, setOpen] = useState(false);
-  const debouncedQuery = useDebounce(query, 250);
-  const inputRef = useRef(null);
-  const dropdownRef = useRef(null);
   const [profileOpen, setProfileOpen] = useState(false);
-
-
-  useEffect(() => {
-    if (debouncedQuery.length < 2) {
-      setResults([]);
-      setOpen(false);
-      return;
-    }
-    setSearching(true);
-    fetch(`${API_BASE}/products/search/?q=${encodeURIComponent(debouncedQuery)}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) { setResults(data.data); setOpen(true); }
-      })
-      .catch(() => { })
-      .finally(() => setSearching(false));
-  }, [debouncedQuery]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (
-        dropdownRef.current && !dropdownRef.current.contains(e.target) &&
-        inputRef.current && !inputRef.current.contains(e.target)
-      ) setOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleSelect = (product) => {
-    setQuery(''); setResults([]); setOpen(false);
-    onNavigate('product', product.id);
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') { setOpen(false); setQuery(''); inputRef.current?.blur(); }
-  };
 
   return (
     <header className="bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-gray-700
@@ -268,6 +207,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'part-editor', label: 'Спецификации', code: 'bom.spec.view' },
                 { id: 'heat-exchangers', label: 'Теплообменники', code: 'portal.heat_exchanger.view' },
                 { id: 'accessory-kits', label: 'Комплектующие', code: 'catalog.accessory.write' },
+                { id: 'defect-acts', label: 'Ведомость дефектов', code: 'bom.defect.view' },
               ];
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [
@@ -298,13 +238,13 @@ export default function Header({ currentPage, onNavigate }) {
                          text-gray-400 text-xs pointer-events-none z-10">
             🔍
           </span>
-          <ProductSearch
-            onSelect={(product) => onNavigate('product', product.id)}
+          <SmartSelect
+            endpoint="/api/v1/catalog/products/search/"
             placeholder="Поиск товара..."
-            clearOnSelect={true}
-            className="w-full"
-            inputClassName="bg-neutral-100 dark:bg-neutral-800 border-transparent
-                    focus:border-blue-500 pl-8 py-1.5 text-sm rounded-lg"
+            onSelect={product => onNavigate('product', product.id)}
+            inputClassName="bg-neutral-100 dark:bg-neutral-800
+                            border-transparent focus:border-blue-500
+                            pl-8 py-1.5 text-sm rounded-lg"
           />
         </div>
       )}

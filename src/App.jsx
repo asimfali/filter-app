@@ -24,6 +24,7 @@ import PasswordResetForm from './components/auth/PasswordResetForm';
 import HeatExchangersPage from './pages/HeatExchangersPage';
 import AccessoryKitsPage from './pages/AccessoryKitsPage';
 import FolderUploadPage from './pages/FolderUploadPage';
+import DefectActPage from './pages/DefectActPage';
 
 
 // AuthPage без изменений — твой существующий код
@@ -339,6 +340,7 @@ function MainApp() {
                     onBack={() => handleNavigate('issues')}
                   />
                 )}
+                {page === 'defect-acts' && <DefectActPage />}
               </>
             )}
           </main>
