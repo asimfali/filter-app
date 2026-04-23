@@ -147,7 +147,7 @@ function DefectActForm({ initial = null, onSaved, onCancel }) {
                         type="number"
                         min="1"
                         value={form.quantity}
-                        onChange={e => setForm(f => ({ ...f, quantity: parseInt(e.target.value) || 1 }))}
+                        onChange={e => setForm(f => ({ ...f, quantity: e.target.value === '' ? '' : parseInt(e.target.value) || 1 }))}
                         className={inp}
                     />
                 </div>
