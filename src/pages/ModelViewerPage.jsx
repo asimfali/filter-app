@@ -505,7 +505,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
     const objMapRef = useRef({});  // uuid → THREE.Object3D
     const userMaterialStateRef = useRef({});
     const panDragRef = useRef(null);
-    const needsRenderRef = useRef(true);v
+    const needsRenderRef = useRef(true);
 
     const { dark } = useTheme();
     const [loading, setLoading] = useState(true);
