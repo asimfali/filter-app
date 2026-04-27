@@ -506,6 +506,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
     const userMaterialStateRef = useRef({});
     const panDragRef = useRef(null);
     const needsRenderRef = useRef(true);
+    const panDidMoveRef = useRef(false);
 
     const { dark } = useTheme();
     const [loading, setLoading] = useState(true);
@@ -622,6 +623,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
 
         const onPointerMove = (e) => {
             if (!panDragRef.current) return;
+            panDidMoveRef.current = true;
             if (!(e.buttons & 3)) {
                 panDragRef.current = null;
                 controls.enabled = true;
@@ -654,6 +656,8 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         const onPointerUp = () => {
             panDragRef.current = null;
             controls.enabled = true;
+            // Сброс через setTimeout чтобы contextmenu сработал после
+            setTimeout(() => { panDidMoveRef.current = false; }, 50);
         };
 
         container.addEventListener('pointermove', onPointerMove);
@@ -1048,6 +1052,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
 
     const handleCanvasContextMenu = useCallback((e) => {
         e.preventDefault();
+        if (panDidMoveRef.current) return;
         const container = mountRef.current;
         const camera = cameraRef.current;
         const scene = sceneRef.current;
