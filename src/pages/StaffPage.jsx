@@ -3,17 +3,13 @@ import { apiFetch } from '../api/auth';
 import { can } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { authApi } from '../api/auth';
+import Modal from '../components/common/Modal';
+import { parseError } from '../utils';
+import { inputCls } from '../utils/styles';
 
 const API = '/api/v1/auth';
 
 // ── Утилиты ───────────────────────────────────────────────────────────────
-
-function parseError(data, status) {
-    if (status === 403) return data?.detail || 'Недостаточно прав';
-    if (data?.detail) return data.detail;
-    if (typeof data === 'object') return Object.values(data).flat().join(', ');
-    return 'Неизвестная ошибка';
-}
 
 function flattenDepartments(departments, level = 0) {
     const result = [];
@@ -94,23 +90,6 @@ function useStaffRequests() {
     return { requests, loading, reload: load };
 }
 
-// ── Модальное окно ────────────────────────────────────────────────────────
-
-function Modal({ title, onClose, children, wide }) {
-    return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className={`bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
-                    <button onClick={onClose}
-                        className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 text-xl leading-none">✕</button>
-                </div>
-                <div className="px-5 py-4">{children}</div>
-            </div>
-        </div>
-    );
-}
-
 
 // ── Форма назначения роли ─────────────────────────────────────────────────
 
@@ -156,7 +135,7 @@ function AssignRoleForm({ userId, departments, roles, existingRoles, onSave, onC
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">Подразделение</label>
                 <select required value={form.department}
                     onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-                    className={sel}>
+                    className={inputCls}>
                     <option value="">— выберите —</option>
                     {departments.map(d => (
                         <option key={d.id} value={d.id}>{d.name}</option>
@@ -167,7 +146,7 @@ function AssignRoleForm({ userId, departments, roles, existingRoles, onSave, onC
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">Роль</label>
                 <select required value={form.role}
                     onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-                    className={sel}>
+                    className={inputCls}>
                     <option value="">— выберите —</option>
                     {roles.map(r => (
                         <option key={r.id} value={r.id}>
@@ -344,22 +323,32 @@ function UserCard({ user, departments, roles, onUpdate }) {
 
 function DepartmentTree({ departments, level = 0, onEdit, onAdd }) {
     return (
-        <div>
+        <div className={level > 0 ? 'border-l border-gray-200 dark:border-gray-700 ml-4' : ''}>
             {departments.map(dept => (
                 <div key={dept.id}>
                     <div
                         className="flex items-center justify-between px-3 py-2 rounded-lg
-                       hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:bg-neutral-950 group"
-                        style={{ paddingLeft: `${level * 20 + 12}px` }}
+                                   hover:bg-neutral-50 dark:hover:bg-neutral-800 group
+                                   border-b border-gray-100 dark:border-gray-800"
+                        style={{ paddingLeft: `${level * 16 + 12}px` }}
                     >
                         <div className="flex items-center gap-2">
-                            {level > 0 && <span className="text-gray-300 text-xs">└</span>}
+                            {level > 0 && (
+                                <span className="text-gray-300 dark:text-gray-600 text-xs select-none">
+                                    └
+                                </span>
+                            )}
                             <div>
-                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{dept.name}</span>
-                                <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{dept.code}</span>
+                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                    {dept.name}
+                                </span>
+                                <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                                    {dept.code}
+                                </span>
                                 {dept.members_count > 0 && (
-                                    <span className="ml-2 text-xs bg-blue-50 text-blue-600
-                                   px-1.5 py-0.5 rounded-full">
+                                    <span className="ml-2 text-xs bg-blue-50 dark:bg-blue-900/30
+                                                     text-blue-600 dark:text-blue-400
+                                                     px-1.5 py-0.5 rounded-full">
                                         {dept.members_count} чел.
                                     </span>
                                 )}
@@ -368,16 +357,17 @@ function DepartmentTree({ departments, level = 0, onEdit, onAdd }) {
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => onAdd(dept)}
                                 className="text-xs text-emerald-600 hover:text-emerald-800
-                           px-2 py-1 hover:bg-emerald-50 rounded">
+                                           px-2 py-1 hover:bg-emerald-50 rounded">
                                 + дочернее
                             </button>
                             <button onClick={() => onEdit(dept)}
                                 className="text-xs text-blue-600 hover:text-blue-800
-                           px-2 py-1 hover:bg-blue-50 rounded">
+                                           px-2 py-1 hover:bg-blue-50 rounded">
                                 ✎
                             </button>
                         </div>
                     </div>
+
                     {dept.children?.length > 0 && (
                         <DepartmentTree
                             departments={dept.children}
@@ -577,12 +567,189 @@ function SpecPermissionsTab({ deptId }) {
     );
 }
 
+// ── Форма создания права ──────────────────────────────────────────────────
+
+const RESOURCE_TYPES = [
+    { value: 'product',   label: 'Товар' },
+    { value: 'parameter', label: 'Параметр' },
+    { value: 'category',  label: 'Категория' },
+    { value: 'document',  label: 'Документ' },
+    { value: 'user',      label: 'Пользователь' },
+    { value: 'spec',      label: 'Характеристика' },
+];
+
+const ACTION_TYPES = [
+    { value: 'read',         label: 'Чтение' },
+    { value: 'write',        label: 'Запись' },
+    { value: 'approve',      label: 'Утверждение' },
+    { value: 'delete',       label: 'Удаление' },
+    { value: 'request_edit', label: 'Запрос на правку' },
+    { value: 'grant_edit',   label: 'Выдача разрешения на правку' },
+];
+
+function CreatePermissionModal({ onClose, onCreated }) {
+    const [form, setForm] = useState({
+        code: '', name: '', resource_type: '', action: '', description: '',
+    });
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    // Автогенерация кода из resource_type + action
+    const suggestCode = (resource_type, action) => {
+        if (resource_type && action) {
+            return `portal.${resource_type}.${action}`;
+        }
+        return form.code;
+    };
+
+    const handleChange = (field, value) => {
+        setForm(prev => {
+            const next = { ...prev, [field]: value };
+            // Автозаполнение кода если поле не редактировалось вручную
+            if (field === 'resource_type' || field === 'action') {
+                const auto = suggestCode(
+                    field === 'resource_type' ? value : prev.resource_type,
+                    field === 'action' ? value : prev.action,
+                );
+                if (!prev.code || prev.code === suggestCode(prev.resource_type, prev.action)) {
+                    next.code = auto;
+                }
+            }
+            return next;
+        });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+            const res = await apiFetch(`${API}/permissions/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                onCreated(data);
+                onClose();
+            } else {
+                setError(parseError(data, res.status));
+            }
+        } catch {
+            setError('Ошибка соединения');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Modal title="Новое право доступа" onClose={onClose}>
+            <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600
+                                          dark:text-gray-400 mb-1">
+                            Тип ресурса
+                        </label>
+                        <select required value={form.resource_type}
+                            onChange={e => handleChange('resource_type', e.target.value)}
+                            className={sel}>
+                            <option value="">— выберите —</option>
+                            {RESOURCE_TYPES.map(r => (
+                                <option key={r.value} value={r.value}>{r.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600
+                                          dark:text-gray-400 mb-1">
+                            Действие
+                        </label>
+                        <select required value={form.action}
+                            onChange={e => handleChange('action', e.target.value)}
+                            className={sel}>
+                            <option value="">— выберите —</option>
+                            {ACTION_TYPES.map(a => (
+                                <option key={a.value} value={a.value}>{a.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-gray-600
+                                      dark:text-gray-400 mb-1">
+                        Код
+                        <span className="text-gray-400 font-normal ml-1">
+                            (автозаполняется)
+                        </span>
+                    </label>
+                    <input required value={form.code}
+                        onChange={e => handleChange('code', e.target.value)}
+                        placeholder="portal.document.delete"
+                        className={inputCls} />
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                        Только строчные латинские буквы, цифры и точки
+                    </p>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-gray-600
+                                      dark:text-gray-400 mb-1">
+                        Название
+                    </label>
+                    <input required value={form.name}
+                        onChange={e => handleChange('name', e.target.value)}
+                        placeholder="Удаление документов"
+                        className={inputCls} />
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-gray-600
+                                      dark:text-gray-400 mb-1">
+                        Описание
+                        <span className="text-gray-400 font-normal ml-1">(необязательно)</span>
+                    </label>
+                    <input value={form.description}
+                        onChange={e => handleChange('description', e.target.value)}
+                        placeholder="Позволяет удалять документы в медиатеке"
+                        className={inputCls} />
+                </div>
+
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700
+                                    text-xs px-3 py-2 rounded-lg">
+                        {error}
+                    </div>
+                )}
+
+                <div className="flex gap-2 pt-1">
+                    <button type="button" onClick={onClose}
+                        className="flex-1 border border-gray-300 dark:border-gray-600
+                                   text-gray-700 dark:text-gray-300 text-sm py-2
+                                   rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800">
+                        Отмена
+                    </button>
+                    <button type="submit" disabled={loading}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50
+                                   text-white text-sm py-2 rounded-lg transition-colors">
+                        {loading ? 'Создание...' : 'Создать'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
 function DeptPermissionsTab({ deptId, roles }) {
     const { perms, loading, add, remove } = useDeptPermissions(deptId);
-    const allPermissions = useAllPermissions();
-    const [busy, setBusy] = useState(null); // 'roleId-permId'
+    const [busy, setBusy] = useState(null);
+    const [search, setSearch] = useState('');
+    const [collapsed, setCollapsed] = useState({});
+    const [createModal, setCreateModal] = useState(false);
+    const [permissions, setPermissions] = useState(null);
 
-    // Быстрая проверка — есть ли уже такая связка
     const isEnabled = (roleId, permId) =>
         perms.some(p => p.role === roleId && p.permission === permId);
 
@@ -600,76 +767,157 @@ function DeptPermissionsTab({ deptId, roles }) {
         setBusy(null);
     };
 
+    const toggleGroup = (group) =>
+        setCollapsed(prev => ({ ...prev, [group]: !prev[group] }));
+
+    const basePermissions = useAllPermissions();
+    const allPermissions = permissions ?? basePermissions;
+
+    const handleCreated = (newPerm) => {
+        setPermissions(prev => [...(prev ?? basePermissions), newPerm]);
+    };
+    // Фильтрация + группировка
+    const filtered = allPermissions.filter(p => {
+        const q = search.toLowerCase();
+        return !q || p.code.toLowerCase().includes(q) || p.name?.toLowerCase().includes(q);
+    });
+
+    const RESOURCE_LABELS = {
+        product:   'Товар',
+        parameter: 'Параметр',
+        category:  'Категория',
+        document:  'Документ',
+        user:      'Пользователь',
+        spec:      'Характеристика',
+    };
+
+    const grouped = filtered.reduce((acc, perm) => {
+        const group = perm.resource_type || 'other';
+        if (!acc[group]) acc[group] = [];
+        acc[group].push(perm);
+        return acc;
+    }, {});
+
     if (loading) return (
         <div className="text-xs text-gray-400 py-4 text-center">Загрузка...</div>
     );
-
     if (!allPermissions.length || !roles.length) return (
         <div className="text-xs text-gray-400 py-4 text-center">Нет данных</div>
     );
 
     return (
-        <div className="overflow-auto max-h-96">
-            <table className="w-full text-xs border-collapse">
-                <thead>
-                    <tr>
-                        {/* Пустая ячейка под названия прав */}
-                        <th className="text-left px-2 py-1.5 text-gray-500 font-medium
-                                       border-b border-gray-200 dark:border-gray-700 sticky top-0
-                                       bg-white dark:bg-neutral-900 min-w-48">
-                            Право
-                        </th>
-                        {roles.map(r => (
-                            <th key={r.id}
-                                className="px-2 py-1.5 text-center text-gray-600 dark:text-gray-400
-                                           font-medium border-b border-gray-200 dark:border-gray-700
-                                           sticky top-0 bg-white dark:bg-neutral-900 min-w-24">
-                                {r.name}
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {allPermissions.map(perm => (
-                        <tr key={perm.id}
-                            className="hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
-                            <td className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-800">
-                                <div className="font-mono text-gray-700 dark:text-gray-300">
-                                    {perm.code}
-                                </div>
-                                {perm.name && (
-                                    <div className="text-gray-400 dark:text-gray-500 text-[11px]">
-                                        {perm.name}
-                                    </div>
-                                )}
-                            </td>
-                            {roles.map(role => {
-                                const key = `${role.id}-${perm.id}`;
-                                const enabled = isEnabled(role.id, perm.id);
-                                const isBusy = busy === key;
-                                return (
-                                    <td key={role.id}
-                                        className="px-2 py-1.5 text-center border-b
-                                                   border-gray-100 dark:border-gray-800">
-                                        <button
-                                            onClick={() => toggle(role.id, perm.id)}
-                                            disabled={isBusy}
-                                            className={`w-5 h-5 rounded transition-colors mx-auto flex
-                                                        items-center justify-center
-                                                        ${isBusy ? 'opacity-40' : ''}
-                                                        ${enabled
-                                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                                    : 'border-2 border-gray-300 dark:border-gray-600 hover:border-blue-400'
-                                                }`}>
-                                            {isBusy ? '·' : enabled ? '✓' : ''}
-                                        </button>
-                                    </td>
-                                );
-                            })}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+        <div className="space-y-2">
+            {/* Поиск */}
+            <input
+                type="search"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Поиск по коду или названию..."
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
+                           px-3 py-1.5 text-xs focus:outline-none focus:ring-2
+                           focus:ring-blue-500 dark:bg-neutral-800 dark:text-white"
+            />
+            <button
+                    onClick={() => setCreateModal(true)}
+                    className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white
+                               text-xs px-3 py-1.5 rounded-lg transition-colors">
+                    + Новое право
+                </button>
+
+            <div className="overflow-auto max-h-[420px]">
+                {Object.entries(grouped).map(([group, perms]) => (
+                    <div key={group} className="mb-1">
+                        {/* Заголовок группы */}
+                        <button
+                            onClick={() => toggleGroup(group)}
+                            className="w-full flex items-center justify-between px-2 py-1.5
+                                       bg-neutral-100 dark:bg-neutral-800 rounded text-xs
+                                       font-medium text-gray-600 dark:text-gray-400
+                                       hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                        >
+                            <span>{RESOURCE_LABELS[group] ?? group}</span>
+                            <span className="flex items-center gap-2">
+                                <span className="text-gray-400">{perms.length}</span>
+                                <span>{collapsed[group] ? '▸' : '▾'}</span>
+                            </span>
+                        </button>
+
+                        {/* Таблица группы */}
+                        {!collapsed[group] && (
+                            <table className="w-full text-xs border-collapse mt-0.5">
+                                <thead>
+                                    <tr>
+                                        <th className="text-left px-2 py-1 text-gray-400 font-normal
+                                                       border-b border-gray-100 dark:border-gray-800 min-w-48">
+                                            Право
+                                        </th>
+                                        {roles.map(r => (
+                                            <th key={r.id}
+                                                className="px-2 py-1 text-center text-gray-500
+                                                           dark:text-gray-400 font-normal
+                                                           border-b border-gray-100 dark:border-gray-800 min-w-20">
+                                                {r.name}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {perms.map(perm => (
+                                        <tr key={perm.id}
+                                            className="hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+                                            <td className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-800">
+                                                <div className="font-mono text-gray-700 dark:text-gray-300">
+                                                    {perm.code}
+                                                </div>
+                                                {perm.name && (
+                                                    <div className="text-gray-400 dark:text-gray-500 text-[11px]">
+                                                        {perm.name}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            {roles.map(role => {
+                                                const key = `${role.id}-${perm.id}`;
+                                                const enabled = isEnabled(role.id, perm.id);
+                                                const isBusy = busy === key;
+                                                return (
+                                                    <td key={role.id}
+                                                        className="px-2 py-1.5 text-center border-b
+                                                                   border-gray-100 dark:border-gray-800">
+                                                        <button
+                                                            onClick={() => toggle(role.id, perm.id)}
+                                                            disabled={isBusy}
+                                                            className={`w-5 h-5 rounded transition-colors mx-auto
+                                                                        flex items-center justify-center
+                                                                        ${isBusy ? 'opacity-40' : ''}
+                                                                        ${enabled
+                                                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                                    : 'border-2 border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                                                                }`}>
+                                                            {isBusy ? '·' : enabled ? '✓' : ''}
+                                                        </button>
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                ))}
+
+                {filtered.length === 0 && (
+                    <div className="text-xs text-gray-400 text-center py-4">
+                        Ничего не найдено
+                    </div>
+                )}
+                {createModal && (
+                <CreatePermissionModal
+                    onClose={() => setCreateModal(false)}
+                    onCreated={handleCreated}
+                />
+            )}
+            </div>
         </div>
     );
 }
@@ -786,7 +1034,7 @@ function DepartmentsPanel({ departments, reload }) {
                                 </label>
                                 <input required value={form.name}
                                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                                    placeholder="Бюро автоматики" className={inp} />
+                                    placeholder="Бюро автоматики" className={inputCls} />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -794,7 +1042,7 @@ function DepartmentsPanel({ departments, reload }) {
                                 </label>
                                 <input required value={form.code}
                                     onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
-                                    placeholder="ba" className={inp} />
+                                    placeholder="ba" className={inputCls} />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -802,7 +1050,7 @@ function DepartmentsPanel({ departments, reload }) {
                                 </label>
                                 <input value={form.description}
                                     onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                                    placeholder="Необязательно" className={inp} />
+                                    placeholder="Необязательно" className={inputCls} />
                             </div>
                             {error && (
                                 <div className="bg-red-50 border border-red-200 text-red-700 text-xs
