@@ -619,7 +619,6 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             RIGHT: THREE.MOUSE.PAN,
         };
         controlsRef.current = controls;
-        controls.addEventListener('change', () => { needsRenderRef.current = true; });
 
         const onPointerMove = (e) => {
             if (!panDragRef.current) return;
@@ -666,10 +665,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         const animate = () => {
             frameRef.current = requestAnimationFrame(animate);
             controls.update();
-            if (needsRenderRef.current) {
-                renderer.render(scene, camera);
-                needsRenderRef.current = false;
-            }
+            renderer.render(scene, camera);
         };
         animate();
 
