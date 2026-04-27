@@ -25,6 +25,7 @@ import HeatExchangersPage from './pages/HeatExchangersPage';
 import AccessoryKitsPage from './pages/AccessoryKitsPage';
 import FolderUploadPage from './pages/FolderUploadPage';
 import DefectActPage from './pages/DefectActPage';
+import ProductMasterPage from './pages/ProductMasterPage';
 
 
 // AuthPage без изменений — твой существующий код
@@ -296,6 +297,9 @@ function MainApp() {
             )}
             {user.is_confirmed && (
               <>
+                {page === 'series-master' && (
+                  <ProductMasterPage onBack={() => handleNavigate('parameters')} />
+                )}
                 {page === 'parameters' && <ParameterEditorPage />}
                 {page === 'staff' && <StaffPage />}
                 {page === 'documents' && <DocumentsPage

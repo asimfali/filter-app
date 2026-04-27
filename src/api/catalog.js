@@ -188,4 +188,59 @@ export const catalogApi = {
         const res = await apiFetch(`${BASE}/products/task-status/${taskId}/`);
         return { ok: res.ok, data: await res.json() };
     },
+
+    // Серии
+    async getSeriesTemplates(productTypeId = null) {
+        const q = productTypeId ? `?product_type=${productTypeId}` : '';
+        const res = await apiFetch(`${BASE}/series-templates/${q}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async getSeriesTemplate(id) {
+        const res = await apiFetch(`${BASE}/series-templates/${id}/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async createSeriesTemplate(payload) {
+        const res = await apiFetch(`${BASE}/series-templates/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async generateSeriesRules(templateId, validate = false) {
+        const res = await apiFetch(`${BASE}/series-templates/${templateId}/generate-rules/`, {
+            method: 'POST',
+            body: JSON.stringify({ validate }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async createSeriesProducts(templateId) {
+        const res = await apiFetch(`${BASE}/series-templates/${templateId}/create-products/`, {
+            method: 'POST',
+            body: JSON.stringify({}),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async addSeriesItem(templateId, item) {
+        const res = await apiFetch(`${BASE}/series-templates/${templateId}/items/`, {
+            method: 'POST',
+            body: JSON.stringify(item),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async parameterAxes(productTypeId = null) {
+        const q = productTypeId ? `?product_type=${productTypeId}` : '';
+        const res = await apiFetch(`${BASE}/parameter-axes/${q}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async powerValues() {
+        const res = await apiFetch(`${BASE}/power-values/`);
+        return { ok: res.ok, data: await res.json() };
+    },
 };
