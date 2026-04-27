@@ -29,14 +29,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [filterResult, setFilterResult] = useState(null);
   const [counting, setCounting] = useState(false);
-  const [attachAxis, setAttachAxis] = useState('');
-  const [attachValue, setAttachValue] = useState('');
-  const [attaching, setAttaching] = useState(false);
-  const [attachResult, setAttachResult] = useState(null);
-  const [availableValues, setAvailableValues] = useState([]);
-  const [detaching, setDetaching] = useState(false);
-  const [detachResult, setDetachResult] = useState(null);
-  const [attachedValueIds, setAttachedValueIds] = useState([]);
   const [graphHeight, setGraphHeight] = useState(500);
   const [showCreateThread, setShowCreateThread] = useState(false);
   // ── Редактор привязок ──────────────────────────────────────────────────────
@@ -104,9 +96,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
     setError(null);
     setSelectedNodes([]);
     setFilterResult(null);
-    setAttachResult(null);
-    setAttachAxis('');
-    setAttachValue('');
     setSelectedTags([]);
     setTagValues([]);
 
@@ -458,7 +447,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
       if (selected.length === 0) {
         setSelectedNodes([]);
         setFilterResult(null);
-        setAttachResult(null);
         return;
       }
 
@@ -509,7 +497,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
       cy.edges().not(connectingEdges).addClass('dimmed');
 
       setFilterResult(null);
-      setAttachResult(null);
       setSelectedNodes(
         selected.map(n => ({
           id: n.id(),
@@ -529,7 +516,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
         cy.elements().removeClass('highlighted dimmed');
         setSelectedNodes([]);
         setFilterResult(null);
-        setAttachResult(null);
       }
     });
 
@@ -594,7 +580,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
     if (!intersectionIds.length) return;
     setCounting(true);
     try {
-      const result = await filterSearch.search(intersectionIds);
+        const result = await filterSearch.search(intersectionIds);
       if (result) {
         setFilterResult({
           count: result.count,
@@ -604,71 +590,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
       }
     } finally {
       setCounting(false);
-    }
-  };
-
-  const handleAttach = async () => {
-    if (!attachAxis || !attachValue || !filterResult?.product_ids?.length) return;
-    setAttaching(true);
-    setAttachResult(null);
-    try {
-      const { ok, data } = await catalogApi.bulkAttachParameter(
-        selectedNodes.map(n => ({ axis_id: n.axisId, value_id: n.valueId })), attachAxis, attachValue);
-      if (ok && data.success) setAttachResult(data.data);
-    } finally {
-      setAttaching(false);
-    }
-  };
-
-  const handleAxisChange = async (axisId) => {
-    setAttachAxis(axisId);
-    setAttachValue('');
-    setAttachResult(null);
-    setDetachResult(null);
-    setAttachedValueIds([]);
-
-    if (cyInstanceRef.current) {
-      cyInstanceRef.current.nodes('.attached').removeClass('attached');
-    }
-
-    if (!axisId) { setAvailableValues([]); return; }
-
-    const { ok, data } = await catalogApi.parameterValues(axisId);
-    const vals = ok ? (Array.isArray(data) ? data : (data.results || [])) : [];
-    setAvailableValues(vals.map(v => ({ id: v.id, label: v.value })));
-
-    if (!selectedNodes.length) return;
-
-    const { ok: ok2, data: data2 } = await catalogApi.currentParameters(
-      selectedNodes.map(n => ({ axis_id: n.axisId, value_id: n.valueId })),
-      axisId,
-    );
-    if (ok2 && data2.success && data2.data.value_ids.length > 0) {
-      const cy = cyInstanceRef.current;
-      data2.data.value_ids.forEach(vid => {
-        const node = cy.getElementById(`value-${vid}`);
-        if (node.length) {
-          node.removeClass('dimmed');
-          node.addClass('attached');
-        }
-      });
-    }
-  };
-
-  const handleDetach = async () => {
-    if (!attachAxis || !filterResult?.count) return;
-    setDetaching(true);
-    setDetachResult(null);
-    try {
-      const { ok, data } = await catalogApi.bulkDetachParameter(selectedNodes.map(n => ({ axis_id: n.axisId, value_id: n.valueId })),
-        attachAxis);
-      if (ok && data.success) {
-        setDetachResult(data.data);
-        setAttachedValueIds([]);
-        cyInstanceRef.current?.nodes('.attached').removeClass('attached');
-      }
-    } finally {
-      setDetaching(false);
     }
   };
 
@@ -932,96 +853,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                           onOpenThread(thread.id);
                         }}
                       />
-                    )}
-                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400
-                                uppercase tracking-wide mb-3">
-                      Привязать ось
-                    </div>
-
-
-                    <div className="mb-2">
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ось</label>
-                      <select
-                        value={attachAxis}
-                        onChange={e => handleAxisChange(e.target.value)}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
-                               px-2 py-1.5 text-sm focus:outline-none focus:ring-2
-                               focus:ring-blue-500 dark:bg-neutral-800 dark:text-white"
-                      >
-                        <option value="">— выберите —</option>
-                        {allAxes.map(a => (
-                          <option key={a.id} value={a.id}>{a.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {attachAxis && attachedValueIds.length > 0 && (
-                      <div className="mb-2 p-2 bg-emerald-50 rounded text-xs text-emerald-700">
-                        Уже привязано: {availableValues
-                          .filter(v => attachedValueIds.includes(v.id))
-                          .map(v => v.label)
-                          .join(', ')}
-                      </div>
-                    )}
-                    {attachAxis && attachedValueIds.length === 0 && availableValues.length > 0 && (
-                      <div className="mb-2 p-2 bg-neutral-50 dark:bg-neutral-950 rounded text-xs text-gray-400">
-                        Привязок нет
-                      </div>
-                    )}
-
-                    {attachAxis && (
-                      <div className="mb-3">
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                          Значение
-                        </label>
-                        <select
-                          value={attachValue}
-                          onChange={e => { setAttachValue(e.target.value); setAttachResult(null); }}
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
-                                 px-2 py-1.5 text-sm focus:outline-none focus:ring-2
-                                 focus:ring-blue-500 dark:bg-neutral-800 dark:text-white"
-                        >
-                          <option value="">— выберите —</option>
-                          {availableValues.map(v => (
-                            <option key={v.id} value={v.id}>
-                              {attachedValueIds.includes(v.id) ? '✓ ' : ''}{v.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleAttach}
-                        disabled={!(filterResult?.count > 0 && attachAxis && attachValue) || attaching}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40
-                               text-white text-sm py-2 rounded-lg transition-colors"
-                      >
-                        {attaching ? 'Привязываю...' : 'Привязать'}
-                      </button>
-                      <button
-                        onClick={handleDetach}
-                        disabled={!attachAxis || !filterResult?.count || detaching}
-                        className="flex-1 bg-red-500 hover:bg-red-600 disabled:opacity-40
-                               text-white text-sm py-2 rounded-lg transition-colors"
-                      >
-                        {detaching ? 'Удаляю...' : 'Отвязать'}
-                      </button>
-                    </div>
-
-                    {attachResult && (
-                      <div className="mt-2 p-2 bg-emerald-50 rounded-lg text-xs text-emerald-800">
-                        ✓ Привязано: {attachResult.updated} · Обновлено: {attachResult.skipped}
-                        <div className="text-emerald-600">
-                          {attachResult.axis} = {attachResult.value}
-                        </div>
-                      </div>
-                    )}
-                    {detachResult && (
-                      <div className="mt-2 p-2 bg-red-50 rounded-lg text-xs text-red-800">
-                        ✓ Отвязано: {detachResult.deleted} изделий от оси {detachResult.axis}
-                      </div>
                     )}
                   </div>
                 )}

@@ -34,9 +34,6 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
         viewDocTypes || [], 
     );
 
-    console.log('viewDocTypes:', viewDocTypes);
-console.log('uploadDocTypes:', uploadDocTypes);
-
     // Какие группы колонок показывать
     const [showParams, setShowParams] = useState(true);
     const [showSpecs, setShowSpecs] = useState(true);

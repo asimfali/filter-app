@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '../../api/auth';
 import { catalogApi } from '../../api/catalog';
+import { useMultiSelect } from '../../hooks/useMultiSelect';
 
 const API = '/api/v1/catalog';
 
 
 export function ChainProductsPanel({ products, partialProducts = [], loading, filters, onDrop, onDetach, onPartialDragStart }) {
     const [isDragOver, setIsDragOver] = useState(false);
-    const [selected, setSelected] = useState(new Set());
-    const [selectedPartial, setSelectedPartial] = useState(new Set());
+    const fullSelect = useMultiSelect(products);
+    const partialSelect = useMultiSelect(partialProducts);
 
     // Del — удаление выделенных
     useEffect(() => {
@@ -20,40 +21,14 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [selected, onDetach]);
-
-    const handleClick = (e, productId) => {
-        setSelected(prev => {
-            const next = new Set(prev);
-            if (e.ctrlKey || e.metaKey) {
-                next.has(productId) ? next.delete(productId) : next.add(productId);
-            } else {
-                if (next.has(productId) && next.size === 1) next.clear();
-                else { next.clear(); next.add(productId); }
-            }
-            return next;
-        });
-    };
-
-    const handlePartialClick = (e, productId) => {
-        setSelectedPartial(prev => {
-            const next = new Set(prev);
-            if (e.ctrlKey || e.metaKey) {
-                next.has(productId) ? next.delete(productId) : next.add(productId);
-            } else {
-                if (next.has(productId) && next.size === 1) next.clear();
-                else { next.clear(); next.add(productId); }
-            }
-            return next;
-        });
-    };
+    }, [fullSelect.selected, onDetach]);
 
     return (
         <div
             className={`w-44 shrink-0 flex flex-col bg-white dark:bg-neutral-900
                         rounded-lg shadow overflow-hidden transition-colors
                         ${isDragOver ? 'ring-2 ring-emerald-400' : ''}`}
-                        style={{ maxHeight: 600 }}
+            style={{ maxHeight: 600 }}
             onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
             onDragLeave={() => setIsDragOver(false)}
             onDrop={e => {
@@ -66,77 +41,94 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
         >
             {/* Неполные товары */}
             {partialProducts.length > 0 && (
-        <>
-            <div className="px-2 py-1.5 border-t border-dashed border-amber-200 
-                            bg-amber-50 dark:bg-amber-900/10 shrink-0">
-                <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                    Неполные · {partialProducts.length} шт.
-                </span>
-            </div>
-            <div className="overflow-y-auto max-h-48 shrink-0"> 
-            {partialProducts.map(p => {
-                const isSelected = selectedPartial.has(p.id);
-                // Все выделенные partial товары имеют одинаковые missing_axes?
-                // Берём missing_axes первого выделенного
-                const dragIds = isSelected ? [...selectedPartial] : [p.id];
-                const missingAxisIds = p.missing_axes; // названия осей
-
-                return (
-                    <div
-                        key={p.id}
-                        draggable
-                        onDragStart={e => {
-                            const ids = selectedPartial.has(p.id) && selectedPartial.size > 1
-                                ? [...selectedPartial]
-                                : [p.id];
-                        
-                            const allMissing = partialProducts
-                                .filter(pp => ids.includes(pp.id))
-                                .map(pp => pp.missing_axes)
-                                .reduce((acc, axes) => acc.filter(a => axes.includes(a)));
-                        
-                            e.dataTransfer.setData('productIds', JSON.stringify(ids));
-                            e.dataTransfer.effectAllowed = 'copy';
-                        
-                            onPartialDragStart?.(allMissing);  // ← сообщаем родителю какие оси нужны
-                        
-                            if (!selectedPartial.has(p.id)) {
-                                setSelectedPartial(new Set([p.id]));
-                            }
-                        }}
-                        onDragEnd={() => onPartialDragStart?.([])}
-                        onClick={e => handlePartialClick(e, p.id)}
-                        className={`px-2 py-1.5 border-b border-gray-50 dark:border-gray-800
-                       cursor-grab select-none transition-colors
-                       ${isSelected
-                                ? 'bg-amber-100 dark:bg-amber-900/30'
-                                : 'bg-amber-50/50 dark:bg-amber-900/5 hover:bg-amber-100/50'
-                            }`}
-                    >
-                        <div className="text-xs text-gray-700 dark:text-gray-300 truncate" title={p.name}>
-                            
-                            {p.name}
+                <>
+                    <div className="px-2 py-1.5 border-t border-dashed border-amber-200
+                                    bg-amber-50 dark:bg-amber-900/10 shrink-0">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                                Неполные · {partialProducts.length} шт.
+                            </span>
+                            <button
+                                onClick={partialSelect.selectAll}
+                                className="text-[10px] text-amber-500 hover:text-amber-700"
+                            >
+                                Все
+                            </button>
                         </div>
-                        <div className="text-[10px] text-amber-500 truncate">
-                            нет: {p.missing_axes.join(', ')}
-                        </div>
+                        {partialSelect.selected.size > 0 && (
+                            <span className="text-[10px] text-amber-400">
+                                {partialSelect.selected.size} выбрано · Shift/Ctrl
+                            </span>
+                        )}
                     </div>
-                );
-            })}
-            </div>
-        </>
-    )}
+                    <div className="overflow-y-auto max-h-48 shrink-0">
+                        {partialProducts.map((p, idx) => {
+                            const isSelected = partialSelect.selected.has(p.id);
+                            return (
+                                <div
+                                    key={p.id}
+                                    draggable
+                                    onDragStart={e => {
+                                        const ids = partialSelect.selected.has(p.id) && partialSelect.selected.size > 1
+                                            ? [...partialSelect.selected]
+                                            : [p.id];
+                                        const allMissing = partialProducts
+                                            .filter(pp => ids.includes(pp.id))
+                                            .map(pp => pp.missing_axes)
+                                            .reduce((acc, axes) => acc.filter(a => axes.includes(a)));
+                                        e.dataTransfer.setData('productIds', JSON.stringify(ids));
+                                        e.dataTransfer.effectAllowed = 'copy';
+                                        onPartialDragStart?.(allMissing);
+                                        if (!partialSelect.selected.has(p.id)) {
+                                            partialSelect.setSelected(new Set([p.id]));
+                                        }
+                                    }}
+                                    onDragEnd={() => onPartialDragStart?.([])}
+                                    onClick={e => partialSelect.handleClick(e, p.id, idx)}
+                                    className={`px-2 py-1.5 border-b border-gray-50 dark:border-gray-800
+                                               cursor-grab select-none transition-colors
+                                               ${isSelected
+                                            ? 'bg-amber-100 dark:bg-amber-900/30'
+                                            : 'bg-amber-50/50 dark:bg-amber-900/5 hover:bg-amber-100/50'
+                                        }`}
+                                >
+                                    <div className="text-xs text-gray-700 dark:text-gray-300 truncate" title={p.name}>
+                                        {p.name}
+                                    </div>
+                                    <div className="text-[10px] text-amber-500 truncate">
+                                        нет: {p.missing_axes.join(', ')}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
+
+            {/* Полные товары */}
             <div className="px-2 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    В цепочке
-                </span>
-                {!loading && (
-                    <span className="ml-1 text-xs text-gray-400">
-                        {products.length === 500 ? '500+' : products.length} шт.
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        В цепочке
+                        {!loading && (
+                            <span className="ml-1 font-normal">
+                                {products.length === 500 ? '500+' : products.length} шт.
+                            </span>
+                        )}
                     </span>
-                )}
-                {selected.size > 0 && (
-                    <span className="ml-1 text-xs text-red-400">· {selected.size} выбрано · Del</span>
+                    {products.length > 0 && (
+                        <button
+                            onClick={fullSelect.selectAll}
+                            className="text-[10px] text-gray-400 hover:text-gray-600"
+                        >
+                            Все
+                        </button>
+                    )}
+                </div>
+                {fullSelect.selected.size > 0 && (
+                    <span className="text-[10px] text-blue-500">
+                        {fullSelect.selected.size} выбрано · Shift/Ctrl
+                    </span>
                 )}
             </div>
             <div className="flex-1 overflow-y-auto min-h-0">
@@ -145,12 +137,23 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
                 ) : products.length === 0 ? (
                     <div className="p-3 text-center text-gray-400 text-xs">Нет изделий</div>
                 ) : (
-                    products.map(p => {
-                        const isSelected = selected.has(p.id);
+                    products.map((p, idx) => {
+                        const isSelected = fullSelect.selected.has(p.id);
                         return (
                             <div
                                 key={p.id}
-                                onClick={e => handleClick(e, p.id)}
+                                draggable
+                                onDragStart={e => {  // ← добавь
+                                    const ids = fullSelect.selected.has(p.id) && fullSelect.selected.size > 1
+                                        ? [...fullSelect.selected]
+                                        : [p.id];
+                                    e.dataTransfer.setData('productIds', JSON.stringify(ids));
+                                    e.dataTransfer.effectAllowed = 'copy';
+                                    if (!fullSelect.selected.has(p.id)) {
+                                        fullSelect.setSelected(new Set([p.id]));
+                                    }
+                                }}
+                                onClick={e => fullSelect.handleClick(e, p.id, idx)}
                                 className={`px-2 py-1.5 border-b border-gray-50 dark:border-gray-800
                                            cursor-pointer select-none transition-colors
                                            ${isSelected
@@ -170,7 +173,7 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
                 )}
             </div>
             <div className="px-2 py-1.5 text-[10px] text-gray-400 border-t border-gray-100 text-center">
-                {isDragOver ? '➕ Отпустите' : 'Перетащите товар'}
+                {isDragOver ? '➕ Отпустите' : 'Перетащите товар · Shift/Ctrl'}
             </div>
         </div>
     );
@@ -196,10 +199,9 @@ export default function ProductBindingPanel({
     const [search, setSearch] = useState('');
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [selected, setSelected] = useState(new Set()); // Set<productId>
     const [regexMode, setRegexMode] = useState(false);
     const [noParams, setNoParams] = useState(false);
-    const lastClickedIdx = useRef(null);
+    const { selected, setSelected, handleClick, selectAll } = useMultiSelect(products);
 
     // ── Загрузка товаров ───────────────────────────────────────────────────
     useEffect(() => {
@@ -226,48 +228,22 @@ export default function ProductBindingPanel({
     }, [search, productTypeId, regexMode, noParams]);
     // ── Мультиселект ───────────────────────────────────────────────────────
 
-    const handleClick = (e, productId, idx) => {
-        if (readOnly) return;
-        setSelected(prev => {
-            const next = new Set(prev);
-
-            if (e.shiftKey && lastClickedIdx.current !== null) {
-                // Диапазон от последнего клика до текущего
-                const from = Math.min(lastClickedIdx.current, idx);
-                const to = Math.max(lastClickedIdx.current, idx);
-                for (let i = from; i <= to; i++) {
-                    next.add(products[i].id);
-                }
-            } else if (e.ctrlKey || e.metaKey) {
-                // Добавить/убрать один
-                if (next.has(productId)) next.delete(productId);
-                else next.add(productId);
-            } else {
-                // Обычный клик — только этот
-                if (next.has(productId) && next.size === 1) {
-                    next.clear(); // снять если уже единственный выделенный
-                } else {
-                    next.clear();
-                    next.add(productId);
-                }
-            }
-
-            onSelectionChange?.([...next]);
-            return next;
-        });
-        lastClickedIdx.current = idx;
-    };
-
     const handleSelectAll = () => {
         if (readOnly) return;
         if (selected.size === products.length) {
             setSelected(new Set());
             onSelectionChange?.([]);
         } else {
-            const all = new Set(products.map(p => p.id));
-            setSelected(all);
-            onSelectionChange?.([...all]);
+            selectAll();
+            onSelectionChange?.([...products.map(p => p.id)]);
         }
+    };
+
+    const handleClickWithCallback = (e, productId, idx) => {
+        if (readOnly) return;
+        handleClick(e, productId, idx);
+        // selected обновится асинхронно — используем setTimeout
+        setTimeout(() => onSelectionChange?.([...selected]), 0);
     };
 
     // ── Drag ───────────────────────────────────────────────────────────────

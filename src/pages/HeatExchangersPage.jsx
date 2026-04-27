@@ -266,7 +266,6 @@ function BulkImportForm({ onImported }) {
 }
 
 function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
-    console.log('DrawingPanel:', { drawingDocTypeId, canWrite });
     const [drawingFiles, setDrawingFiles] = useState(item.drawing_files || []);
     const [draggingOver, setDraggingOver] = useState(false);
     const [uploading, setUploading] = useState(false);
