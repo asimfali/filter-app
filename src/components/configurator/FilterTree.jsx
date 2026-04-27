@@ -204,6 +204,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
           nodes, edges, byOrder,
           selectedIds: data.data.selected_ids,
           productPaths: data.data.product_paths || [],
+          referenceAxes: data.data.reference_axes || [],
         };
         setGraphLoading(false);
       } catch (err) {
@@ -222,19 +223,19 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
     if (!pendingGraphData.current) return;
     if (!cyRef.current) return;
 
-    const { nodes, edges, byOrder, selectedIds, productPaths } = pendingGraphData.current;
+    const { nodes, edges, byOrder, selectedIds, productPaths, referenceAxes } = pendingGraphData.current;
     pendingGraphData.current = null;
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        initCytoscape(nodes, edges, byOrder, selectedIds, productPaths);
+        initCytoscape(nodes, edges, byOrder, selectedIds, productPaths, referenceAxes);
       });
     });
   }, [graphLoading]);
 
   // ── Инициализация Cytoscape ────────────────────────────────────────────────
 
-  const initCytoscape = (nodes, edges, byOrder, selectedIds = [], productPaths = []) => {
+  const initCytoscape = (nodes, edges, byOrder, selectedIds = [], productPaths = [], referenceAxes = []) => {
     if (!cyRef.current) return;
 
     if (!byOrder) {
@@ -256,10 +257,58 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
     nodes.filter(n => n.data.type === 'axis').forEach(n => {
       positions[n.data.id] = { x: n.data.order * COL_W + 100, y: -20 };
     });
+    // ── Reference-оси (боковые) ───────────────────────────────────────────────
+    const refNodes = [];
+    const refEdges = [];
+    referenceAxes.forEach(refAxis => {
+      const refOrder = refAxis.order;
+      const axisNodeId = `axis-${refAxis.axis_id}`;
+
+      refNodes.push({
+        data: {
+          id: axisNodeId,
+          label: refAxis.axis_name,
+          type: 'axis',
+          order: refOrder,
+          is_reference: true,
+        }
+      });
+      positions[axisNodeId] = { x: refOrder * COL_W + 100, y: -20 };
+
+      refAxis.parent_value_ids.forEach(parentValueId => {
+        const parentPos = positions[`value-${parentValueId}`];
+        if (!parentPos) return;
+        refAxis.values.forEach((val, i) => {
+          const nodeId = `value-${val.id}`;
+          refNodes.push({
+            data: {
+              id: nodeId,
+              label: val.label,
+              type: 'value',
+              axis_id: refAxis.axis_id,
+              order: refOrder,
+              is_reference: true,
+            }
+          });
+          positions[nodeId] = {
+            x: refOrder * COL_W + 100,
+            y: parentPos.y + i * ROW_H,
+          };
+          refEdges.push({
+            data: {
+              id: `ref-edge-${parentValueId}-${val.id}`,
+              source: `value-${parentValueId}`,
+              target: nodeId,
+              is_reference: true,
+            }
+          });
+        });
+      });
+    });
 
     const cy = cytoscape({
       container: cyRef.current,
-      elements: [...nodes, ...edges],
+      elements: [...nodes, ...refNodes, ...edges, ...refEdges],
       layout: {
         name: 'preset',
         positions: node => positions[node.id()] || { x: 0, y: 0 },
@@ -272,6 +321,8 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
             'color': '#ffffff', 'font-size': 11, 'font-weight': 'bold',
             'width': 130, 'height': 28, 'shape': 'roundrectangle',
             'text-valign': 'center', 'text-halign': 'center', 'events': 'no',
+            'text-wrap': 'wrap',
+            'text-max-width': 120,
           },
         },
         {
@@ -343,6 +394,50 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
             'target-endpoint': '270deg',         // ← левая сторона узла
           },
         },
+        {
+          selector: 'node[?is_reference][type="value"]',
+          style: {
+              'background-color': '#fef3c7',
+              'border-color': '#f59e0b',
+              'border-width': 1,
+              'border-style': 'dashed',
+              'color': '#92400e',
+              'font-size': 11,
+              'width': 130, 'height': 34,
+              'shape': 'roundrectangle',
+              'text-valign': 'center',
+              'text-halign': 'center',
+          },
+      },
+      {
+          selector: 'node[?is_reference][type="axis"]',
+          style: {
+              'background-color': '#92400e',
+              'color': '#fff',
+              'font-size': 9,
+              'font-weight': 'bold',
+              'width': 130, 'height': 28,
+              'shape': 'roundrectangle',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'text-wrap': 'wrap',
+              'text-max-width': 120,
+              'events': 'no',
+          },
+      },
+      {
+          selector: 'edge[?is_reference]',
+          style: {
+              'line-style': 'dashed',
+              'line-color': '#f59e0b',
+              'width': 1,
+              'opacity': 0.6,
+              'curve-style': 'taxi',
+              'taxi-direction': 'rightward',
+              'source-endpoint': '90deg',
+              'target-endpoint': '270deg',
+          },
+      },
         { selector: 'edge.dimmed', style: { 'opacity': 0.1 } },
       ],
       selectionType: 'additive',

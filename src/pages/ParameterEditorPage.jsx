@@ -49,6 +49,121 @@ function Modal({ title, onClose, children }) {
     );
 }
 
+
+function FilterRulesEditor({ value, onChange, productTypeId }) {
+    const [axes, setAxes] = useState([]);
+    const [axisValues, setAxisValues] = useState([]);
+    const [selectedAxisId, setSelectedAxisId] = useState('');
+    const [selectedValues, setSelectedValues] = useState(value?.allowedValues || []);
+
+    const inp = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
+        "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
+        "focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+    // Загружаем все classifier-оси
+    useEffect(() => {
+        apiFetch(`${API}/parameter-axes/`)
+            .then(r => r.json())
+            .then(data => {
+                const all = Array.isArray(data) ? data : (data.results || []);
+                const filtered = all.filter(a => a.axis_type === 'classifier');
+                setAxes(filtered);
+                // Восстанавливаем выбранную ось из value.parentParam
+                if (value?.parentParam) {
+                    const found = filtered.find(a => a.code === value.parentParam);
+                    if (found) setSelectedAxisId(String(found.id));
+                }
+            });
+    }, []);
+
+    // Загружаем значения при смене оси
+    useEffect(() => {
+        if (!selectedAxisId) { setAxisValues([]); return; }
+        apiFetch(`${API}/parameter-values/?axis=${selectedAxisId}&is_active=true`)
+            .then(r => r.json())
+            .then(data => setAxisValues(Array.isArray(data) ? data : (data.results || [])));
+    }, [selectedAxisId]);
+
+    const handleAxisChange = (axisId) => {
+        setSelectedAxisId(axisId);
+        setSelectedValues([]);
+        const axis = axes.find(a => String(a.id) === axisId);
+        onChange({ parentParam: axis?.code || '', allowedValues: [] });
+    };
+
+    const toggleValue = (val) => {
+        const axis = axes.find(a => String(a.id) === selectedAxisId);
+        const next = selectedValues.includes(val)
+            ? selectedValues.filter(v => v !== val)
+            : [...selectedValues, val];
+        setSelectedValues(next);
+        onChange({ parentParam: axis?.code || '', allowedValues: next });
+    };
+
+    const selectedAxis = axes.find(a => String(a.id) === selectedAxisId);
+
+    return (
+        <div className="space-y-2">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                Правила фильтрации
+            </label>
+
+            <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Родительская ось
+                </label>
+                <select
+                    value={selectedAxisId}
+                    onChange={e => handleAxisChange(e.target.value)}
+                    className={inp}
+                >
+                    <option value="">— выберите ось —</option>
+                    {axes.map(a => (
+                        <option key={a.id} value={a.id}>
+                            {a.product_type_name
+                                ? `${a.name} — ${a.product_type_name} (${a.code})`
+                                : `${a.name} (${a.code})`}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            {selectedAxisId && axisValues.length > 0 && (
+                <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        Показывать только при значениях <span className="text-gray-400">(мультивыбор)</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                        {axisValues.map(v => {
+                            const isSelected = selectedValues.includes(v.value);
+                            return (
+                                <button
+                                    key={v.id}
+                                    type="button"
+                                    onClick={() => toggleValue(v.value)}
+                                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all
+                                        ${isSelected
+                                            ? 'bg-amber-500 text-white'
+                                            : 'bg-neutral-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300 hover:bg-neutral-200'
+                                        }`}
+                                >
+                                    {v.value}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {selectedAxisId && (
+                <div className="bg-neutral-50 dark:bg-neutral-950 rounded-lg px-3 py-2 font-mono text-xs text-gray-500">
+                    {JSON.stringify({ parentParam: selectedAxis?.code, allowedValues: selectedValues }, null, 2)}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ── Форма оси ─────────────────────────────────────────────────────────────
 
 function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
@@ -56,6 +171,8 @@ function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
         name: axis?.name || '',
         code: axis?.code || '',
         order: axis?.order ?? 0,
+        axis_type: axis?.axis_type || 'classifier',
+        filter_rules: axis?.filter_rules || {},
         ...(!isGlobal && { product_type: productTypeId }),
     });
     const [error, setError] = useState('');
@@ -93,8 +210,8 @@ function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
     };
 
     const inp = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-            "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
-            "focus:outline-none focus:ring-2 focus:ring-blue-500";
+        "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
+        "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
     return (
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -117,6 +234,26 @@ function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
                     onChange={e => setForm(f => ({ ...f, order: parseInt(e.target.value) || 0 }))}
                     className={inp} />
             </div>
+            <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Тип оси
+                </label>
+                <select
+                    value={form.axis_type || 'classifier'}
+                    onChange={e => setForm(f => ({ ...f, axis_type: e.target.value }))}
+                    className={inp}
+                >
+                    <option value="classifier">Классификационная (граф)</option>
+                    <option value="reference">Справочная (боковая)</option>
+                </select>
+            </div>
+            {form.axis_type === 'reference' && (
+                <FilterRulesEditor
+                    value={form.filter_rules}
+                    onChange={rules => setForm(f => ({ ...f, filter_rules: rules }))}
+                    productTypeId={productTypeId}
+                />
+            )}
 
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-2 rounded-lg">
@@ -171,8 +308,8 @@ function ValueForm({ axisId, value, onSave, onClose }) {
     };
 
     const inp = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-            "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
-            "focus:outline-none focus:ring-2 focus:ring-blue-500";
+        "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
+        "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
     return (
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -398,7 +535,7 @@ function BulkAddValues({ axisId, onAdded }) {
 
 export default function ParameterEditorPage() {
     const productTypes = useProductTypes();
-    const [mode, setMode] = useState('typed'); 
+    const [mode, setMode] = useState('typed');
     const [typeId, setTypeId] = useState('');
     const [axes, setAxes] = useState([]);
     const [selectedAxis, setSelectedAxis] = useState(null);

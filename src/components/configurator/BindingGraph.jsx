@@ -43,7 +43,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         const load = async () => {
             const { ok, data } = await catalogApi.filteredConfiguration(productTypeId, selectedTagIds, false, true, false);
             if (!ok || !data.success || !data.data.nodes.length) return;
-            initCytoscape(data.data.nodes, data.data.edges);
+            initCytoscape(data.data.nodes, data.data.edges, data.data.reference_axes || []);
         };
 
         load();
@@ -61,7 +61,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         }
     }, [mode]);
 
-    const initCytoscape = (nodes, edges) => {
+    const initCytoscape = (nodes, edges, referenceAxes = []) => {
 
         if (!cyRef.current) return;
 
@@ -90,6 +90,56 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             positions[n.data.id] = { x: n.data.order * COL_W + 100, y: -20 };
         });
 
+        referenceAxes.forEach(refAxis => {
+            const refOrder = refAxis.order;
+            const axisNodeId = `axis-${refAxis.axis_id}`;
+        
+            // Заголовок reference-оси
+            nodes = [...nodes, {
+                data: {
+                    id: axisNodeId,
+                    label: refAxis.axis_name,
+                    type: 'axis',
+                    order: refOrder,
+                    is_reference: true,
+                }
+            }];
+            positions[axisNodeId] = { x: refOrder * COL_W + 100, y: -20 };
+        
+            // Значения — под каждым parent_value
+            refAxis.parent_value_ids.forEach(parentValueId => {
+                const parentPos = positions[`value-${parentValueId}`];
+                if (!parentPos) return;
+        
+                refAxis.values.forEach((val, i) => {
+                    const nodeId = `value-${val.id}`;
+                    nodes = [...nodes, {
+                        data: {
+                            id: nodeId,
+                            label: val.label,
+                            type: 'value',
+                            axis_id: refAxis.axis_id,
+                            order: refOrder,
+                            is_reference: true,
+                        }
+                    }];
+                    positions[nodeId] = {
+                        x: refOrder * COL_W + 100,
+                        y: parentPos.y + i * ROW_H,
+                    };
+                    // Пунктирное ребро parent → reference
+                    edges = [...edges, {
+                        data: {
+                            id: `ref-edge-${parentValueId}-${val.id}`,
+                            source: `value-${parentValueId}`,
+                            target: nodeId,
+                            is_reference: true,
+                        }
+                    }];
+                });
+            });
+        });
+
         const maxNodes = Math.max(...Object.values(byOrder).map(ids => ids.length));
         const height = Math.max(400, maxNodes * ROW_H + 150);
         if (cyRef.current) cyRef.current.style.height = `${height}px`;
@@ -108,12 +158,14 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                         label: 'data(label)',
                         'background-color': '#1e40af',
                         color: '#ffffff',
-                        'font-size': 11,
+                        'font-size': 9,
                         'font-weight': 'bold',
                         width: 130, height: 28,
                         shape: 'roundrectangle',
                         'text-valign': 'center',
                         'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': 120,
                         events: 'no',
                     },
                 },
@@ -193,6 +245,51 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                     selector: 'node.chain-dimmed',
                     style: {
                         opacity: 0.35,
+                    },
+                },
+                {
+                    selector: 'node[?is_reference][type="value"]',
+                    style: {
+                        'background-color': '#fef3c7',
+                        'border-color': '#f59e0b',
+                        'border-width': 1,
+                        'border-style': 'dashed',
+                        color: '#92400e',
+                        'font-size': 11,
+                        width: 130, height: 34,
+                        shape: 'roundrectangle',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                    },
+                },
+                {
+                    selector: 'node[?is_reference][type="axis"]',
+                    style: {
+                        'background-color': '#92400e',
+                        color: '#fff',
+                        'font-size': 9,
+                        'font-weight': 'bold',
+                        width: 130,
+                        height: 28,
+                        shape: 'roundrectangle',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': 120,
+                        events: 'no',
+                    },
+                },
+                {
+                    selector: 'edge[?is_reference]',
+                    style: {
+                        'line-style': 'dashed',
+                        'line-color': '#f59e0b',
+                        width: 1,
+                        opacity: 0.6,
+                        'curve-style': 'taxi',
+                        'taxi-direction': 'rightward',
+                        'source-endpoint': '90deg',
+                        'target-endpoint': '270deg',
                     },
                 },
             ],
