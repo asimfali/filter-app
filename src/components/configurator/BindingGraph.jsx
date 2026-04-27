@@ -296,7 +296,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             userZoomingEnabled: true,
             userPanningEnabled: true,
             boxSelectionEnabled: false,
-            selectionType: readOnly ? 'none' : 'single',
+selectionType: 'none',
         });
 
         setTimeout(() => {
@@ -355,9 +355,12 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                     const n = cy.getElementById(`value-${id}`);
                     return n.data('axis_id') === clickedAxisId;
                 });
-
-                if (sameAxisIndex !== -1) {
-                    // Заменяем узел той же оси
+                
+                if (e.originalEvent?.ctrlKey || e.originalEvent?.metaKey) {
+                    // Ctrl+клик — мультивыбор на одной оси, просто добавляем
+                    selectedNodesRef.current = [...selectedNodesRef.current, nodeId];
+                } else if (sameAxisIndex !== -1) {
+                    // Обычный клик на той же оси — заменяем
                     selectedNodesRef.current.splice(sameAxisIndex, 1, nodeId);
                 } else {
                     // Новая ось — добавляем
@@ -499,28 +502,50 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             if (selectedNodeIds.length === 0) {
                 cy.nodes().removeClass('chain-selected chain-dimmed');
                 selectedChainRef.current = [];
-                onSelectionChange?.([]);  // ← сброс
+                onSelectionChange?.([]);
                 return;
             }
-
-            const allChains = selectedNodeIds.map(id => {
+        
+            // Группируем выбранные узлы по оси
+            const byAxis = {};
+            selectedNodeIds.forEach(id => {
                 const node = cy.getElementById(`value-${id}`);
-                if (!node.length) return cy.collection();
-                return getReachableNodes(cy, node);
+                const axisId = node.data('axis_id');
+                if (!byAxis[axisId]) byAxis[axisId] = [];
+                byAxis[axisId].push(id);
             });
-
-            let intersection = allChains[0];
-            for (let i = 1; i < allChains.length; i++) {
-                intersection = intersection.filter(node => allChains[i].has(node));
+        
+            // Для каждой оси — объединение цепочек её узлов
+            const chainPerAxis = Object.values(byAxis).map(ids => {
+                // Объединяем цепочки всех узлов одной оси
+                let union = cy.collection();
+                ids.forEach(id => {
+                    const node = cy.getElementById(`value-${id}`);
+                    if (node.length) union = union.union(getReachableNodes(cy, node));
+                });
+                return union;
+            });
+        
+            // Между осями — пересечение
+            let intersection = chainPerAxis[0];
+            for (let i = 1; i < chainPerAxis.length; i++) {
+                intersection = intersection.filter(node => chainPerAxis[i].has(node));
             }
-
+        
+            // Добавляем сами выбранные узлы (они могут не быть в пересечении)
+            selectedNodeIds.forEach(id => {
+                const node = cy.getElementById(`value-${id}`);
+                if (node.length) intersection = intersection.union(node);
+            });
+        
             cy.nodes('[type="value"]').removeClass('chain-selected chain-dimmed');
             intersection.addClass('chain-selected');
             cy.nodes('[type="value"]').not(intersection).addClass('chain-dimmed');
-
-            selectedChainRef.current = intersection.map(n => n.id().replace('value-', ''));
-
-            // ← передаём все узлы цепочки
+        
+            selectedChainRef.current = intersection
+                .filter(n => n.data('type') === 'value')
+                .map(n => n.id().replace('value-', ''));
+        
             onSelectionChange?.(selectedChainRef.current);
         };
 
@@ -597,7 +622,6 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         const cy = cyInstanceRef.current;
         if (!cy) return;
     
-        const rect = cyRef.current.getBoundingClientRect();
         const targetNode = cy.nodes('[type="value"].drop-target').first();
         cy.nodes().removeClass('drop-target');
     
@@ -610,24 +634,25 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         if (!productIds.length) return;
     
         const valueId = targetNode.id().replace('value-', '');
+        const isReference = targetNode.data('is_reference');  // ← проверяем reference
     
-        // ── Partial drag — только одна ось, игнорируем цепочку ───────────
+        // Partial drag — только одна ось
         if (isPartialDragRef.current) {
             isPartialDragRef.current = false;
             onDrop?.(productIds, valueId, targetNode.data('label'));
             return;
         }
     
-        // ── Обычный drag — старая логика ─────────────────────────────────
         const chain = selectedChainRef.current;
     
         targetNode.addClass('drop-success');
         setTimeout(() => targetNode.removeClass('drop-success'), 1500);
     
-        if (chain.length > 1) {
-            onDropBulk?.(productIds, chain);
-        } else {
+        // Reference-узел — всегда только к одному узлу
+        if (isReference || chain.length <= 1) {
             onDrop?.(productIds, valueId, targetNode.data('label'));
+        } else {
+            onDropBulk?.(productIds, chain);
         }
     };
 

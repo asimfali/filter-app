@@ -93,18 +93,11 @@ export function useSeriesMaster() {
      * Вызывается при переходе на шаг 5.
      */
     const generateItems = useCallback(() => {
-        console.log('lengthMap:', lengthMap);
-        console.log('heatings:', heatings);
-        console.log('positions:', positions);
-        console.log('series:', series);
-        console.log('designMap:', designMap);
         const newItems = [];
         let order = 1;
 
         for (const lengthEntry of lengthMap) {
-            console.log('--- lengthEntry:', JSON.stringify(lengthEntry));
             for (const heating of heatings) {
-                console.log('--- heating:', JSON.stringify(heating));
                 const needsPower = heating.value === 'E' || heating.value === 'W';
                 const heatingCode = heating.value;
                 const lengthLabel = lengthEntry.valueLabel;
@@ -120,9 +113,6 @@ export function useSeriesMaster() {
 
                 const baseName = baseTemplate;  // шаблон с ?
                 const name = baseTemplate.replace('?', networkDefault);  // сразу подставляем сеть
-                console.log('baseTemplate:', baseTemplate);
-                console.log('networkDefault:', networkDefault);
-                console.log('name after replace:', name);
 
                 newItems.push({
                     localId: `${lengthEntry.digit}-${heating.id}-${order}`,
@@ -140,7 +130,6 @@ export function useSeriesMaster() {
         }
 
         setItems(newItems);
-        console.log('FINAL newItems:', newItems.length, newItems);
     }, [lengthMap, heatings, positions, series, designMap, prefix]);
 
     const addPowerRow = useCallback((localId) => {

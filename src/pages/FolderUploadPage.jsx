@@ -694,7 +694,6 @@ export default function FolderUploadPage({ onBack }) {
 function TableRow({ item, idx, axisColumns, onUpdateFilters, onUpdateProducts,
     docTypeName, nameTemplate, uploadMode }) {
 
-    console.log('TableRow uploadMode:', uploadMode, 'article:', item.article, 'matchedProducts:', item.matchedProducts);
     const generatedName = buildDocumentName(nameTemplate, docTypeName, item);
     const filtersByAxis = useMemo(() => {
         const map = {};

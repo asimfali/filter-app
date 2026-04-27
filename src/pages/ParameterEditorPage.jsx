@@ -49,6 +49,121 @@ function Modal({ title, onClose, children }) {
     );
 }
 
+function AxisOrderPanel({ axis }) {
+    const [orders, setOrders] = useState([]);
+    const [productTypes, setProductTypes] = useState([]);
+    const [addTypeId, setAddTypeId] = useState('');
+    const [addOrder, setAddOrder] = useState(0);
+    const [loading, setLoading] = useState(false);
+
+    const load = async () => {
+        const [r1, r2] = await Promise.all([
+            apiFetch(`${API}/axis-orders/?axis=${axis.id}`),  // ← нужен фильтр по axis
+            apiFetch(`${API}/product-types/`),
+        ]);
+        const d1 = await r1.json();
+        const d2 = await r2.json();
+        setOrders(Array.isArray(d1) ? d1 : (d1.results || []));
+        setProductTypes(Array.isArray(d2) ? d2 : (d2.results || []));
+    };
+
+    useEffect(() => { load(); }, [axis.id]);
+
+    const handleAdd = async () => {
+        if (!addTypeId) return;
+        setLoading(true);
+        await apiFetch(`${API}/axis-orders/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                product_type: addTypeId,
+                axis: axis.id,
+                order: addOrder,
+            }),
+        });
+        setAddTypeId('');
+        setAddOrder(0);
+        await load();
+        setLoading(false);
+    };
+
+    const handleDelete = async (id) => {
+        await apiFetch(`${API}/axis-orders/${id}/`, { method: 'DELETE' });
+        await load();
+    };
+
+    const inp = "border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
+        "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
+        "focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+    return (
+        <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                Привязка к типам продукции (AxisOrder)
+            </div>
+
+            {/* Существующие привязки */}
+            {orders.length === 0 ? (
+                <div className="text-xs text-gray-400 mb-3">Нет привязок</div>
+            ) : (
+                <div className="space-y-1 mb-3">
+                    {orders.map(o => (
+                        <div key={o.id}
+                            className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-950
+                                       border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                {o.product_type_name}
+                                <span className="ml-2 text-xs text-gray-400">order: {o.order}</span>
+                            </span>
+                            <button
+                                onClick={() => handleDelete(o.id)}
+                                className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Добавить привязку */}
+            <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Тип продукции</label>
+                    <select
+                        value={addTypeId}
+                        onChange={e => setAddTypeId(e.target.value)}
+                        className={`w-full ${inp}`}
+                    >
+                        <option value="">— выберите —</option>
+                        {productTypes
+                            .filter(pt => !orders.find(o => o.product_type === pt.id))
+                            .map(pt => (
+                                <option key={pt.id} value={pt.id}>{pt.name}</option>
+                            ))}
+                    </select>
+                </div>
+                <div className="w-20">
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Order</label>
+                    <input
+                        type="number"
+                        value={addOrder}
+                        onChange={e => setAddOrder(parseInt(e.target.value) || 0)}
+                        className={`w-full ${inp}`}
+                    />
+                </div>
+                <button
+                    onClick={handleAdd}
+                    disabled={!addTypeId || loading}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40
+                               text-white text-xs px-3 py-2 rounded-lg transition-colors"
+                >
+                    {loading ? '...' : '+ Добавить'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
 
 function FilterRulesEditor({ value, onChange, productTypeId }) {
     const [axes, setAxes] = useState([]);
@@ -88,7 +203,11 @@ function FilterRulesEditor({ value, onChange, productTypeId }) {
         setSelectedAxisId(axisId);
         setSelectedValues([]);
         const axis = axes.find(a => String(a.id) === axisId);
-        onChange({ parentParam: axis?.code || '', allowedValues: [] });
+        onChange({
+            parentAxisId: axis?.id,      // ← добавь
+            parentParam: axis?.code || '',
+            allowedValues: [],
+        });
     };
 
     const toggleValue = (val) => {
@@ -97,7 +216,11 @@ function FilterRulesEditor({ value, onChange, productTypeId }) {
             ? selectedValues.filter(v => v !== val)
             : [...selectedValues, val];
         setSelectedValues(next);
-        onChange({ parentParam: axis?.code || '', allowedValues: next });
+        onChange({
+            parentAxisId: axis?.id,      // ← добавь
+            parentParam: axis?.code || '',
+            allowedValues: next,
+        });
     };
 
     const selectedAxis = axes.find(a => String(a.id) === selectedAxisId);
@@ -563,10 +686,31 @@ export default function ParameterEditorPage() {
     }, [typeId, mode]);
 
     const handleDeleteAxis = async (axis) => {
-        if (!confirm(`Удалить ось «${axis.name}» и все её значения?`)) return;
-        await apiFetch(`${API}/parameter-axes/${axis.id}/`, { method: 'DELETE' });
-        setAxes(ax => ax.filter(a => a.id !== axis.id));
-        if (selectedAxis?.id === axis.id) setSelectedAxis(null);
+        // Сначала пробуем обычное удаление
+        const res = await apiFetch(`${API}/parameter-axes/${axis.id}/`, { method: 'DELETE' });
+        
+        if (res.ok || res.status === 204) {
+            setAxes(ax => ax.filter(a => a.id !== axis.id));
+            if (selectedAxis?.id === axis.id) setSelectedAxis(null);
+            return;
+        }
+    
+        // Если 409/400 — есть привязки, предлагаем force delete
+        const data = await res.json().catch(() => ({}));
+        const confirmed = confirm(
+            `Ось «${axis.name}» имеет привязки к товарам.\n\n` +
+            `Удалить ось вместе со всеми привязками товаров?`
+        );
+        if (!confirmed) return;
+    
+        const res2 = await apiFetch(`${API}/parameter-axes/${axis.id}/force-delete/`, {
+            method: 'DELETE',
+        });
+        const data2 = await res2.json();
+        if (res2.ok && data2.success) {
+            setAxes(ax => ax.filter(a => a.id !== axis.id));
+            if (selectedAxis?.id === axis.id) setSelectedAxis(null);
+        }
     };
 
     return (
@@ -677,6 +821,10 @@ export default function ParameterEditorPage() {
                             <div className="h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
                                 Выберите ось для редактирования значений
                             </div>
+                        )}
+                        {/* Привязка к типам продукции — только для общих осей */}
+                        {selectedAxis && (
+                            <AxisOrderPanel axis={selectedAxis} />
                         )}
                     </div>
                 </div>
