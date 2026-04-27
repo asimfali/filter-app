@@ -37,7 +37,10 @@
 │   │   │   ├── UnitWeightModal.jsx
 │   │   │   └── ValidationReport.jsx
 │   │   ├── catalog
-│   │   │   └── ColumnSettingsModal.jsx
+│   │   │   ├── CodePositionBuilder.jsx
+│   │   │   ├── ColumnSettingsModal.jsx
+│   │   │   ├── RulePreview.jsx
+│   │   │   └── SeriesItemsTable.jsx
 │   │   ├── common
 │   │   │   ├── AlertModal.jsx
 │   │   │   ├── ConfirmModal.jsx
@@ -76,7 +79,8 @@
 │   │   ├── useExcelImport.js
 │   │   ├── useIssuesSocket.js
 │   │   ├── useModals.jsx
-│   │   └── useProductDocUpload.js
+│   │   ├── useProductDocUpload.js
+│   │   └── useSeriesMaster.js
 │   ├── pages
 │   │   ├── bom
 │   │   │   ├── MaterialsPanel.jsx
@@ -94,6 +98,7 @@
 │   │   ├── PLMPage.jsx
 │   │   ├── ParameterEditorPage.jsx
 │   │   ├── PartEditorPage.jsx
+│   │   ├── ProductMasterPage.jsx
 │   │   ├── ProductPage.jsx
 │   │   ├── SpecEditorPage.jsx
 │   │   ├── SpecPreviewPage.jsx
@@ -123,4 +128,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-21 directories, 103 files
+21 directories, 108 files

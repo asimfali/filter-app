@@ -505,6 +505,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
     const objMapRef = useRef({});  // uuid → THREE.Object3D
     const userMaterialStateRef = useRef({});
     const panDragRef = useRef(null);
+    const needsRenderRef = useRef(true);v
 
     const { dark } = useTheme();
     const [loading, setLoading] = useState(true);
@@ -617,6 +618,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
             RIGHT: THREE.MOUSE.PAN,
         };
         controlsRef.current = controls;
+        controls.addEventListener('change', () => { needsRenderRef.current = true; });
 
         const onPointerMove = (e) => {
             if (!panDragRef.current) return;
@@ -660,7 +662,10 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
         const animate = () => {
             frameRef.current = requestAnimationFrame(animate);
             controls.update();
-            renderer.render(scene, camera);
+            if (needsRenderRef.current) {
+                renderer.render(scene, camera);
+                needsRenderRef.current = false;
+            }
         };
         animate();
 
@@ -947,6 +952,7 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
                         isMesh: true,
                         children: [],
                     });
+                    needsRenderRef.current = true;
                     refresh();
                 }
 
@@ -959,7 +965,8 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
 
                 if (hits.length > 0) {
                     hits[0].object.visible = false;
-                    highlightSelected(null); // сбросить подсветку скрытой детали
+                    highlightSelected(null);
+                    needsRenderRef.current = true;
                     refresh();
                 }
 
@@ -979,12 +986,14 @@ export default function ModelViewerPage({ relPath, fname, mtlPath, onBack }) {
                         isMesh: true,
                         children: [],
                     });
+                    needsRenderRef.current = true;
                     setHighlightedUuid(hit.uuid);
                     highlightSelected(hit.uuid);
                 } else {
                     // Клик на пустое место — сбросить подсветку
                     highlightSelected(null);
                     setSelectedNode(null);
+                    needsRenderRef.current = true;
                 }
             }
         }, 250);

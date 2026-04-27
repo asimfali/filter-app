@@ -200,6 +200,7 @@ export default function Header({ currentPage, onNavigate }) {
               const ALL_PAGES = [
                 { id: 'configurator', label: 'Конфигуратор', code: null },
                 { id: 'parameters', label: 'Параметры', code: 'portal.page.parameters' },
+                { id: 'series-master', label: 'Мастер серий', code: 'catalog.series.manage' },
                 { id: 'staff', label: 'Персонал', code: 'portal.page.staff' },
                 { id: 'documents', label: 'Документы', code: 'portal.page.documents' },
                 { id: 'issues', label: 'Замечания', code: 'portal.page.issues' },
