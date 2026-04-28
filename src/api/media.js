@@ -80,10 +80,14 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    async createFilter(filterAxisId, valueIds) {
+    async createFilter(filterAxisId, valueIds, isExclude = false) {
         const res = await apiFetch(`${BASE}/filters/`, {
             method: 'POST',
-            body: JSON.stringify({ filter_axis_id: filterAxisId, value_ids: valueIds }),
+            body: JSON.stringify({
+                filter_axis_id: filterAxisId,
+                value_ids: valueIds,
+                is_exclude: isExclude,
+            }),
         });
         return { ok: res.ok, data: await res.json() };
     },
