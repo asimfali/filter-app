@@ -170,7 +170,7 @@ export default function AccessTokenModal({ product, docType, onClose }) {
                                 </label>
                                 <select value={form.expires_hours}
                                     onChange={e => setForm(f => ({ ...f, expires_hours: +e.target.value }))}
-                                    className={sel}>
+                                    className={inputCls}>
                                     <option value={1}>1 час</option>
                                     <option value={2}>2 часа</option>
                                     <option value={4}>4 часа</option>
@@ -192,7 +192,7 @@ export default function AccessTokenModal({ product, docType, onClose }) {
                                         granted_to_user_id: e.target.value,
                                         granted_to_department_id: '',
                                     }))}
-                                    className={sel}>
+                                    className={inputCls}>
                                     <option value="">— не выбран —</option>
                                     {users.map(u => (
                                         <option key={u.id} value={u.id}>
@@ -213,7 +213,7 @@ export default function AccessTokenModal({ product, docType, onClose }) {
                                         granted_to_department_id: e.target.value,
                                         granted_to_user_id: '',
                                     }))}
-                                    className={sel}>
+                                    className={inputCls}>
                                     <option value="">— не выбрано —</option>
                                     {departments.map(d => (
                                         <option key={d.id} value={d.id}>{d.name}</option>
