@@ -243,4 +243,9 @@ export const catalogApi = {
         const res = await apiFetch(`${BASE}/power-values/`);
         return { ok: res.ok, data: await res.json() };
     },
+
+    async masterConfig(productTypeId) {
+        const res = await apiFetch(`${BASE}/master-config/${productTypeId}/`);
+        return { ok: res.ok, data: await res.json() };
+    },
 };
