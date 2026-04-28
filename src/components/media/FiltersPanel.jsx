@@ -62,13 +62,16 @@ function FiltersPanel({ entityId, entityType, initialFilters = [], axes, canWrit
                     <div className="flex flex-wrap gap-1.5">
                         {filters.map(f => (
                             <span key={f.id}
-                                className="inline-flex items-center gap-1 px-2 py-0.5
-                                           bg-blue-50 dark:bg-blue-950
-                                           border border-blue-200 dark:border-blue-800
-                                           rounded-full text-xs text-blue-700 dark:text-blue-300">
-                                <span className="opacity-60">{f.axis.name}:</span>
-                                {f.values.map(v => v.value).join(', ')}
-                            </span>
+                            className={`inline-flex items-center gap-1 px-2 py-0.5
+                                       border rounded-full text-xs
+                                       ${f.is_exclude
+                                ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                                : 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+                            }`}>
+                            <span className="opacity-60">{f.axis.name}:</span>
+                            {f.is_exclude && <span className="font-bold">≠</span>}
+                            {f.values.map(v => v.value).join(', ')}
+                        </span>
                         ))}
                     </div>
                 )}
@@ -98,7 +101,9 @@ function FiltersPanel({ entityId, entityType, initialFilters = [], axes, canWrit
                                         <span className="text-gray-400 dark:text-gray-500">
                                             {f.axis.name}
                                         </span>
-                                        <span className="mx-1.5 text-gray-300">∈</span>
+                                        <span className="mx-1.5 text-gray-300">
+                                            {f.is_exclude ? '≠' : '∈'}
+                                        </span>
                                         <span className="text-gray-800 dark:text-gray-200 font-medium">
                                             [{f.values.map(v => v.value).join(', ')}]
                                         </span>

@@ -18,6 +18,7 @@ export default function CreateFilterModal({ docId, heId, kitId, axes, currentFil
     const [loadingValues, setLoadingValues] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [isExclude, setIsExclude] = useState(false);
 
     // Загружаем все существующие фильтры при открытии
     useEffect(() => {
@@ -80,7 +81,7 @@ export default function CreateFilterModal({ docId, heId, kitId, axes, currentFil
         setSaving(true);
         setError('');
         try {
-            const { ok: ok1, data: d1 } = await mediaApi.createFilter(selectedAxisId, selectedValueIds);
+            const { ok: ok1, data: d1 } = await mediaApi.createFilter(selectedAxisId, selectedValueIds, isExclude,);
             if (!ok1 || !d1.success) { setError(d1.error || 'Ошибка создания'); return; }
 
             const { ok: ok2, data: d2 } = heId
@@ -239,10 +240,14 @@ export default function CreateFilterModal({ docId, heId, kitId, axes, currentFil
                                                dark:hover:border-blue-600 dark:hover:bg-blue-950
                                                text-gray-800 dark:text-gray-200 transition-colors"
                                 >
-                                    {axis.name}
-                                    <span className="ml-2 text-xs text-gray-400">
-                                        {axis['product_type__name']}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        {axis.product_type && (
+                                            <span className="text-xs text-gray-400 shrink-0">
+                                                {axis.product_type}
+                                            </span>
+                                        )}
+                                        <span>{axis.name}</span>
+                                    </div>
                                 </button>
                             ))}
                         </div>
@@ -287,6 +292,23 @@ export default function CreateFilterModal({ docId, heId, kitId, axes, currentFil
                                             Выбрано: {selectedValueIds.length}
                                         </p>
                                     )}
+                                    <div className="mt-4 flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="is_exclude"
+                                            checked={isExclude}
+                                            onChange={e => setIsExclude(e.target.checked)}
+                                            className="w-4 h-4 rounded border-gray-300 text-red-600
+                   focus:ring-red-500 cursor-pointer"
+                                        />
+                                        <label htmlFor="is_exclude"
+                                            className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                                            Исключающий фильтр
+                                            <span className="ml-1.5 text-xs text-gray-400">
+                                                (изделие НЕ должно иметь эти значения)
+                                            </span>
+                                        </label>
+                                    </div>
                                 </>
                             )}
                         </div>
