@@ -63,4 +63,13 @@ export const salesApi = {
 
     getKP: (cartId) =>
         call(`${BASE}/carts/${cartId}/kp/`),
+
+    refreshGroup: (cartId, groupId) =>
+        call(`${BASE}/carts/${cartId}/groups/${groupId}/refresh/`, { method: 'POST', body: JSON.stringify({}) }),
+    
+    updateGroupAccessory: (cartId, groupId, accId, data) =>
+        call(`${BASE}/carts/${cartId}/groups/${groupId}/accessories/${accId}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+    
+    deleteGroupAccessory: (cartId, accId) =>
+        call(`${BASE}/carts/${cartId}/group-accessories/${accId}/`, { method: 'DELETE' }),
 };
