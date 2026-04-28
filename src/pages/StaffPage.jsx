@@ -654,7 +654,7 @@ function CreatePermissionModal({ onClose, onCreated }) {
                         </label>
                         <select required value={form.resource_type}
                             onChange={e => handleChange('resource_type', e.target.value)}
-                            className={sel}>
+                            className={inputCls}>
                             <option value="">— выберите —</option>
                             {RESOURCE_TYPES.map(r => (
                                 <option key={r.value} value={r.value}>{r.label}</option>
@@ -668,7 +668,7 @@ function CreatePermissionModal({ onClose, onCreated }) {
                         </label>
                         <select required value={form.action}
                             onChange={e => handleChange('action', e.target.value)}
-                            className={sel}>
+                            className={inputCls}>
                             <option value="">— выберите —</option>
                             {ACTION_TYPES.map(a => (
                                 <option key={a.value} value={a.value}>{a.label}</option>

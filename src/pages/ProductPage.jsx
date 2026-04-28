@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { mediaApi } from '../api/media';
 import AccessTokenModal from '../components/media/AccessTokenModal';
 import { canPreview3D } from '../utils/fileUtils';
+import { useCart } from '../contexts/CartContext';
 import { can } from '../utils/permissions';
 import { useDocTypes } from '../hooks/useDocUpload';
 import DocTypeSelector from '../components/media/DocTypeSelector';
@@ -694,8 +695,8 @@ function AccessoryKitView({ kit }) {
                             className="flex items-center justify-between text-sm py-1 gap-3">
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.is_required
-                                        ? 'bg-emerald-500'
-                                        : 'bg-gray-300 dark:bg-gray-600'
+                                    ? 'bg-emerald-500'
+                                    : 'bg-gray-300 dark:bg-gray-600'
                                     }`} />
                                 <span className="text-gray-900 dark:text-white truncate">
                                     {item.name}
@@ -735,6 +736,11 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
     const { user } = useAuth();
     const { docTypes, activeDocType: activeUploadDocType, setActiveDocType: setActiveUploadDocType } = useDocTypes(user);
 
+    const { activeCartId, addToCart } = useCart();
+    const canSales = can(user, 'sales.cart.write');
+    const [addingToCart, setAddingToCart] = useState(false);
+    const [addedToCart, setAddedToCart] = useState(false);
+
     useEffect(() => {
         if (!productId) return;
         setLoading(true);
@@ -751,6 +757,15 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
             .catch(() => setError('Ошибка сети'))
             .finally(() => setLoading(false));
     }, [productId]);
+
+    const handleAddToCart = async () => {
+        if (!activeCartId || !product) return;
+        setAddingToCart(true);
+        await addToCart(product.id, 1);
+        setAddingToCart(false);
+        setAddedToCart(true);
+        setTimeout(() => setAddedToCart(false), 2000);
+    };
 
     const handleEditStart = (spec) => {
         setEditingSpecId(spec.id);
@@ -875,6 +890,17 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
                     </div>
                 </div>
             </div>
+
+            {canSales && activeCartId && (
+                <button
+                    onClick={handleAddToCart}
+                    disabled={addingToCart}
+                    className="ml-auto shrink-0 px-4 py-2 text-sm font-medium rounded-lg
+                       bg-emerald-600 hover:bg-emerald-700
+                       disabled:opacity-50 text-white transition-colors">
+                    {addedToCart ? '✓ Добавлено' : addingToCart ? '...' : '+ В корзину'}
+                </button>
+            )}
 
             {/* Галерея — вверху, до всего остального */}
             <ImageSlider images={product.images || []} />

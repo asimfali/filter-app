@@ -3,6 +3,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { IssuesProvider } from './contexts/IssuesContext.jsx';
 import { NotificationsProvider } from './contexts/NotificationsContext.jsx';
+import { CartProvider } from './contexts/CartContext';
 import Header from './components/layout/Header';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
@@ -26,6 +27,7 @@ import AccessoryKitsPage from './pages/AccessoryKitsPage';
 import FolderUploadPage from './pages/FolderUploadPage';
 import DefectActPage from './pages/DefectActPage';
 import ProductMasterPage from './pages/ProductMasterPage';
+import CartPage from './pages/CartPage';
 
 
 // AuthPage без изменений — твой существующий код
@@ -344,6 +346,9 @@ function MainApp() {
                     onBack={() => handleNavigate('issues')}
                   />
                 )}
+                {page === 'sales' && (
+                  <CartPage onNavigate={handleNavigate} />
+                )}
                 {page === 'defect-acts' && <DefectActPage />}
               </>
             )}
@@ -370,7 +375,9 @@ function AppInner() {
   return user ? (
     <NotificationsProvider>
       <IssuesProvider>
-        <MainApp />
+        <CartProvider>
+          <MainApp />
+        </CartProvider>
       </IssuesProvider>
     </NotificationsProvider>
   ) : (

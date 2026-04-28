@@ -3,6 +3,7 @@ import { catalogApi } from '../api/catalog';
 import { mediaApi } from '../api/media';
 import { useAuth } from '../contexts/AuthContext';
 import PLMSidePanel from '../components/plm/PLMSidePanel';
+import { useCart } from '../contexts/CartContext';
 import { can } from '../utils/permissions';
 import { useDocTypes } from '../hooks/useDocUpload';
 import DocTypeSelector from '../components/media/DocTypeSelector';
@@ -31,7 +32,7 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
         'spec_preview',
         data?.axes || [],
         data?.definitions || [],
-        viewDocTypes || [], 
+        viewDocTypes || [],
     );
 
     // Какие группы колонок показывать
@@ -56,6 +57,9 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
 
     const [showPLM, setShowPLM] = useState(false);
     const canPLM = can(user, 'plm.stage.view');
+
+    const { activeCartId, addToCart, carts } = useCart();
+    const canSales = can(user, 'sales.cart.write');
 
     const handleLiteraChange = async (litera) => {
         setSelectedLitera(litera);
@@ -83,6 +87,15 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
             .catch(() => setError('Ошибка сети'))
             .finally(() => setLoading(false));
     }, [productIds]);
+
+    const [addingToCart, setAddingToCart] = useState({});
+
+    const handleAddToCart = async (productId) => {
+        if (!activeCartId) return;
+        setAddingToCart(prev => ({ ...prev, [productId]: true }));
+        await addToCart(productId, 1);
+        setAddingToCart(prev => ({ ...prev, [productId]: false }));
+    };
 
     const handleProductDocUploaded = (productId, docTypeCode, newFiles) => {
         setPrivateDocsCache(prev => ({
@@ -191,7 +204,7 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                             )}
                         </div>
 
-                        {onOpenEditor && (
+                        {onOpenEditor && can(user, 'catalog.spec.write') && (
                             <button
                                 onClick={() => onOpenEditor(productIds)}
                                 className="px-4 py-2 text-sm font-medium rounded-lg
@@ -320,6 +333,10 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                                     onOpenViewer={onOpenViewer}
                                     selectedLitera={selectedLitera}
                                     stagesByProduct={stagesByProduct}
+                                    canSales={canSales}
+                                    activeCartId={activeCartId}
+                                    addingToCart={addingToCart[product.id]}
+                                    onAddToCart={handleAddToCart}
                                 />
                             ))}
                         </tbody>
@@ -359,7 +376,7 @@ function ProductRow({
     product, idx, axes, definitions, uploadDocTypes, hasImages,
     showParams, showSpecs, showDocs,
     activeUploadDocType, privateDocsCache, onUploaded, user, onOpenViewer, selectedLitera,
-    stagesByProduct,
+    stagesByProduct, canSales, activeCartId, addingToCart, onAddToCart,
 }) {
     const productStages = stagesByProduct?.[product.id] || [];
 
@@ -441,6 +458,19 @@ function ProductRow({
                             {uploadResult.message}
                         </span>
                     )}
+                    {canSales && activeCartId && (
+            <button
+                onClick={e => { e.stopPropagation(); onAddToCart(product.id); }}
+                disabled={addingToCart}
+                title="Добавить в корзину"
+                className="shrink-0 w-5 h-5 flex items-center justify-center
+                           rounded-full bg-emerald-100 dark:bg-emerald-900/30
+                           text-emerald-600 dark:text-emerald-400
+                           hover:bg-emerald-200 dark:hover:bg-emerald-900/60
+                           disabled:opacity-40 transition-colors text-xs font-bold">
+                {addingToCart ? '·' : '+'}
+            </button>
+        )}
                 </div>
             </td>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext.jsx';
+import { useCart } from '../../contexts/CartContext';
 import { can } from '../../utils/permissions';
 import SmartSelect from '../common/SmartSelect';
 import ProfileModal from '../auth/ProfileModal';
@@ -185,6 +186,7 @@ function NotificationBell({ onNavigate }) {
 
 export default function Header({ currentPage, onNavigate }) {
   const { user, logout, activeSession, refreshUser } = useAuth();
+  const { itemsCount, activeCartId } = useCart();
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
@@ -199,6 +201,7 @@ export default function Header({ currentPage, onNavigate }) {
             {(() => {
               const ALL_PAGES = [
                 { id: 'configurator', label: 'Конфигуратор', code: null },
+                { id: 'sales', label: 'Продажи', code: 'sales.cart.write' },
                 { id: 'parameters', label: 'Параметры', code: 'portal.page.parameters' },
                 { id: 'series-master', label: 'Мастер серий', code: 'catalog.series.manage' },
                 { id: 'staff', label: 'Персонал', code: 'portal.page.staff' },
@@ -252,6 +255,25 @@ export default function Header({ currentPage, onNavigate }) {
       <div className="flex items-center gap-3 shrink-0">
         {/* Колокольчик */}
         {user && <NotificationBell onNavigate={onNavigate} />}
+
+        {user && can(user, 'sales.cart.write') && (
+          <button
+            onClick={() => onNavigate('sales')}
+            className="relative w-9 h-9 flex items-center justify-center rounded-lg
+                   text-gray-500 dark:text-gray-400
+                   hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            title="Корзина"
+          >
+            🛒
+            {itemsCount > 0 && (
+              <span className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 text-white
+                             text-[10px] font-bold rounded-full flex items-center justify-center
+                             leading-none">
+                {itemsCount > 9 ? '9+' : itemsCount}
+              </span>
+            )}
+          </button>
+        )}
 
         {user && (
           <>

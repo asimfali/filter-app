@@ -484,7 +484,7 @@ export default function FolderUploadPage({ onBack }) {
                             Тип документа
                         </label>
                         <select value={docTypeId} onChange={e => setDocTypeId(e.target.value)}
-                            className={sel}>
+                            className={inputCls}>
                             <option value="">— выберите —</option>
                             {docTypes.map(dt => (
                                 <option key={dt.id} value={dt.id}>{dt.name}</option>
@@ -500,7 +500,7 @@ export default function FolderUploadPage({ onBack }) {
                         </label>
                         <select value={productTypeId}
                             onChange={e => setProductTypeId(e.target.value)}
-                            className={sel}>
+                            className={inputCls}>
                             <option value="">— все —</option>
                             {productTypes.map(pt => (
                                 <option key={pt.id} value={pt.id}>{pt.name}</option>
