@@ -3,8 +3,6 @@ import { useSeriesMaster } from '../hooks/useSeriesMaster';
 import { catalogApi } from '../api/catalog';
 import { inputCls } from '../utils/styles';
 import { useModals } from '../hooks/useModals';
-import ModalFooter from '../components/common/ModalFooter';
-import WarningsList from '../components/common/WarningsList';
 import CodePositionBuilder from '../components/catalog/CodePositionBuilder';
 import SeriesItemsTable from '../components/catalog/SeriesItemsTable';
 import RulePreview from '../components/catalog/RulePreview';
@@ -12,8 +10,8 @@ import RulePreview from '../components/catalog/RulePreview';
 const STEPS = [
     'Тип продукции',
     'Параметры серии',
-    'Конструктор кода',
-    'Виды нагрева',
+    'Варьируемые оси',
+    'Маппинг кода',
     'Изделия',
     'Правила',
     'Готово',
@@ -22,10 +20,6 @@ const STEPS = [
 export default function ProductMasterPage({ onBack }) {
     const master = useSeriesMaster();
     const { showConfirm, modals } = useModals();
-
-    const handleNext = () => {
-        master.next();  // просто переходим
-    };
 
     const handleSubmit = () => {
         showConfirm(
@@ -39,7 +33,6 @@ export default function ProductMasterPage({ onBack }) {
         <div className="max-w-3xl mx-auto space-y-4">
             {modals}
 
-            {/* Заголовок + прогресс */}
             <div>
                 <div className="flex items-center gap-3 mb-2">
                     <button onClick={onBack}
@@ -52,7 +45,6 @@ export default function ProductMasterPage({ onBack }) {
                     </h1>
                 </div>
 
-                {/* Степпер */}
                 <div className="flex items-center gap-1">
                     {STEPS.map((label, i) => {
                         const num = i + 1;
@@ -71,7 +63,10 @@ export default function ProductMasterPage({ onBack }) {
                                     <span className="hidden sm:inline">{label}</span>
                                 </div>
                                 {i < STEPS.length - 1 && (
-                                    <div className={`h-px flex-1 ${done ? 'bg-emerald-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
+                                    <div className={`h-px flex-1 ${done
+                                        ? 'bg-emerald-400'
+                                        : 'bg-gray-200 dark:bg-gray-700'}`}
+                                    />
                                 )}
                             </React.Fragment>
                         );
@@ -79,12 +74,11 @@ export default function ProductMasterPage({ onBack }) {
                 </div>
             </div>
 
-            {/* Контент шага */}
             <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-6">
                 {master.step === 1 && <Step1 master={master} />}
                 {master.step === 2 && <Step2 master={master} />}
-                {master.step === 3 && <Step3 master={master} />}
-                {master.step === 4 && <Step4 master={master} />}
+                {master.step === 3 && <Step4 master={master} />} 
+                {master.step === 4 && <Step3 master={master} />} 
                 {master.step === 5 && <Step5 master={master} />}
                 {master.step === 6 && <Step6 master={master} />}
                 {master.step === 7 && <Step7 master={master} onBack={onBack} />}
@@ -97,7 +91,6 @@ export default function ProductMasterPage({ onBack }) {
                 )}
             </div>
 
-            {/* Навигация */}
             {master.step < 7 && (
                 <div className="flex justify-between">
                     <button
@@ -109,7 +102,7 @@ export default function ProductMasterPage({ onBack }) {
                     </button>
                     {master.step < 6 && (
                         <button
-                            onClick={handleNext}
+                            onClick={master.next}
                             disabled={!master.canNext()}
                             className="px-4 py-2 text-sm rounded-lg bg-blue-600
                                        hover:bg-blue-700 text-white disabled:opacity-50">
@@ -164,69 +157,38 @@ function Step1({ master }) {
                     ))}
                 </select>
             </div>
-            <div>
-                <label className="text-xs text-gray-500 mb-1 block">Префикс названия</label>
-                <input
-                    value={master.prefix}
-                    onChange={e => master.setPrefix(e.target.value)}
-                    placeholder="КЭВ-П"
-                    className={inputCls}
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                    Часть названия до мощности: КЭВ-П, КЭВ-М и т.д.
+
+            {/* Индикатор загрузки конфига */}
+            {master.productType && master.configLoading && (
+                <p className="text-xs text-gray-400 animate-pulse">
+                    Загрузка конфига мастера...
                 </p>
-            </div>
+            )}
+            {master.productType && !master.configLoading && master.masterConfig && (
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50
+                                dark:bg-emerald-900/20 px-3 py-2 rounded">
+                    ✓ Конфиг загружен: {master.masterConfig.prefix}
+                    {' · '}
+                    Фиксированные оси: {master.masterConfig.fixed_axes.join(', ')}
+                    {' · '}
+                    Варьируемые: {master.masterConfig.varies_axes.join(', ')}
+                </div>
+            )}
+            {master.productType && !master.configLoading && !master.masterConfig && (
+                <div className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded">
+                    Конфиг мастера не настроен для этого типа продукции
+                </div>
+            )}
         </div>
     );
 }
 
-// ── Шаг 2: Параметры серии ────────────────────────────────────────────────
+// ── Шаг 2: Фиксированные параметры серии ─────────────────────────────────
+// Динамически рендерит оси из masterConfig.fixed_axes
 
 function Step2({ master }) {
-    const [axes, setAxes] = useState({});  // {axis_code: [{id, value}]}
-
-    useEffect(() => {
-        if (!master.productType) return;
-    
-        const loadAxis = async (code, isGlobal = false) => {
-            const { ok, data } = await catalogApi.parameterAxes(
-                isGlobal ? null : master.productType.id
-            );
-            if (!ok) return [];
-            const all = data.results || data;
-            const axis = all.find(a => a.code === code);
-            if (!axis) return [];
-            const { data: vdata } = await catalogApi.parameterValues(axis.id);
-            return vdata.results || vdata;
-        };
-    
-        Promise.all([
-            loadAxis('series'),
-            loadAxis('design'),
-            loadAxis('ip', true),   // ← общая ось
-        ]).then(([seriesVals, designVals, ipVals]) => {
-            setAxes({ series: seriesVals, design: designVals, ip: ipVals });
-        });
-    }, [master.productType]);
-
-    const Select = ({ label, values, selected, onSelect }) => (
-        <div>
-            <label className="text-xs text-gray-500 mb-1 block">{label} *</label>
-            <select
-                value={selected?.id || ''}
-                onChange={e => {
-                    const v = values.find(x => x.id === Number(e.target.value));
-                    onSelect(v || null);
-                }}
-                className={inputCls}
-            >
-                <option value="">Выберите...</option>
-                {values.map(v => (
-                    <option key={v.id} value={v.id}>{v.value}</option>
-                ))}
-            </select>
-        </div>
-    );
+    const { masterConfig, fixedValues, setFixedValue } = master;
+    if (!masterConfig) return null;
 
     return (
         <div className="space-y-4">
@@ -236,123 +198,246 @@ function Step2({ master }) {
             <p className="text-xs text-gray-500">
                 Эти параметры одинаковы для всех изделий серии.
             </p>
-            <Select
-                label="Серия"
-                values={axes.series || []}
-                selected={master.series}
-                onSelect={master.setSeries}
-            />
-            <Select
-                label="Дизайн"
-                values={axes.design || []}
-                selected={master.design}
-                onSelect={master.setDesign}
-            />
-            <Select
-                label="IP"
-                values={axes.ip || []}
-                selected={master.ip}
-                onSelect={master.setIp}
-            />
+            {masterConfig.fixed_axes.map(axisCode => {
+                const axisData = masterConfig.axes[axisCode];
+                if (!axisData) return (
+                    <div key={axisCode} className="text-xs text-red-400">
+                        Ось «{axisCode}» не найдена
+                    </div>
+                );
+                return (
+                    <div key={axisCode}>
+                        <label className="text-xs text-gray-500 mb-1 block">
+                            {axisData.name} *
+                        </label>
+                        <select
+                            value={fixedValues[axisCode]?.id || ''}
+                            onChange={e => {
+                                const v = axisData.values.find(
+                                    x => x.id === Number(e.target.value)
+                                );
+                                setFixedValue(axisCode, v || null);
+                            }}
+                            className={inputCls}
+                        >
+                            <option value="">Выберите...</option>
+                            {axisData.values.map(v => (
+                                <option key={v.id} value={v.id}>{v.value}</option>
+                            ))}
+                        </select>
+                    </div>
+                );
+            })}
         </div>
     );
 }
 
 // ── Шаг 3: Конструктор кода ───────────────────────────────────────────────
+// Показывает только если есть axis_digit позиции в name_positions
 
 function Step3({ master }) {
-    const [lengthValues, setLengthValues] = useState([]);
+    const { masterConfig, axisDigitMaps, setAxisDigitMaps, fixedValues, variesSelections } = master;
+    if (!masterConfig) return null;
 
-    useEffect(() => {
-        if (!master.productType) return;
-        catalogApi.parameterAxes(master.productType.id).then(({ ok, data }) => {
-            if (!ok) return;
-            const all = data.results || data;
-            const axis = all.find(a => a.code === 'length');
-            if (!axis) return;
-            catalogApi.parameterValues(axis.id).then(({ data: vdata }) => {
-                setLengthValues(vdata.results || vdata);
-            });
-        });
-    }, [master.productType]);
+    const axisDigitPositions = masterConfig.name_positions.filter(
+        p => p.type === 'axis_digit'
+    );
+
+    if (axisDigitPositions.length === 0) {
+        return (
+            <div className="space-y-2">
+                <h2 className="text-base font-medium text-gray-900 dark:text-white">
+                    Маппинг кода
+                </h2>
+                <p className="text-xs text-gray-400">
+                    Для этого типа продукции маппинг цифр не требуется.
+                </p>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             <h2 className="text-base font-medium text-gray-900 dark:text-white">
-                Конструктор кода
+                Маппинг цифр кода
             </h2>
-            <CodePositionBuilder
-                positions={master.positions}
-                onPositionsChange={master.setPositions}
-                lengthValues={lengthValues}
-                lengthMap={master.lengthMap}
-                onLengthMapChange={master.setLengthMap}
-                designMap={master.designMap}
-                onDesignMapChange={master.setDesignMap}
-                design={master.design}
-            />
+            <p className="text-xs text-gray-500">
+                Задайте соответствие цифр кода значениям осей.
+            </p>
+            {axisDigitPositions.map(pos => {
+                const axisData = masterConfig.axes[pos.axis_code];
+                const isFixed = masterConfig.fixed_axes.includes(pos.axis_code);
+                const currentMap = axisDigitMaps[pos.axis_code] || [];
+
+                // Для варьируемых осей — только выбранные значения
+                // Для фиксированных — одно значение из fixedValues
+                const availableValues = isFixed
+                    ? (fixedValues[pos.axis_code]
+                        ? [{ id: fixedValues[pos.axis_code].id, value: fixedValues[pos.axis_code].value }]
+                        : [])
+                    : (variesSelections[pos.axis_code] || []);
+
+                const addRow = () => setAxisDigitMaps(prev => {
+                    const valueId = isFixed ? (fixedValues[pos.axis_code]?.id || null) : null;
+                    const valueLabel = isFixed ? (fixedValues[pos.axis_code]?.value || '') : '';
+                    return {
+                        ...prev,
+                        [pos.axis_code]: [
+                            ...(prev[pos.axis_code] || []),
+                            { digit: '', valueId, valueLabel },
+                        ],
+                    };
+                });
+
+                const updateRow = (idx, field, value) => setAxisDigitMaps(prev => {
+                    const map = [...(prev[pos.axis_code] || [])];
+                    if (field === 'valueId') {
+                        const v = availableValues.find(x => x.id === Number(value));
+                        map[idx] = { ...map[idx], valueId: Number(value), valueLabel: v?.value || '' };
+                    } else {
+                        map[idx] = { ...map[idx], [field]: value };
+                    }
+                    return { ...prev, [pos.axis_code]: map };
+                });
+
+                const removeRow = (idx) => setAxisDigitMaps(prev => ({
+                    ...prev,
+                    [pos.axis_code]: (prev[pos.axis_code] || []).filter((_, i) => i !== idx),
+                }));
+
+                return (
+                    <div key={pos.axis_code} className="space-y-2">
+                        <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            Маппинг оси «{axisData?.name || pos.axis_code}»
+                            {pos.digits > 1 && (
+                                <span className="ml-2 text-gray-400">
+                                    ({pos.digits} цифры)
+                                </span>
+                            )}
+                        </div>
+                        {currentMap.map((row, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                                <input
+                                    value={row.digit}
+                                    onChange={e => updateRow(idx, 'digit', e.target.value)}
+                                    placeholder={pos.digits > 1 ? '10' : '3'}
+                                    className="w-14 text-center text-xs rounded border
+                                               border-gray-200 dark:border-gray-700
+                                               bg-white dark:bg-neutral-900
+                                               text-gray-900 dark:text-white px-2 py-1.5
+                                               focus:outline-none focus:border-blue-500"
+                                />
+                                <span className="text-gray-400 text-xs shrink-0">→</span>
+                                {isFixed ? (
+                                    <span className="flex-1 text-xs text-gray-500
+                                                     dark:text-gray-400 px-2 py-1.5 rounded
+                                                     border border-gray-100 dark:border-gray-800
+                                                     bg-neutral-50 dark:bg-neutral-900">
+                                        {fixedValues[pos.axis_code]?.value || '—'}
+                                    </span>
+                                ) : (
+                                    <select
+                                        value={row.valueId || ''}
+                                        onChange={e => updateRow(idx, 'valueId', e.target.value)}
+                                        className="flex-1 text-xs rounded border border-gray-200
+                                                   dark:border-gray-700 bg-white dark:bg-neutral-900
+                                                   text-gray-900 dark:text-white px-2 py-1.5
+                                                   focus:outline-none focus:border-blue-500"
+                                    >
+                                        <option value="">Значение...</option>
+                                        {availableValues.map(v => (
+                                            <option key={v.id} value={v.id}>{v.value}</option>
+                                        ))}
+                                    </select>
+                                )}
+                                <button
+                                    onClick={() => removeRow(idx)}
+                                    className="text-red-400 hover:text-red-600 text-xs px-1 shrink-0">
+                                    ✕
+                                </button>
+                            </div>
+                        ))}
+                        <button
+                            onClick={addRow}
+                            className="text-xs text-blue-500 hover:text-blue-700">
+                            + добавить
+                        </button>
+                    </div>
+                );
+            })}
         </div>
     );
 }
 
-// ── Шаг 4: Виды нагрева ───────────────────────────────────────────────────
+// ── Шаг 4: Варьируемые оси ────────────────────────────────────────────────
+// Для heating — мультиселект кнопками
+// Для остальных varies_axes — мультиселект чекбоксами
 
 function Step4({ master }) {
-    const [heatingValues, setHeatingValues] = useState([]);
-
-    useEffect(() => {
-        catalogApi.parameterAxes(null).then(({ ok, data }) => {
-            if (!ok) return;
-            const all = data.results || data;
-            const axis = all.find(a => a.code === 'heating');
-            if (!axis) return;
-            catalogApi.parameterValues(axis.id).then(({ data: vdata }) => {
-                setHeatingValues(vdata.results || vdata);
-            });
-        });
-    }, []);
-
-    const toggle = (v) => {
-        master.setHeatings(prev => {
-            const exists = prev.find(h => h.id === v.id);
-            return exists ? prev.filter(h => h.id !== v.id) : [...prev, v];
-        });
-    };
-
-    const isSelected = (v) => master.heatings.some(h => h.id === v.id);
+    const { masterConfig, variesSelections, setVariesSelection } = master;
+    if (!masterConfig) return null;
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             <h2 className="text-base font-medium text-gray-900 dark:text-white">
-                Виды нагрева
+                Варьируемые параметры
             </h2>
             <p className="text-xs text-gray-500">
-                Выберите виды нагрева для этой серии. Для E и W мощность обязательна.
+                Выберите значения которые будут варьироваться между изделиями серии.
             </p>
-            <div className="flex flex-wrap gap-2">
-                {heatingValues.map(v => (
-                    <button
-                        key={v.id}
-                        onClick={() => toggle(v)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                            ${isSelected(v)
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-neutral-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-neutral-200'
-                            }`}
-                    >
-                        {v.value}
-                        {v.value === 'A' && ' (воздух, без мощности)'}
-                        {v.value === 'E' && ' (электро)'}
-                        {v.value === 'W' && ' (вода)'}
-                        {v.value === 'G' && ' (газ)'}
-                    </button>
-                ))}
-            </div>
-            {master.heatings.length > 0 && (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                    Выбрано: {master.heatings.map(h => h.value).join(', ')}
-                </p>
-            )}
+            {masterConfig.varies_axes.map(axisCode => {
+                const axisData = masterConfig.axes[axisCode];
+                if (!axisData) return null;
+
+                const selected = variesSelections[axisCode] || [];
+                const isHeating = axisCode === masterConfig.heating_axis_code;
+
+                const toggle = (v) => {
+                    const exists = selected.find(s => s.id === v.id);
+                    setVariesSelection(
+                        axisCode,
+                        exists ? selected.filter(s => s.id !== v.id) : [...selected, v]
+                    );
+                };
+
+                return (
+                    <div key={axisCode} className="space-y-2">
+                        <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {axisData.name} *
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {axisData.values.map(v => {
+                                const isSelected = selected.some(s => s.id === v.id);
+                                const nopower = masterConfig.power_not_required_for.includes(v.value);
+                                return (
+                                    <button
+                                        key={v.id}
+                                        onClick={() => toggle(v)}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium
+                                            transition-colors
+                                            ${isSelected
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-neutral-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-neutral-200'
+                                            }`}
+                                    >
+                                        {v.value}
+                                        {isHeating && nopower && (
+                                            <span className="ml-1 text-xs opacity-70">
+                                                (без мощности)
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {selected.length > 0 && (
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                                Выбрано: {selected.map(s => s.value).join(', ')}
+                            </p>
+                        )}
+                    </div>
+                );
+            })}
         </div>
     );
 }
@@ -372,6 +457,7 @@ function Step5({ master }) {
             </div>
             <SeriesItemsTable
                 items={master.items}
+                masterConfig={master.masterConfig}
                 onAddPower={master.addPowerRow}
                 onUpdate={master.updateItem}
                 onRemove={master.removeItem}
@@ -392,17 +478,13 @@ function Step6({ master }) {
     const loadPreview = async () => {
         setLoading(true);
         const payload = master.buildPayload();
-
         if (!payload) { setLoading(false); return; }
-    
+
         const { ok, data } = await catalogApi.createSeriesTemplate(payload);
         if (!ok || !data.success) { setLoading(false); return; }
-    
+
         const templateId = data.data.id;
         master.setSavedTemplateId(templateId);
-        
-        const { ok: ok2, data: data2 } = await catalogApi.generateSeriesRules(templateId, true);
-        
         await master.loadRules(templateId);
         setLoading(false);
     };
@@ -413,7 +495,8 @@ function Step6({ master }) {
                 Превью правил AxisCombinationRule
             </h2>
             <p className="text-xs text-gray-500">
-                Эти правила будут созданы для корректной привязки осей при синхронизации с 1С.
+                Эти правила будут созданы для корректной привязки осей
+                при синхронизации с 1С.
             </p>
             {loading ? (
                 <div className="text-sm text-gray-400 animate-pulse">Загрузка...</div>
@@ -453,8 +536,7 @@ function Step7({ master, onBack }) {
                             className="flex items-center justify-between text-xs
                                        px-3 py-1.5 rounded bg-neutral-50 dark:bg-neutral-800">
                             <span className="text-gray-700 dark:text-gray-300">{item.name}</span>
-                            <span className={item.created
-                                ? 'text-emerald-500' : 'text-gray-400'}>
+                            <span className={item.created ? 'text-emerald-500' : 'text-gray-400'}>
                                 {item.created ? '+ создано' : 'пропущено'}
                             </span>
                         </div>

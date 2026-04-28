@@ -10,6 +10,7 @@
 │   │   ├── issues.js
 │   │   ├── media.js
 │   │   ├── plm.js
+│   │   ├── sales.js
 │   │   └── sessions.js
 │   ├── assets
 │   │   └── react.svg
@@ -69,6 +70,7 @@
 │   │       └── SyncModal.jsx
 │   ├── contexts
 │   │   ├── AuthContext.jsx
+│   │   ├── CartContext.jsx
 │   │   ├── IssuesContext.jsx
 │   │   ├── NotificationsContext.jsx
 │   │   └── ThemeContext.jsx
@@ -90,6 +92,8 @@
 │   │   │   ├── SpecHeaderForm.jsx
 │   │   │   └── SpecList.jsx
 │   │   ├── AccessoryKitsPage.jsx
+│   │   ├── CartKPPage.jsx
+│   │   ├── CartPage.jsx
 │   │   ├── DefectActPage.jsx
 │   │   ├── DocumentsPage.jsx
 │   │   ├── FolderUploadPage.jsx
@@ -131,4 +135,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-21 directories, 111 files
+21 directories, 115 files

@@ -93,7 +93,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         referenceAxes.forEach(refAxis => {
             const refOrder = refAxis.order;
             const axisNodeId = `axis-${refAxis.axis_id}`;
-        
+
             // Заголовок reference-оси
             nodes = [...nodes, {
                 data: {
@@ -105,12 +105,12 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                 }
             }];
             positions[axisNodeId] = { x: refOrder * COL_W + 100, y: -20 };
-        
+
             // Значения — под каждым parent_value
             refAxis.parent_value_ids.forEach(parentValueId => {
                 const parentPos = positions[`value-${parentValueId}`];
                 if (!parentPos) return;
-        
+
                 refAxis.values.forEach((val, i) => {
                     const nodeId = `value-${val.id}`;
                     nodes = [...nodes, {
@@ -296,7 +296,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             userZoomingEnabled: true,
             userPanningEnabled: true,
             boxSelectionEnabled: false,
-selectionType: 'none',
+            selectionType: 'none',
         });
 
         setTimeout(() => {
@@ -355,7 +355,7 @@ selectionType: 'none',
                     const n = cy.getElementById(`value-${id}`);
                     return n.data('axis_id') === clickedAxisId;
                 });
-                
+
                 if (e.originalEvent?.ctrlKey || e.originalEvent?.metaKey) {
                     // Ctrl+клик — мультивыбор на одной оси, просто добавляем
                     selectedNodesRef.current = [...selectedNodesRef.current, nodeId];
@@ -470,7 +470,7 @@ selectionType: 'none',
             const edge = e.target;
             const fromId = edge.data('source').replace('value-', '');
             const toId = edge.data('target').replace('value-', '');
-        
+
             onDisconnect?.(fromId, toId, () => {
                 edge.remove();
             });
@@ -505,7 +505,7 @@ selectionType: 'none',
                 onSelectionChange?.([]);
                 return;
             }
-        
+
             // Группируем выбранные узлы по оси
             const byAxis = {};
             selectedNodeIds.forEach(id => {
@@ -514,7 +514,7 @@ selectionType: 'none',
                 if (!byAxis[axisId]) byAxis[axisId] = [];
                 byAxis[axisId].push(id);
             });
-        
+
             // Для каждой оси — объединение цепочек её узлов
             const chainPerAxis = Object.values(byAxis).map(ids => {
                 // Объединяем цепочки всех узлов одной оси
@@ -525,28 +525,33 @@ selectionType: 'none',
                 });
                 return union;
             });
-        
+
             // Между осями — пересечение
             let intersection = chainPerAxis[0];
             for (let i = 1; i < chainPerAxis.length; i++) {
                 intersection = intersection.filter(node => chainPerAxis[i].has(node));
             }
-        
+
             // Добавляем сами выбранные узлы (они могут не быть в пересечении)
             selectedNodeIds.forEach(id => {
                 const node = cy.getElementById(`value-${id}`);
                 if (node.length) intersection = intersection.union(node);
             });
-        
+
             cy.nodes('[type="value"]').removeClass('chain-selected chain-dimmed');
             intersection.addClass('chain-selected');
             cy.nodes('[type="value"]').not(intersection).addClass('chain-dimmed');
-        
+
             selectedChainRef.current = intersection
                 .filter(n => n.data('type') === 'value')
                 .map(n => n.id().replace('value-', ''));
-        
-            onSelectionChange?.(selectedChainRef.current);
+
+            // ← передаём только non-reference узлы в поиск
+            const classifierChain = intersection
+                .filter(n => n.data('type') === 'value' && !n.data('is_reference'))
+                .map(n => n.id().replace('value-', ''));
+
+            onSelectionChange?.(classifierChain);
         };
 
         // Клик на пустое место — сброс
@@ -621,33 +626,33 @@ selectionType: 'none',
         e.preventDefault();
         const cy = cyInstanceRef.current;
         if (!cy) return;
-    
+
         const targetNode = cy.nodes('[type="value"].drop-target').first();
         cy.nodes().removeClass('drop-target');
-    
+
         if (!targetNode.length) return;
-    
+
         let productIds = [];
         try {
             productIds = JSON.parse(e.dataTransfer.getData('productIds'));
         } catch { return; }
         if (!productIds.length) return;
-    
+
         const valueId = targetNode.id().replace('value-', '');
         const isReference = targetNode.data('is_reference');  // ← проверяем reference
-    
+
         // Partial drag — только одна ось
         if (isPartialDragRef.current) {
             isPartialDragRef.current = false;
             onDrop?.(productIds, valueId, targetNode.data('label'));
             return;
         }
-    
+
         const chain = selectedChainRef.current;
-    
+
         targetNode.addClass('drop-success');
         setTimeout(() => targetNode.removeClass('drop-success'), 1500);
-    
+
         // Reference-узел — всегда только к одному узлу
         if (isReference || chain.length <= 1) {
             onDrop?.(productIds, valueId, targetNode.data('label'));
