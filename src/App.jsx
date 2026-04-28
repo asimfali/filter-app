@@ -28,6 +28,7 @@ import FolderUploadPage from './pages/FolderUploadPage';
 import DefectActPage from './pages/DefectActPage';
 import ProductMasterPage from './pages/ProductMasterPage';
 import CartPage from './pages/CartPage';
+import CartKPPage from './pages/CartKPPage';
 
 
 // AuthPage без изменений — твой существующий код
@@ -190,6 +191,7 @@ function MainApp() {
     return [];
   });
   const [modelViewerFile, setModelViewerFile] = useState(null);
+  const [kpCartId, setKpCartId] = useState(null);
 
   const handleNavigate = (newPage, payload = null) => {
     setPage(newPage);
@@ -214,6 +216,9 @@ function MainApp() {
       setSpecEditorProductIds(payload);
       setSpecEditorSessionId(null);
       setSpecEditorInitialChanges({});
+    }
+    if (newPage === 'cart-kp') {
+      setKpCartId(payload);
     }
   };
 
@@ -348,6 +353,12 @@ function MainApp() {
                 )}
                 {page === 'sales' && (
                   <CartPage onNavigate={handleNavigate} />
+                )}
+                {page === 'cart-kp' && (
+                  <CartKPPage
+                    cartId={kpCartId}
+                    onBack={() => handleNavigate('sales')}
+                  />
                 )}
                 {page === 'defect-acts' && <DefectActPage />}
               </>

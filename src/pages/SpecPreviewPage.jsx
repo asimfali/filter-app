@@ -459,18 +459,18 @@ function ProductRow({
                         </span>
                     )}
                     {canSales && activeCartId && (
-            <button
-                onClick={e => { e.stopPropagation(); onAddToCart(product.id); }}
-                disabled={addingToCart}
-                title="Добавить в корзину"
-                className="shrink-0 w-5 h-5 flex items-center justify-center
+                        <button
+                            onClick={e => { e.stopPropagation(); onAddToCart(product.id); }}
+                            disabled={addingToCart}
+                            title="Добавить в корзину"
+                            className="shrink-0 w-5 h-5 flex items-center justify-center
                            rounded-full bg-emerald-100 dark:bg-emerald-900/30
                            text-emerald-600 dark:text-emerald-400
                            hover:bg-emerald-200 dark:hover:bg-emerald-900/60
                            disabled:opacity-40 transition-colors text-xs font-bold">
-                {addingToCart ? '·' : '+'}
-            </button>
-        )}
+                            {addingToCart ? '·' : '+'}
+                        </button>
+                    )}
                 </div>
             </td>
 
