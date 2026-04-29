@@ -108,7 +108,8 @@
 │   │   ├── ProductPage.jsx
 │   │   ├── SpecEditorPage.jsx
 │   │   ├── SpecPreviewPage.jsx
-│   │   └── StaffPage.jsx
+│   │   ├── StaffPage.jsx
+│   │   └── VariantEditorPage.jsx
 │   ├── status
 │   │   └── SPEC_EDITOR_FRONTEND_PROGRESS.md
 │   ├── utils
@@ -135,4 +136,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-21 directories, 115 files
+21 directories, 116 files

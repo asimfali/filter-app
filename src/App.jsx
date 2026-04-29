@@ -29,6 +29,7 @@ import DefectActPage from './pages/DefectActPage';
 import ProductMasterPage from './pages/ProductMasterPage';
 import CartPage from './pages/CartPage';
 import CartKPPage from './pages/CartKPPage';
+import VariantEditorPage from './pages/VariantEditorPage';
 
 
 // AuthPage без изменений — твой существующий код
@@ -361,6 +362,9 @@ function MainApp() {
                   />
                 )}
                 {page === 'defect-acts' && <DefectActPage />}
+                {page === 'variant-editor' && (
+                  <VariantEditorPage onBack={() => handleNavigate('configurator')} />
+                )}
               </>
             )}
           </main>
