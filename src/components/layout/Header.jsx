@@ -212,6 +212,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'heat-exchangers', label: 'Теплообменники', code: 'portal.heat_exchanger.view' },
                 { id: 'accessory-kits', label: 'Комплектующие', code: 'catalog.accessory.write' },
                 { id: 'defect-acts', label: 'Ведомость дефектов', code: 'bom.defect.view' },
+                { id: 'variant-editor', label: 'Исполнения', code: 'product.variant.view' },
               ];
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [

@@ -248,4 +248,66 @@ export const catalogApi = {
         const res = await apiFetch(`${BASE}/master-config/${productTypeId}/`);
         return { ok: res.ok, data: await res.json() };
     },
+
+    // ── Варианты (группировка исполнений) ────────────────────────────────
+
+    async variantFreeProducts({ q = '', productTypeId = null, page = 1 } = {}) {
+        const params = new URLSearchParams({ page });
+        if (q) params.set('q', q);
+        if (productTypeId) params.set('product_type', productTypeId);
+        const res = await apiFetch(`${BASE}/variants/free/?${params}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async variantParents({ q = '', productTypeId = null, page = 1, withVariants = false, parentId = null } = {}) {
+        const params = new URLSearchParams({ page });
+        if (q) params.set('q', q);
+        if (productTypeId) params.set('product_type', productTypeId);
+        if (withVariants) params.set('with_variants', 'true');
+        if (parentId) params.set('parent_id', parentId);
+        const res = await apiFetch(`${BASE}/variants/parents/?${params}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async variantLink(productIds, parentId, externalName = null) {
+        const res = await apiFetch(`${BASE}/variants/link/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'link',
+                product_ids: productIds,
+                parent_id: parentId,
+                ...(externalName !== null && { external_name: externalName }),
+            }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async variantUnlink(productIds) {
+        const res = await apiFetch(`${BASE}/variants/link/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'unlink',
+                product_ids: productIds,
+            }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async variantSetExternalName(parentId, externalName) {
+        const res = await apiFetch(`${BASE}/variants/link/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'set_external_name',
+                product_ids: [],
+                parent_id: parentId,
+                external_name: externalName,
+            }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async variantRules() {
+        const res = await apiFetch(`${BASE}/variant-rules/`);
+        return { ok: res.ok, data: await res.json() };
+    },
 };
