@@ -286,6 +286,24 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                        disabled:opacity-40 text-white transition-colors">
                                 {pushing ? '⏳ Отправка...' : '🌐 Синхронизировать сайт'}
                             </button>
+                            {can(user, 'external.manage_variants') && (
+                                <button
+                                    onClick={() => setSyncModal('variants')}
+                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                   bg-amber-600 hover:bg-amber-700
+                   text-white transition-colors">
+                                    🔗 Группировка исполнений
+                                </button>
+                            )}
+                            {can(user, 'external.rsync_media') && (
+                                <button
+                                    onClick={() => setSyncModal('rsync')}
+                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                   bg-teal-600 hover:bg-teal-700
+                   text-white transition-colors">
+                                    📂 Rsync медиафайлов
+                                </button>
+                            )}
                             {pushResult && (
                                 <p className={`text-xs mt-1.5 ${pushResult.ok
                                     ? 'text-emerald-600 dark:text-emerald-400'
