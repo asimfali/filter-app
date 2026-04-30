@@ -47,6 +47,7 @@
 │   │   │   ├── ConfirmModal.jsx
 │   │   │   ├── Dropdown.jsx
 │   │   │   ├── FileDropZone.jsx
+│   │   │   ├── Icons.jsx
 │   │   │   ├── Modal.jsx
 │   │   │   ├── ModalFooter.jsx
 │   │   │   ├── SmartSelect.jsx
@@ -136,4 +137,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-21 directories, 116 files
+21 directories, 117 files
