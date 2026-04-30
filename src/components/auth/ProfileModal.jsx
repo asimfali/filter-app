@@ -293,7 +293,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                     className="w-full px-3 py-2 text-sm font-medium rounded-lg
                    bg-amber-600 hover:bg-amber-700
                    text-white transition-colors">
-                                    <IconLink/> Группировка исполнений
+                                    <IconLink className="w-4 h-4 inline mr-1 align-middle" /> Группировка исполнений
                                 </button>
                             )}
                             {can(user, 'external.rsync_media') && (
@@ -378,7 +378,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                     </div>
 
                     {/* Пресет этапов */}
-                    {presets.length > 0 && (
+                    {can(user, 'bom.spec.push') && presets.length > 0 && (
                         <div>
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400
                                       uppercase tracking-wide mb-2">
@@ -419,7 +419,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                             )}
                         </div>
                     )}
-                    {specFolders.length > 0 && (
+                    {can(user, 'bom.spec.push') && specFolders.length > 0 && (
                         <div>
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400
                       uppercase tracking-wide mb-2">
@@ -458,28 +458,30 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         </div>
                     )}
                     {/* Вид номенклатуры деталей */}
-                    <div>
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400
+                    {can(user, 'bom.spec.push') && (
+                        <div>
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400
                   uppercase tracking-wide mb-2">
-                            Вид номенклатуры деталей
-                        </p>
-                        <input
-                            value={prefs?.default_part_type || ''}
-                            onChange={async (e) => {
-                                const { ok, data } = await authApi.updatePreferences({
-                                    default_part_type: e.target.value,
-                                });
-                                if (ok && data.success) setPrefs(data.data);
-                            }}
-                            placeholder="Полуфабрикат"
-                            className="w-full px-3 py-1.5 text-sm rounded-lg
+                                Вид номенклатуры деталей
+                            </p>
+                            <input
+                                value={prefs?.default_part_type || ''}
+                                onChange={async (e) => {
+                                    const { ok, data } = await authApi.updatePreferences({
+                                        default_part_type: e.target.value,
+                                    });
+                                    if (ok && data.success) setPrefs(data.data);
+                                }}
+                                placeholder="Полуфабрикат"
+                                className="w-full px-3 py-1.5 text-sm rounded-lg
                    bg-neutral-50 dark:bg-neutral-800
                    border border-gray-200 dark:border-gray-700
                    text-gray-900 dark:text-white
                    focus:outline-none focus:border-blue-500
                    transition-colors"
-                        />
-                    </div>
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Футер */}

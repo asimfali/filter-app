@@ -832,7 +832,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                        hover:bg-neutral-200 dark:hover:bg-neutral-700
                        text-gray-700 dark:text-gray-300
                        text-sm py-2 rounded-lg transition-colors">
-                      <IconEye/> Просмотр ({filterResult.count})
+                      <IconEye className="w-4 h-4 inline mr-1 align-middle"/> Просмотр ({filterResult.count})
                     </button>
                     <button
                       onClick={() => setShowCreateThread(true)}
