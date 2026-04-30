@@ -3,6 +3,7 @@ import { useIssues } from '../contexts/IssuesContext.jsx';
 import CreateIssueModal from '../components/issues/CreateIssueModal.jsx';
 import * as issuesApi from '../api/issues.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { IconPaperclip } from '../components/common/Icons.jsx';
 
 const STATUS_LABEL = {
     open: 'Открыто',
@@ -79,7 +80,7 @@ function MessageBubble({ msg, currentUserId }) {
                                         <img src={a.file} alt={a.file_name}
                                             className="max-w-48 max-h-48 rounded-lg object-cover cursor-pointer" />
                                     ) : (
-                                        <span className="text-xs underline opacity-80">📎 {a.file_name}</span>
+                                        <span className="text-xs underline opacity-80"><IconPaperclip className="w-4 h-4 inline mr-1" /> {a.file_name}</span>
                                     )}
                                 </a>
                             ))}
@@ -260,7 +261,7 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
                                         <img src={URL.createObjectURL(f)} alt={f.name}
                                             className="w-16 h-16 object-cover rounded" />
                                     ) : (
-                                        <span>📎</span>
+                                        <span><IconPaperclip className="w-4 h-4 inline mr-1" /></span>
                                     )}
                                     <span className="max-w-24 truncate">{f.name}</span>
                                     <button onClick={() => removeFile(idx)}
@@ -277,7 +278,7 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
                                 className="hidden" onChange={handleFileChange} />
                             <button onClick={() => fileRef.current?.click()}
                                 className="text-gray-400 hover:text-blue-500 transition-colors shrink-0 pb-1">
-                                📎
+                                <IconPaperclip className="w-4 h-4 inline mr-1" />
                             </button>
                             <textarea ref={inputRef} rows={1} onKeyDown={handleKeyDown}
                                 placeholder="Написать сообщение… (Enter — отправить)"

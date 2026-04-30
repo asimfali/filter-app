@@ -5,6 +5,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { externalApi } from '../../api/external';
 import { can } from '../../utils/permissions';
 import SyncModal from '../sync/SyncModal';
+import { IconLink, IconFolder } from '../common/Icons';
 
 export default function ProfileModal({ user, onClose, onUpdated }) {
     const { dark, toggle, setDark } = useTheme();
@@ -77,7 +78,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
         const { ok, data } = await externalApi.pushToSite();
         if (ok && data.success) {
             setPushTaskId(data.data.task_id);
-            setPushResult({ ok: true, message: `⏳ Запущено (${data.data.total} товаров)...` });
+            setPushResult({ ok: true, message: `Запущено (${data.data.total} товаров)...` });
         } else {
             setPushing(false);
             setPushResult({ ok: false, message: data.error || 'Ошибка' });
@@ -93,7 +94,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
         if (ok && data.success) {
             setSyncPricesResult({
                 ok: true,
-                message: `⏳ Запущено (${data.data.configs_count} конфигов)`,
+                message: `Запущено (${data.data.configs_count} конфигов)...`,
             });
         } else {
             setSyncPricesResult({
@@ -113,7 +114,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
         if (ok && data.success) {
             setSyncCatalogResult({
                 ok: true,
-                message: `⏳ Запущено (${data.data.configs_count} конфигов)`,
+                message: `Запущено (${data.data.configs_count} конфигов)...`,
             });
         } else {
             setSyncCatalogResult({
@@ -284,7 +285,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                 className="w-full px-3 py-2 text-sm font-medium rounded-lg
                        bg-emerald-600 hover:bg-emerald-700
                        disabled:opacity-40 text-white transition-colors">
-                                {pushing ? '⏳ Отправка...' : '🌐 Синхронизировать сайт'}
+                                {pushing ? 'Отправка...' : 'Синхронизировать сайт'}
                             </button>
                             {can(user, 'external.manage_variants') && (
                                 <button
@@ -292,7 +293,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                     className="w-full px-3 py-2 text-sm font-medium rounded-lg
                    bg-amber-600 hover:bg-amber-700
                    text-white transition-colors">
-                                    🔗 Группировка исполнений
+                                    <IconLink/> Группировка исполнений
                                 </button>
                             )}
                             {can(user, 'external.rsync_media') && (

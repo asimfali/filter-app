@@ -6,6 +6,7 @@ import { can } from '../utils/permissions';
 import { filterLatestPassports } from '../utils/filterLatestPassports';
 import SmartSelect from '../components/common/SmartSelect';
 import { sessionsApi } from '../api/sessions';
+import { IconFolder, IconClock, IconLock } from '../components/common/Icons';
 
 function buildDocumentName(template, docTypeName, item) {
     if (!template) {
@@ -440,7 +441,7 @@ export default function FolderUploadPage({ onBack }) {
     if (!can(user, 'portal.documents.upload')) {
         return (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <div className="text-4xl">🔒</div>
+                <div className="text-4xl"><IconLock /></div>
                 <div className="text-gray-500 dark:text-gray-400 text-sm">
                     Нет доступа к этой странице
                 </div>
@@ -564,7 +565,7 @@ export default function FolderUploadPage({ onBack }) {
                                 // @ts-ignore
                                 webkitdirectory="" multiple accept={allowedExtensions.join(',')}
                                 onChange={handleFolderChange} />
-                            {loading ? '⏳ Анализ...' : '📁 Выбрать папку'}
+                            {loading ? <><IconClock className="w-4 h-4" /> Анализ...</> : <><IconFolder className="w-4 h-4" /> Выбрать папку</>}
                         </label>
                     </div>
 
@@ -613,7 +614,7 @@ export default function FolderUploadPage({ onBack }) {
                         )}
                         {allDone && items.some(i => i.file?.name?.toLowerCase().match(/\.(step|stp)$/)) && (
                             <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                                ⏳ STEP файлы конвертируются в GLB — обновите страницу через 1-2 минуты
+                                <IconClock /> STEP файлы конвертируются в GLB — обновите страницу через 1-2 минуты
                             </div>
                         )}
                     </div>

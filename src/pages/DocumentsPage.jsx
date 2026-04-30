@@ -7,6 +7,7 @@ import { canPreview3D } from '../utils/fileUtils';
 import { useCommonDocUpload } from '../hooks/useDocUpload';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
 import FiltersPanel from '../components/media/FiltersPanel';
+import { IconFolder, IconImage } from '../components/common/Icons';
 
 const MEDIA = '/media';
 
@@ -222,9 +223,9 @@ function FileRow({ file, siblings = [], dimmed = false, canDelete = false,
           {(() => {
             const name = file.name.toLowerCase();
             if (canPreview3D(name)) return <span className="text-violet-400 shrink-0">◈</span>;
-            if (/\.(jpg|jpeg|png|webp)$/.test(name)) return <span className="text-green-400 shrink-0">🖼</span>;
+            if (/\.(jpg|jpeg|png|webp)$/.test(name)) return <IconImage className="text-green-400 shrink-0 w-4 h-4" />;
             if (name.endsWith('.pdf')) return <PdfIcon className={`w-5 h-5 shrink-0 ${dimmed ? 'text-gray-300 dark:text-gray-600' : 'text-red-400'}`} />;
-            return <span className="text-gray-400 shrink-0">📄</span>;
+            return <IconFile className="text-gray-400 shrink-0 w-4 h-4" />;
           })()}
           <span className={`text-sm truncate ${dimmed
             ? 'text-gray-400 dark:text-gray-500'
@@ -866,7 +867,7 @@ export default function DocumentsPage({ onOpenViewer, onFolderUpload }) {
                        bg-neutral-100 dark:bg-neutral-800
                        text-gray-700 dark:text-gray-300
                        hover:bg-neutral-200 dark:hover:bg-neutral-700">
-              📁 Из папки
+              <IconFolder /> Из папки
             </button>
           </div>
         )}

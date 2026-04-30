@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { externalApi } from '../../api/external';
 import { can } from '../../utils/permissions';
+import { IconLink, IconClock } from '../common/Icons';
 
 // ─── Конфигурация режимов ─────────────────────────────────────────────────
 
@@ -28,7 +29,7 @@ const MODE_CONFIG = {
             : `✗ ${result.error}`,
     },
     variants: {
-        title: '🔗 Группировка исполнений',
+        title: <><IconLink className="w-4 h-4 inline mr-1" />Группировка исполнений</>,
         btnColor: 'bg-amber-600 hover:bg-amber-700',
         permission: 'external.manage_variants',
         loadItems: () => externalApi.getVariantRules(),
@@ -132,7 +133,7 @@ export default function SyncModal({ user, onClose, mode }) {
     const runItem = async (itemId) => {
         setResults(prev => ({
             ...prev,
-            [itemId]: { loading: true, ok: null, message: '⏳ Запуск...' },
+            [itemId]: { loading: true, ok: null, message: ' Запуск...' },
         }));
 
         const { ok, data } = await config.runItem(itemId, opts);
@@ -150,7 +151,7 @@ export default function SyncModal({ user, onClose, mode }) {
             setTaskIds(prev => ({ ...prev, [itemId]: data.data.task_id }));
             setResults(prev => ({
                 ...prev,
-                [itemId]: { loading: true, ok: null, message: '⏳ Выполняется...' },
+                [itemId]: { loading: true, ok: null, message: ' Выполняется...' },
             }));
         } else {
             // Результат сразу
@@ -238,7 +239,7 @@ export default function SyncModal({ user, onClose, mode }) {
                                     className={`shrink-0 px-3 py-1.5 text-xs font-medium
                                                 rounded-lg text-white transition-colors
                                                 disabled:opacity-40 ${config.btnColor}`}>
-                                    {state?.loading ? '⏳' : 'Запустить'}
+                                    {state?.loading ? <IconClock className="w-4 h-4" /> : 'Запустить'}
                                 </button>
                             </div>
                         );
@@ -254,7 +255,7 @@ export default function SyncModal({ user, onClose, mode }) {
                         className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg
                                     text-white transition-colors disabled:opacity-40
                                     ${config.btnColor}`}>
-                        {runningAll ? '⏳ Запуск всех...' : 'Запустить все'}
+                        {runningAll ? 'Запуск всех...' : 'Запустить все'}
                     </button>
                     <button
                         onClick={onClose}

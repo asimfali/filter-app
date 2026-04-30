@@ -4,6 +4,7 @@ import { useModals } from '../../hooks/useModals';
 import Dropdown from '../common/Dropdown';
 import FolderPicker from './FolderPicker';
 import { inputCls } from '../../utils/styles';
+import { IconFolder,  } from '../common/Icons';
 
 // GroupForm и GroupDetail оставить в этом же файле — используются только здесь
 
@@ -212,7 +213,7 @@ function GroupDetail({ group, onUpdated }) {
                 ) : (
                     <div className="text-sm text-gray-600 dark:text-gray-400">
                         {detail.folder_path
-                            ? <span>📁 {detail.folder_path}</span>
+                            ? <span><IconFolder /> {detail.folder_path}</span>
                             : <span className="text-gray-400 italic">Не задана</span>
                         }
                     </div>
@@ -231,7 +232,7 @@ function GroupDetail({ group, onUpdated }) {
                                        bg-neutral-50 dark:bg-neutral-800 text-sm">
                             <div className="flex items-center gap-2 min-w-0">
                                 {p.from_folder
-                                    ? <span className="text-gray-400 text-xs shrink-0">📁</span>
+                                    ? <span className="text-gray-400 text-xs shrink-0"><IconFolder /></span>
                                     : <span className="text-blue-500 text-xs shrink-0">★</span>
                                 }
                                 <span className="text-gray-800 dark:text-gray-200 truncate">
@@ -387,7 +388,7 @@ function MaterialGroupsModal({ onClose }) {
                                     {g.folder_path && (
                                         <div className="text-[11px] text-gray-400 mt-1 truncate"
                                             title={g.folder_path}>
-                                            📁 {g.folder_path.split(' / ').slice(-2).join(' / ')}
+                                            <IconFolder /> {g.folder_path.split(' / ').slice(-2).join(' / ')}
                                         </div>
                                     )}
                                 </div>

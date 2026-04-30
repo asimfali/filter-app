@@ -173,7 +173,7 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
                 )}
             </div>
             <div className="px-2 py-1.5 text-[10px] text-gray-400 border-t border-gray-100 text-center">
-                {isDragOver ? '➕ Отпустите' : 'Перетащите товар · Shift/Ctrl'}
+                {isDragOver ? '+ Отпустите' : 'Перетащите товар · Shift/Ctrl'}
             </div>
         </div>
     );
@@ -407,7 +407,7 @@ export default function ProductBindingPanel({
             {/* Подсказка */}
             <div className="px-3 py-2 text-[11px] text-gray-400 dark:text-gray-500
                             border-t border-gray-100 dark:border-gray-800 text-center">
-                {readOnly ? '🔒 Режим только для чтения' : 'Shift+клик — диапазон · Ctrl+клик — добавить'}
+                {readOnly ? '[R] Режим только для чтения' : 'Shift+клик — диапазон · Ctrl+клик — добавить'}
             </div>
         </div>
     );
