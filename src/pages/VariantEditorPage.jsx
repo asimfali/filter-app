@@ -410,7 +410,7 @@ export default function VariantEditorPage({ onBack }) {
                                        bg-blue-600 hover:bg-blue-700 text-white
                                        disabled:opacity-40 transition-colors">
                             {saving
-                                ? '⏳ Привязка...'
+                                ? ' Привязка...'
                                 : selected.size
                                     ? `Привязать (${selected.size}) → родитель`
                                     : 'Выберите изделия слева'

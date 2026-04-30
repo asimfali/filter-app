@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { mediaApi } from '../../api/media';
 import { apiFetch } from '../../api/auth';
+import { IconEye } from '../common/Icons';
 
 export default function AccessTokenModal({ product, docType, onClose }) {
     const [tokens, setTokens] = useState([]);
@@ -158,7 +159,7 @@ export default function AccessTokenModal({ product, docType, onClose }) {
                                                 ? 'bg-blue-600 text-white'
                                                 : 'bg-neutral-800 text-gray-400 hover:text-white border border-gray-700'
                                             }`}>
-                                        {type === 'read' ? '👁 Чтение' : '✎ Запись'}
+                                        {type === 'read' ? <><IconEye className="w-4 h-4 inline mr-1" />Чтение</> : '✎ Запись'}
                                     </button>
                                 ))}
                             </div>

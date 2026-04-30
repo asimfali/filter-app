@@ -9,6 +9,7 @@ import PackagingModal from '../../components/bom/PackagingModal';
 import UnitWeightModal from '../../components/bom/UnitWeightModal';
 import PullModal from '../../components/bom/PullModal';
 import SyncModal from '../../components/bom/SyncModal';
+import { IconBox, IconLock } from '../../components/common/Icons';
 
 const STATUS_LABEL = {
     draft: 'Черновик',
@@ -134,7 +135,7 @@ export default function SpecList({ specs, loading, canWrite, canView, onOpen, on
                border-gray-200 dark:border-gray-700
                text-gray-600 dark:text-gray-400
                hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
-                            📦 Пак Тара
+                            <IconBox className="w-4 h-4 inline mr-1" /> Пак Тара
                         </button>
 
                         {packagingOpen && <PackagingModal onClose={() => setPackagingOpen(false)} />}
@@ -258,7 +259,7 @@ export default function SpecList({ specs, loading, canWrite, canView, onOpen, on
                                         </div>
                                         {spec.locked_by && (
                                             <div className="text-xs text-amber-500 dark:text-amber-400 mt-0.5">
-                                                🔒 {spec.locked_by_name}
+                                                <IconLock /> {spec.locked_by_name}
                                             </div>
                                         )}
                                     </td>

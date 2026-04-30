@@ -9,6 +9,7 @@ import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader';
 import { tokenStorage } from '../api/auth';
 export { canPreview3D } from '../utils/fileUtils';
 import { useTheme } from '../contexts/ThemeContext';
+import { IconEye, IconEyeOff } from '../components/common/Icons';
 
 // ─── Видовой куб ──────────────────────────────────────────────────────────────
 
@@ -266,7 +267,7 @@ function ContextMenu({ x, y, node, onHide, onShow, onIsolate, onFocus, onClose }
             <button onClick={onHide}
                 className="w-full text-left px-3 py-2 text-sm text-gray-700
                            dark:text-gray-300 hover:bg-neutral-50 dark:hover:bg-neutral-800">
-                👁 Скрыть
+                <IconEye className="w-4 h-4 inline mr-1" /> Скрыть
             </button>
             <button onClick={onShow}
                 className="w-full text-left px-3 py-2 text-sm text-gray-700
@@ -386,7 +387,7 @@ function TreeNode({ node, depth, selectedUuid, onSelect, onContextMenu, onHover,
                     }}
                     title={visible ? 'Скрыть' : 'Показать'}
                 >
-                    {visible ? '👁' : '🙈'}
+                    {visible ? <IconEye className="w-4 h-4" /> : <IconEyeOff className="w-4 h-4" />}
                 </button>
             </div>
 

@@ -5,6 +5,7 @@ import { useCart } from '../../contexts/CartContext';
 import { can } from '../../utils/permissions';
 import SmartSelect from '../common/SmartSelect';
 import ProfileModal from '../auth/ProfileModal';
+import { IconBell, IconCart, IconSearch } from '../common/Icons';
 
 const NOTIFICATION_LABEL = {
   'issues.new_issue': 'Новое замечание',
@@ -100,7 +101,7 @@ function NotificationBell({ onNavigate }) {
                    hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
         title="Уведомления"
       >
-        🔔
+        <IconBell />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white
                            text-[10px] font-bold rounded-full flex items-center justify-center
@@ -241,7 +242,7 @@ export default function Header({ currentPage, onNavigate }) {
         <div className="relative flex-1 max-w-sm">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 
                          text-gray-400 text-xs pointer-events-none z-10">
-            🔍
+            <IconSearch className="w-4 h-4" />
           </span>
           <SmartSelect
             endpoint="/api/v1/catalog/products/search/"
@@ -265,7 +266,7 @@ export default function Header({ currentPage, onNavigate }) {
                    hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             title="Корзина"
           >
-            🛒
+            <IconCart />
             {itemsCount > 0 && (
               <span className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 text-white
                              text-[10px] font-bold rounded-full flex items-center justify-center

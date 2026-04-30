@@ -6,6 +6,7 @@ import CreateFilterModal from '../components/media/CreateFilterModal.jsx';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
 import FiltersPanel from '../components/media/FiltersPanel';
 import SmartSelect from '../components/common/SmartSelect';
+import { IconLink, IconFile } from '../components/common/Icons.jsx';
 
 // ── Хук загрузки ─────────────────────────────────────────────────────────
 
@@ -371,7 +372,7 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
                                            rounded-lg group transition-colors">
                                 <a href="#" onClick={e => handleClick(e, f.rel_path)}
                                     className="flex items-center gap-2 min-w-0">
-                                    <span className="text-red-400 shrink-0">📄</span>
+                                    <IconFile className="text-red-400 shrink-0 w-4 h-4" />
                                     <span className="text-xs text-gray-700 dark:text-gray-300 truncate">
                                         {f.name}
                                     </span>
@@ -409,7 +410,7 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
                         onClick={() => setShowSearch(o => !o)}
                         className="text-xs text-blue-500 hover:text-blue-700
                                    transition-colors">
-                        {showSearch ? '✕ Отмена' : '🔗 Привязать существующий'}
+                        {showSearch ? '✕ Отмена' : <><IconLink className="w-4 h-4 inline mr-1" />Привязать существующий</>}
                     </button>
                 </div>
             )}

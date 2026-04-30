@@ -1,3 +1,5 @@
+import { IconFile } from "./Icons";
+
 export default function FileDropZone({
     file,
     onFile,
@@ -37,7 +39,7 @@ export default function FileDropZone({
                     </>
                 ) : (
                     <>
-                        <span className="text-2xl mb-1 text-gray-400">📄</span>
+                        <span className="text-2xl mb-1 text-gray-400"><IconFile /></span>
                         <span className="text-sm text-gray-500 dark:text-gray-400">
                             {placeholder}
                         </span>

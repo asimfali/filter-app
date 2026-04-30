@@ -4,6 +4,7 @@ import { sessionsApi } from '../api/sessions';
 import { useAuth } from '../contexts/AuthContext';
 import { can } from '../utils/permissions';
 import { catalogApi } from '../api/catalog';
+import { IconSave } from '../components/common/Icons';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -226,7 +227,7 @@ export default function SpecEditorPage({
                 setPushTaskId(json.data.task_id);  // ← запускаем опрос
                 setPushResult({
                     ok: true,
-                    message: `⏳ Выгрузка запущена (${json.data.total} товаров)...`,
+                    message: ` Выгрузка запущена (${json.data.total} товаров)...`,
                 });
             } else {
                 setPushing(false);
@@ -505,7 +506,7 @@ export default function SpecEditorPage({
                         className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
                bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white"
                     >
-                        {savingDraft ? 'Сохраняю...' : draftSaved ? '✓ Черновик сохранён' : '💾 Сохранить черновик'}
+                        {savingDraft ? 'Сохраняю...' : draftSaved ? '✓ Черновик сохранён' : <><IconSave className="w-4 h-4 inline mr-1" />Сохранить черновик</>}
                     </button>
 
                     <button

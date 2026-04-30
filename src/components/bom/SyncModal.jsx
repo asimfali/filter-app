@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { bomApi } from '../../api/bom';
 import { useModals } from '../../hooks/useModals';
 import { inputCls } from '../../utils/styles';
+import { IconFolder, IconFactory, IconText, IconBox} from '../common/Icons';
 
 // Вспомогательный компонент кнопки
 function SyncButton({ label, description, icon, onClick, loading, variant = 'secondary', status, message }) {
@@ -16,7 +17,9 @@ function SyncButton({ label, description, icon, onClick, loading, variant = 'sec
                         : 'bg-white dark:bg-neutral-900 border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-                <span className="text-2xl">{icon}</span>
+                <span className="w-6 h-6 flex items-center justify-center shrink-0">
+                    {typeof icon === 'string' ? <span className="text-2xl">{icon}</span> : icon}
+                </span>
                 <div className="flex-1">
                     <div className={`text-sm font-semibold ${variant === 'primary' ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
                         {label}
@@ -128,8 +131,8 @@ export default function SyncModal({ onClose, onRefresh }) {
     const anyPending = Object.values(statuses).includes('pending') || globalStatus === 'pending';
 
     const SYNC_TYPE_ICON = {
-        bom_materials: '📦',
-        bom_production: '🏭',
+        bom_materials: <IconBox className="w-6 h-6" />,
+        bom_production: <IconFactory className="w-6 h-6" />,
     };
 
     return (
@@ -145,7 +148,7 @@ export default function SyncModal({ onClose, onRefresh }) {
                     <SyncButton
                         label="Номенклатура (Детали/Материалы)"
                         description="Обновляет названия, артикулы и единицы измерения"
-                        icon="🔤"
+                        icon={<IconText className="w-6 h-6" />}
                         loading={anyPending}
                         status={globalStatus}
                         message={globalStatus ? globalMessage : ''}
@@ -154,14 +157,14 @@ export default function SyncModal({ onClose, onRefresh }) {
                     <SyncButton
                         label="Пути производства"
                         description="Обновляет дерево папок в разделе ПРОИЗВОДСТВО"
-                        icon="🏭"
+                        icon={<IconFactory className="w-6 h-6" />}
                         loading={anyPending}
                         onClick={() => handleSyncAction('production_folders', 'Синхронизация путей производства')}
                     />
                     <SyncButton
                         label="Папки спецификаций"
                         description="Обновляет дерево папок для хранения спецификаций"
-                        icon="📁"
+                        icon={<IconFolder />}
                         loading={anyPending}
                         onClick={() => handleSyncAction('spec_folders', 'Синхронизация папок спецификаций')}
                     />
@@ -177,7 +180,7 @@ export default function SyncModal({ onClose, onRefresh }) {
                             key={c.id}
                             label={c.name}
                             description={c.sync_type === 'bom_production' ? 'Папка производства' : 'Папка комплектации'}
-                            icon={SYNC_TYPE_ICON[c.sync_type] || '📦'}
+                            icon={SYNC_TYPE_ICON[c.sync_type] || <IconBox className="w-6 h-6" />}
                             loading={statuses[c.id] === 'pending'}
                             status={statuses[c.id]}
                             message={messages[c.id] || ''}

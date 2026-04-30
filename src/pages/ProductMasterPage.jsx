@@ -6,6 +6,7 @@ import { useModals } from '../hooks/useModals';
 import CodePositionBuilder from '../components/catalog/CodePositionBuilder';
 import SeriesItemsTable from '../components/catalog/SeriesItemsTable';
 import RulePreview from '../components/catalog/RulePreview';
+import { IconCheck } from '../components/common/Icons';
 
 const STEPS = [
     'Тип продукции',
@@ -515,7 +516,7 @@ function Step7({ master, onBack }) {
 
     return (
         <div className="space-y-4 text-center">
-            <div className="text-4xl">✅</div>
+            <div className="text-4xl"><IconCheck/></div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Серия создана
             </h2>

@@ -7,6 +7,7 @@ import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
 import { can } from '../../utils/permissions';
 import { useChainSearch } from '../../hooks/useChainSearch';
+import { IconEye, IconLock } from '../common/Icons.jsx';
 
 
 const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) => {
@@ -831,7 +832,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                        hover:bg-neutral-200 dark:hover:bg-neutral-700
                        text-gray-700 dark:text-gray-300
                        text-sm py-2 rounded-lg transition-colors">
-                      👁 Просмотр ({filterResult.count})
+                      <IconEye/> Просмотр ({filterResult.count})
                     </button>
                     <button
                       onClick={() => setShowCreateThread(true)}
@@ -870,7 +871,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 
                       dark:border-amber-800 rounded-lg px-4 py-2 mb-4">
               <p className="text-xs text-amber-800 dark:text-amber-400">
-                🔒 Режим только для чтения. У вас нет прав на изменение привязок.
+               <IconLock className="w-4 h-4 inline mr-1" /> Режим только для чтения. У вас нет прав на изменение привязок.
               </p>
             </div>
           )}

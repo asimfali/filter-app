@@ -30,6 +30,7 @@ import ProductMasterPage from './pages/ProductMasterPage';
 import CartPage from './pages/CartPage';
 import CartKPPage from './pages/CartKPPage';
 import VariantEditorPage from './pages/VariantEditorPage';
+import { IconClock } from './components/common/Icons.jsx';
 
 
 // AuthPage без изменений — твой существующий код
@@ -293,7 +294,7 @@ function MainApp() {
             )}
             {!user.is_confirmed && !PUBLIC_PAGES.includes(page) && (
               <div className="max-w-sm mx-auto text-center py-16">
-                <div className="text-4xl mb-4">⏳</div>
+                <div className="text-4xl mb-4"><IconClock/></div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   Ожидание подтверждения
                 </h2>

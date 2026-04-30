@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { bomApi } from '../../api/bom';
 import Dropdown from '../common/Dropdown';
 import { inputCls } from "../../utils/styles";
+import { IconStar } from '../common/Icons';
 
 export default function MaterialCombobox({ row, idx, canWrite, onSelect, matRefs }) {
     const [query, setQuery] = useState('');
@@ -144,7 +145,7 @@ export default function MaterialCombobox({ row, idx, canWrite, onSelect, matRefs
                                     className="shrink-0 text-base leading-none transition-colors"
                                     title={part.priority > 0 ? 'Убрать из избранного' : 'В избранное'}
                                 >
-                                    {part.priority > 0 ? '⭐' : '☆'}
+                                    {part.priority > 0 ? <IconStar className="w-3 h-3 text-yellow-400" /> : '☆'}
                                 </button>
                             </div>
                         )
