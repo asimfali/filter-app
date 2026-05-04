@@ -13,6 +13,10 @@ function useProductList(fetcher) {
     const [q, setQ] = useState('');
     const [productTypeId, setPtId] = useState(null);
     const [extra, setExtra] = useState({});
+    const removeItem = useCallback((id) => {
+        setItems(prev => prev.filter(p => p.id !== id));
+        setTotal(prev => prev - 1);
+    }, []);
 
     const load = useCallback(async (overrides = {}) => {
         setLoading(true);
@@ -52,7 +56,7 @@ function useProductList(fetcher) {
 
     return {
         items, total, page, loading, q, productTypeId,
-        load, search, changePage, changeProductType, changeExtra,
+        load, search, changePage, changeProductType, changeExtra, removeItem,
     };
 }
 
@@ -170,6 +174,7 @@ function useFlash() {
 
 export default function VariantEditorPage({ onBack }) {
     const [productTypes, setProductTypes] = useState([]);
+    const [filling, setFilling] = useState(false);
     useEffect(() => {
         catalogApi.productTypes().then(({ ok, data }) => {
             if (ok) setProductTypes(Array.isArray(data) ? data : (data.data ?? []));
@@ -195,6 +200,7 @@ export default function VariantEditorPage({ onBack }) {
     const [saving, setSaving] = useState(false);
     const { msg, flash } = useFlash();
     const [globalTypeId, setGlobalTypeId] = useState(null);
+    const [showProblematic, setShowProblematic] = useState(false);
 
     const handleTypeChange = (id) => {
         setGlobalTypeId(id);
@@ -203,6 +209,20 @@ export default function VariantEditorPage({ onBack }) {
         setVariants([]);
         free.changeProductType(id);
         parents.changeProductType(id);
+    };
+
+    const handleFillExternalNames = async () => {
+        if (!globalTypeId) return;
+        if (!confirm('Заполнить external_name для всех родителей без имени?')) return;
+        setFilling(true);
+        const { ok, data } = await catalogApi.variantFillExternalNames(globalTypeId);
+        if (ok && data.success) {
+            flash(`✓ Обновлено: ${data.data.updated}`);
+            parents.load();
+        } else {
+            flash(data.error || 'Ошибка', false);
+        }
+        setFilling(false);
     };
 
     const loadVariants = useCallback(async (parent) => {
@@ -214,7 +234,12 @@ export default function VariantEditorPage({ onBack }) {
         setSelectedParent(parent);
         setExternalName(parent.external_name || '');
         await loadVariants(parent);
-    }, [loadVariants]);
+        free.changeExtra({
+            parentName: parent.name,
+            parentTypeId: parent.product_type_id,
+            parentId: parent.id,
+        });
+    }, [loadVariants, free]);
 
     const toggleSelect = (id) =>
         setSelected(prev => {
@@ -240,8 +265,20 @@ export default function VariantEditorPage({ onBack }) {
             flash(`✓ Привязано: ${data.data.linked}`);
             setSelected(new Set());
             free.load();
-            parents.load();
             await loadVariants(selectedParent);
+            // Проверяем остались ли свободные для этого родителя
+            const { ok: freeOk, data: freeData } = await catalogApi.variantFreeProducts({
+                parentName: selectedParent.name,
+                parentTypeId: selectedParent.product_type_id,
+                parentId: selectedParent.id,
+            });
+            if (freeOk && freeData.success && freeData.data.total === 0) {
+                parents.removeItem(selectedParent.id);
+                setSelectedParent(null);
+                setVariants([]);
+                setExternalName('');
+                free.changeExtra({ parentName: '', parentTypeId: '', parentId: null });
+            }
         } else {
             flash(data.error || 'Ошибка', false);
         }
@@ -301,11 +338,23 @@ export default function VariantEditorPage({ onBack }) {
                             <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                     </select>
+
+                    {/* В шапке после селектора: */}
+                    {globalTypeId && (
+                        <button
+                            onClick={handleFillExternalNames}
+                            disabled={filling}
+                            className="px-3 py-1.5 text-sm font-medium rounded-lg
+                   bg-amber-600 hover:bg-amber-700 text-white
+                   disabled:opacity-40 transition-colors">
+                            {filling ? 'Обновление...' : 'Заполнить имена'}
+                        </button>
+                    )}
                 </div>
                 {msg && (
                     <span className={`text-xs px-3 py-1.5 rounded-lg ${msg.ok
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                            : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                        : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
                         }`}>
                         {msg.text}
                     </span>
@@ -315,56 +364,70 @@ export default function VariantEditorPage({ onBack }) {
             {/* Три колонки */}
             <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
 
-                {/* ── Левая: свободные ── */}
+                {/* ── Левая: родители ── */}
                 <Panel
-                    title="Свободные изделия"
-                    badge={selected.size > 0 && (
-                        <span className="text-xs text-blue-600 dark:text-blue-400">
-                            {selected.size} выбрано
-                        </span>
-                    )}
+                    title="Все родители"
+                    badge={
+                        <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-1.5 text-xs
+                          text-gray-500 dark:text-gray-400 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showProblematic}
+                                    onChange={e => {
+                                        setShowProblematic(e.target.checked);
+                                        parents.changeExtra({ problematic: e.target.checked });
+                                    }}
+                                    className="rounded"
+                                />
+                                Проблемные
+                            </label>
+                            <label className="flex items-center gap-1.5 text-xs
+                          text-gray-500 dark:text-gray-400 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showWithVariants}
+                                    onChange={e => {
+                                        setShowWithVariants(e.target.checked);
+                                        parents.changeExtra({ withVariants: e.target.checked });
+                                    }}
+                                    className="rounded"
+                                />
+                                С исполнениями
+                            </label>
+                        </div>
+                    }
                     toolbar={
                         <div className="space-y-1.5">
                             <input
                                 placeholder="Поиск..."
-                                onChange={e => free.search(e.target.value)}
+                                onChange={e => parents.search(e.target.value)}
                                 className={inputCls}
                             />
-                            <label className="flex items-center gap-2 text-xs
-                                              text-gray-500 dark:text-gray-400 cursor-pointer pt-0.5">
-                                <input
-                                    type="checkbox"
-                                    checked={selected.size === free.items.length && free.items.length > 0}
-                                    onChange={toggleAll}
-                                    className="rounded"
-                                />
-                                Выбрать все на странице
-                            </label>
                         </div>
                     }
                     footer={
                         <Pagination
-                            page={free.page}
-                            total={free.total}
-                            onChange={free.changePage}
+                            page={parents.page}
+                            total={parents.total}
+                            onChange={parents.changePage}
                         />
                     }
                 >
-                    {free.loading && (
+                    {parents.loading && (
                         <p className="text-xs text-gray-400 text-center py-4">Загрузка...</p>
                     )}
-                    {!free.loading && free.items.length === 0 && (
+                    {!parents.loading && parents.items.length === 0 && (
                         <p className="text-xs text-gray-400 text-center py-4">
-                            Нет свободных изделий
+                            Нет родителей
                         </p>
                     )}
-                    {!free.loading && free.items.map(p => (
+                    {!parents.loading && parents.items.map(p => (
                         <ProductRow
                             key={p.id}
                             product={p}
-                            checked={selected.has(p.id)}
-                            onToggle={() => toggleSelect(p.id)}
-                            onClick={() => toggleSelect(p.id)}
+                            active={selectedParent?.id === p.id}
+                            onClick={() => selectParent(p)}
                         />
                     ))}
                 </Panel>
@@ -385,6 +448,7 @@ export default function VariantEditorPage({ onBack }) {
                                 setSelectedParent(null);
                                 setVariants([]);
                                 setExternalName('');
+                                free.changeExtra({ parentName: '', parentTypeId: '', parentId: null });
                             }}
                             value={selectedParent}
                             nameKey="name"
@@ -487,53 +551,54 @@ export default function VariantEditorPage({ onBack }) {
 
                 {/* ── Правая: родители ── */}
                 <Panel
-                    title="Все родители"
-                    badge={
-                        <label className="flex items-center gap-1.5 text-xs
-                                          text-gray-500 dark:text-gray-400 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={showWithVariants}
-                                onChange={e => {
-                                    setShowWithVariants(e.target.checked);
-                                    parents.changeExtra({ withVariants: e.target.checked });
-                                }}
-                                className="rounded"
-                            />
-                            С исполнениями
-                        </label>
-                    }
+                    title="Свободные изделия"
+                    badge={selected.size > 0 && (
+                        <span className="text-xs text-blue-600 dark:text-blue-400">
+                            {selected.size} выбрано
+                        </span>
+                    )}
                     toolbar={
                         <div className="space-y-1.5">
                             <input
                                 placeholder="Поиск..."
-                                onChange={e => parents.search(e.target.value)}
+                                onChange={e => free.search(e.target.value)}
                                 className={inputCls}
                             />
+                            <label className="flex items-center gap-2 text-xs
+                                  text-gray-500 dark:text-gray-400 cursor-pointer pt-0.5">
+                                <input
+                                    type="checkbox"
+                                    checked={selected.size === free.items.length && free.items.length > 0}
+                                    onChange={toggleAll}
+                                    className="rounded"
+                                />
+                                Выбрать все на странице
+                            </label>
                         </div>
                     }
                     footer={
                         <Pagination
-                            page={parents.page}
-                            total={parents.total}
-                            onChange={parents.changePage}
+                            page={free.page}
+                            total={free.total}
+                            onChange={free.changePage}
                         />
                     }
                 >
-                    {parents.loading && (
+                    {free.loading && (
                         <p className="text-xs text-gray-400 text-center py-4">Загрузка...</p>
                     )}
-                    {!parents.loading && parents.items.length === 0 && (
+                    {!free.loading && free.items.length === 0 && (
                         <p className="text-xs text-gray-400 text-center py-4">
-                            Нет родителей
+                            Нет свободных изделий
                         </p>
                     )}
-                    {!parents.loading && parents.items.map(p => (
+                    {!free.loading && free.items.map(p => (
                         <ProductRow
                             key={p.id}
                             product={p}
-                            active={selectedParent?.id === p.id}
-                            onClick={() => selectParent(p)}
+                            checked={selected.has(p.id)}
+                            onToggle={() => toggleSelect(p.id)}
+                            onClick={() => toggleSelect(p.id)}
                         />
                     ))}
                 </Panel>

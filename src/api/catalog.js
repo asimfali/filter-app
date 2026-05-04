@@ -251,21 +251,33 @@ export const catalogApi = {
 
     // ── Варианты (группировка исполнений) ────────────────────────────────
 
-    async variantFreeProducts({ q = '', productTypeId = null, page = 1 } = {}) {
+    async variantFreeProducts({ q = '', productTypeId = null, page = 1, parentName = '', parentTypeId = '', parentId = null } = {}) {
         const params = new URLSearchParams({ page });
         if (q) params.set('q', q);
         if (productTypeId) params.set('product_type', productTypeId);
+        if (parentName) params.set('parent_name', parentName);
+        if (parentTypeId) params.set('parent_type_id', parentTypeId);
+        if (parentId) params.set('parent_id', parentId);
         const res = await apiFetch(`${BASE}/variants/free/?${params}`);
         return { ok: res.ok, data: await res.json() };
     },
 
-    async variantParents({ q = '', productTypeId = null, page = 1, withVariants = false, parentId = null } = {}) {
+    async variantParents({ q = '', productTypeId = null, page = 1, withVariants = false, parentId = null, problematic = false } = {}) {
         const params = new URLSearchParams({ page });
         if (q) params.set('q', q);
         if (productTypeId) params.set('product_type', productTypeId);
         if (withVariants) params.set('with_variants', 'true');
         if (parentId) params.set('parent_id', parentId);
+        if (problematic) params.set('problematic', 'true');
         const res = await apiFetch(`${BASE}/variants/parents/?${params}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async variantFillExternalNames(productTypeId) {
+        const res = await apiFetch(`${BASE}/variants/fill-external-names/`, {
+            method: 'POST',
+            body: JSON.stringify({ product_type_id: productTypeId }),
+        });
         return { ok: res.ok, data: await res.json() };
     },
 
