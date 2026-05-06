@@ -302,7 +302,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                     className="w-full px-3 py-2 text-sm font-medium rounded-lg
                    bg-teal-600 hover:bg-teal-700
                    text-white transition-colors">
-                                    📂 Rsync медиафайлов
+                                    Rsync медиафайлов
                                 </button>
                             )}
                             {pushResult && (
@@ -328,7 +328,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                         className="w-full px-3 py-2 text-sm font-medium rounded-lg
                                bg-blue-600 hover:bg-blue-700
                                text-white transition-colors">
-                                        💰 Обновить цены
+                                        Обновить цены
                                     </button>
                                 )}
                                 {can(user, 'external.sync_catalog') && (
@@ -337,7 +337,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                         className="w-full px-3 py-2 text-sm font-medium rounded-lg
                                bg-violet-600 hover:bg-violet-700
                                text-white transition-colors">
-                                        🔄 Синхронизировать каталог
+                                        Синхронизировать каталог
                                     </button>
                                 )}
                             </div>

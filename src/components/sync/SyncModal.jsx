@@ -7,7 +7,7 @@ import { IconLink, IconClock } from '../common/Icons';
 
 const MODE_CONFIG = {
     prices: {
-        title: '💰 Обновить цены',
+        title: 'Обновить цены',
         btnColor: 'bg-blue-600 hover:bg-blue-700',
         permission: 'external.sync_prices',
         loadItems: () => externalApi.getSyncConfigs(),
@@ -18,7 +18,7 @@ const MODE_CONFIG = {
             : `✗ ${result.error}`,
     },
     catalog: {
-        title: '🔄 Синхронизировать каталог',
+        title: 'Синхронизировать каталог',
         btnColor: 'bg-violet-600 hover:bg-violet-700',
         permission: 'external.sync_catalog',
         loadItems: () => externalApi.getSyncConfigs(),
@@ -51,7 +51,7 @@ const MODE_CONFIG = {
         ),
     },
     rsync: {
-        title: '📂 Rsync медиафайлов',
+        title: 'Rsync медиафайлов',
         btnColor: 'bg-teal-600 hover:bg-teal-700',
         permission: 'external.rsync_media',
         // Статические пункты — типы медиа
@@ -70,9 +70,14 @@ const MODE_CONFIG = {
         }),
         runItem: (id) => externalApi.rsyncMedia(id),
         isAsync: true,
-        formatResult: (result) => result.success
-            ? `✓ Готово`
-            : `✗ ${result.error}`,
+        formatResult: (result) => {
+            if (result.success) {
+                const count = result.folders?.length ?? 0;
+                return `✓ Синхронизировано папок: ${count}`;
+            }
+            const errs = result.errors?.map(e => `${e.folder}: ${e.error}`).join('; ');
+            return `✗ ${errs || 'Ошибка'}`;
+        },
     },
 };
 
