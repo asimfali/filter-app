@@ -340,43 +340,67 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             // ── Режим attach — выделение цепочек ──────────────────────
             if (modeRef.current === 'attach') {
                 const clickedAxisId = node.data('axis_id');
-
-                // Снять если уже выделен
+                const isReference = node.data('is_reference');
+            
+                if (isReference) {
+                    // Reference-узел — отдельная логика
+                    const refIndex = selectedNodesRef.current.indexOf(nodeId);
+                    if (refIndex !== -1) {
+                        // Снять
+                        selectedNodesRef.current.splice(refIndex, 1);
+                    } else {
+                        // Заменить другой reference той же оси или добавить
+                        const sameRefAxisIndex = selectedNodesRef.current.findIndex(id => {
+                            const n = cy.getElementById(`value-${id}`);
+                            return n.data('is_reference') && n.data('axis_id') === clickedAxisId;
+                        });
+                        if (sameRefAxisIndex !== -1) {
+                            selectedNodesRef.current.splice(sameRefAxisIndex, 1, nodeId);
+                        } else {
+                            selectedNodesRef.current = [...selectedNodesRef.current, nodeId];
+                        }
+                    }
+                    highlightIntersection(cy, selectedNodesRef.current);
+                    return;
+                }
+            
+                // Classifier-узел — при смене сбрасываем reference той же цепочки
                 const selectedIndex = selectedNodesRef.current.indexOf(nodeId);
                 if (selectedIndex !== -1) {
                     selectedNodesRef.current.splice(selectedIndex, 1);
+                    // Убираем reference если classifier сброшен
+                    selectedNodesRef.current = selectedNodesRef.current.filter(id => {
+                        const n = cy.getElementById(`value-${id}`);
+                        return !n.data('is_reference');
+                    });
                     if (selectedNodesRef.current.length === 0) {
                         cy.nodes().removeClass('chain-selected chain-dimmed');
                         selectedChainRef.current = [];
-                        onSelectionChange?.([]);
+                        onSelectionChange?.([], []);
                         return;
                     }
                     highlightIntersection(cy, selectedNodesRef.current);
                     return;
                 }
-
-                // Если на этой оси уже есть выделенный узел — заменяем его
+            
                 const sameAxisIndex = selectedNodesRef.current.findIndex(id => {
                     const n = cy.getElementById(`value-${id}`);
-                    return n.data('axis_id') === clickedAxisId;
+                    return !n.data('is_reference') && n.data('axis_id') === clickedAxisId;
                 });
-
+            
                 if (e.originalEvent?.ctrlKey || e.originalEvent?.metaKey) {
-                    // Ctrl+клик — мультивыбор на одной оси, просто добавляем
                     selectedNodesRef.current = [...selectedNodesRef.current, nodeId];
                 } else if (sameAxisIndex !== -1) {
-                    // Обычный клик на той же оси — заменяем
                     selectedNodesRef.current.splice(sameAxisIndex, 1, nodeId);
+                    // Сбрасываем все reference при смене classifier
+                    selectedNodesRef.current = selectedNodesRef.current.filter(id => {
+                        const n = cy.getElementById(`value-${id}`);
+                        return !n.data('is_reference');
+                    });
                 } else {
-                    // Новая ось — добавляем
                     selectedNodesRef.current = [...selectedNodesRef.current, nodeId];
                 }
-
-                selectedNodesRef.current = selectedNodesRef.current.filter(id => {
-                    const n = cy.getElementById(`value-${id}`);
-                    return !n.data('is_reference');
-                });
-
+            
                 highlightIntersection(cy, selectedNodesRef.current);
             }
         });
