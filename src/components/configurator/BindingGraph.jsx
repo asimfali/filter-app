@@ -372,6 +372,11 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                     selectedNodesRef.current = [...selectedNodesRef.current, nodeId];
                 }
 
+                selectedNodesRef.current = selectedNodesRef.current.filter(id => {
+                    const n = cy.getElementById(`value-${id}`);
+                    return !n.data('is_reference');
+                });
+
                 highlightIntersection(cy, selectedNodesRef.current);
             }
         });
