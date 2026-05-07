@@ -43,7 +43,12 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         const load = async () => {
             const { ok, data } = await catalogApi.filteredConfiguration(productTypeId, selectedTagIds, false, true, false);
             if (!ok || !data.success || !data.data.nodes.length) return;
-            initCytoscape(data.data.nodes, data.data.edges, data.data.reference_axes || []);
+            initCytoscape(
+                data.data.nodes,
+                data.data.edges,
+                data.data.reference_axes || [],
+                data.data.product_paths || [],
+            );
         };
 
         load();
@@ -61,7 +66,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         }
     }, [mode]);
 
-    const initCytoscape = (nodes, edges, referenceAxes = []) => {
+    const initCytoscape = (nodes, edges, referenceAxes = [], productPaths = []) => {
 
         if (!cyRef.current) return;
 
@@ -476,26 +481,24 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             });
         });
 
-        const getReachableNodes = (cy, startNode) => {
-            const visited = new Set();
-            const result = cy.collection();
+        const getReachableNodes = (startNode) => {
+            const startVid = startNode.id().replace('value-', '');
+            const matchingPaths = productPaths.filter(path =>
+                path.map(String).includes(startVid)
+            );
 
-            const traverse = (node, direction) => {
-                const id = node.id();
-                if (visited.has(id)) return;
-                visited.add(id);
-                result.merge(node);
+            if (!matchingPaths.length) {
+                return cy.collection().merge(startNode);
+            }
 
-                if (direction !== 'backward') {
-                    node.outgoers('[type="value"]').forEach(n => traverse(n, 'forward'));
-                }
-                if (direction !== 'forward') {
-                    node.incomers('[type="value"]').forEach(n => traverse(n, 'backward'));
-                }
-            };
+            const allowed = new Set();
+            matchingPaths.forEach(path => {
+                path.forEach(vid => allowed.add(String(vid)));
+            });
 
-            traverse(startNode, null);
-            return result;
+            return cy.nodes('[type="value"]').filter(n =>
+                allowed.has(n.id().replace('value-', ''))
+            );
         };
 
         const highlightIntersection = (cy, selectedNodeIds) => {
@@ -517,11 +520,10 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
 
             // Для каждой оси — объединение цепочек её узлов
             const chainPerAxis = Object.values(byAxis).map(ids => {
-                // Объединяем цепочки всех узлов одной оси
                 let union = cy.collection();
                 ids.forEach(id => {
                     const node = cy.getElementById(`value-${id}`);
-                    if (node.length) union = union.union(getReachableNodes(cy, node));
+                    if (node.length) union = union.union(getReachableNodes(node));
                 });
                 return union;
             });
@@ -551,7 +553,11 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                 .filter(n => n.data('type') === 'value' && !n.data('is_reference'))
                 .map(n => n.id().replace('value-', ''));
 
-            onSelectionChange?.(classifierChain);
+            const referenceChain = intersection
+                .filter(n => n.data('type') === 'value' && n.data('is_reference'))
+                .map(n => n.id().replace('value-', ''));
+
+            onSelectionChange?.(classifierChain, referenceChain);
         };
 
         // Клик на пустое место — сброс
