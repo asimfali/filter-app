@@ -987,6 +987,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                 dragMissingAxes={dragMissingAxes}
                 onDrop={handleBindingDrop}
                 onSelectionChange={(ids, refIds = []) => {
+                  console.log('classifier:', ids, 'reference:', refIds, 'bindingTags:', bindingTags);
                   handleChainSelection([...ids, ...refIds]);
               }}
                 onConnect={async (fromId, toId, addEdge) => {
