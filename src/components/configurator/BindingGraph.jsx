@@ -32,6 +32,17 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         dragMissingAxesRef.current = dragMissingAxes;
     }, [dragMissingAxes]);
 
+    useImperativeHandle(ref, () => ({
+        resetSelection: () => {
+            if (cyInstanceRef.current) {
+                cyInstanceRef.current.nodes().removeClass('chain-selected chain-dimmed');
+            }
+            selectedNodesRef.current = [];
+            selectedChainRef.current = [];
+            onSelectionChange?.([], []);
+        }
+    }));
+
     useEffect(() => {
         if (!productTypeId || selectedTagIds.length === 0) {
             if (cyInstanceRef.current) {
