@@ -144,6 +144,7 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
                                         <button
                                             key={axis.id}
                                             onClick={() => {
+                                                console.log('detach axis:', axis.id, 'products:', products.map(p => p.id).slice(0, 3));
                                                 setShowDetachMenu(false);
                                                 onDetachAxis?.(axis.id, products.map(p => p.id));
                                             }}
