@@ -134,7 +134,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
 
         // Глобальные оси (reference) — отдельный запрос
         const { ok: ok4, data: data4 } = await catalogApi.parameterAxes('global');
-        console.log('global axes:', data4);
         const globalAxes = ok4 && Array.isArray(data4)
           ? data4.map(a => ({ id: String(a.id), label: a.name, name: a.name, order: a.order }))
           : [];
