@@ -60,12 +60,13 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
   const handleChainSelection = useCallback(async (chainValueIds) => {
     setChainFilters(chainValueIds);
     if (!chainValueIds.length) {
-      chainSearch.reset();
-      setChainProducts([]);  // ← добавь
-      return;
+        chainSearch.reset();
+        setChainProducts([]);
+        return;
     }
-    await chainSearch.search(chainValueIds);
-  }, [chainSearch])
+    // Объединяем выбранные узлы графа + теги фильтра
+    await chainSearch.search([...new Set([...chainValueIds, ...bindingTags])]);
+}, [chainSearch, bindingTags]);
 
   useEffect(() => {
     setChainProducts(chainSearch.products);
@@ -985,9 +986,9 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                 readOnly={!canEditBindings}
                 dragMissingAxes={dragMissingAxes}
                 onDrop={handleBindingDrop}
-                onSelectionChange={ids => {
-                  handleChainSelection(ids);
-                }}
+                onSelectionChange={(ids, refIds = []) => {
+                  handleChainSelection([...ids, ...refIds]);
+              }}
                 onConnect={async (fromId, toId, addEdge) => {
                   const { ok, data } = await catalogApi.connectValues(fromId, toId);
                   setDropResult(
