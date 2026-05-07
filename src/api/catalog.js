@@ -249,6 +249,14 @@ export const catalogApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    async detachAxisFromProducts(productIds, axisId) {
+        const res = await apiFetch(`${BASE}/products/detach-axis-from-products/`, {
+            method: 'POST',
+            body: JSON.stringify({ product_ids: productIds, axis_id: axisId }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
     // ── Варианты (группировка исполнений) ────────────────────────────────
 
     async variantFreeProducts({ q = '', productTypeId = null, page = 1, parentName = '', parentTypeId = '', parentId = null } = {}) {

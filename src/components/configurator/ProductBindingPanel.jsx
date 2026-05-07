@@ -6,8 +6,10 @@ import { useMultiSelect } from '../../hooks/useMultiSelect';
 const API = '/api/v1/catalog';
 
 
-export function ChainProductsPanel({ products, partialProducts = [], loading, filters, onDrop, onDetach, onPartialDragStart }) {
+export function ChainProductsPanel({ products, partialProducts = [], loading, filters, onDrop, onDetach, 
+    onPartialDragStart,onDetachAxis, availableAxes = [], }) {
     const [isDragOver, setIsDragOver] = useState(false);
+    const [showDetachMenu, setShowDetachMenu] = useState(false);
     const fullSelect = useMultiSelect(products);
     const partialSelect = useMultiSelect(partialProducts);
 
@@ -123,6 +125,37 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
                         >
                             Все
                         </button>
+                    )}
+                    {/* Кнопка отвязки оси */}
+                    {availableAxes.length > 0 && products.length > 0 && (
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowDetachMenu(v => !v)}
+                                className="text-[10px] text-red-400 hover:text-red-600"
+                                title="Отвязать ось от всех товаров цепочки"
+                            >
+                                −ось
+                            </button>
+                            {showDetachMenu && (
+                                <div className="absolute right-0 top-5 z-50 bg-white dark:bg-neutral-800
+                                        border border-gray-200 dark:border-gray-700 rounded shadow-lg
+                                        min-w-32 py-1">
+                                    {availableAxes.map(axis => (
+                                        <button
+                                            key={axis.id}
+                                            onClick={() => {
+                                                setShowDetachMenu(false);
+                                                onDetachAxis?.(axis.id, products.map(p => p.id));
+                                            }}
+                                            className="block w-full text-left px-3 py-1.5 text-xs
+                                               text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                        >
+                                            {axis.label || axis.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
                 {fullSelect.selected.size > 0 && (

@@ -60,13 +60,13 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
   const handleChainSelection = useCallback(async (chainValueIds) => {
     setChainFilters(chainValueIds);
     if (!chainValueIds.length) {
-        chainSearch.reset();
-        setChainProducts([]);
-        return;
+      chainSearch.reset();
+      setChainProducts([]);
+      return;
     }
     // Объединяем выбранные узлы графа + теги фильтра
     await chainSearch.search([...new Set([...chainValueIds, ...bindingTags])]);
-}, [chainSearch, bindingTags]);
+  }, [chainSearch, bindingTags]);
 
   useEffect(() => {
     setChainProducts(chainSearch.products);
@@ -131,7 +131,14 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
             label: n.data.label,
             order: n.data.order,
           }));
-        setAllAxes(axes);
+
+        // Глобальные оси (reference) — отдельный запрос
+        const { ok: ok4, data: data4 } = await catalogApi.parameterAxes('global');
+        console.log('global axes:', data4);
+        const globalAxes = ok4 && Array.isArray(data4)
+          ? data4.map(a => ({ id: String(a.id), label: a.name, name: a.name, order: a.order }))
+          : [];
+        setAllAxes([...axes, ...globalAxes]);
         setLoading(false);
       } catch (err) {
         setError(err.message);
@@ -388,47 +395,47 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
         {
           selector: 'node[?is_reference][type="value"]',
           style: {
-              'background-color': '#fef3c7',
-              'border-color': '#f59e0b',
-              'border-width': 1,
-              'border-style': 'dashed',
-              'color': '#92400e',
-              'font-size': 11,
-              'width': 130, 'height': 34,
-              'shape': 'roundrectangle',
-              'text-valign': 'center',
-              'text-halign': 'center',
+            'background-color': '#fef3c7',
+            'border-color': '#f59e0b',
+            'border-width': 1,
+            'border-style': 'dashed',
+            'color': '#92400e',
+            'font-size': 11,
+            'width': 130, 'height': 34,
+            'shape': 'roundrectangle',
+            'text-valign': 'center',
+            'text-halign': 'center',
           },
-      },
-      {
+        },
+        {
           selector: 'node[?is_reference][type="axis"]',
           style: {
-              'background-color': '#92400e',
-              'color': '#fff',
-              'font-size': 9,
-              'font-weight': 'bold',
-              'width': 130, 'height': 28,
-              'shape': 'roundrectangle',
-              'text-valign': 'center',
-              'text-halign': 'center',
-              'text-wrap': 'wrap',
-              'text-max-width': 120,
-              'events': 'no',
+            'background-color': '#92400e',
+            'color': '#fff',
+            'font-size': 9,
+            'font-weight': 'bold',
+            'width': 130, 'height': 28,
+            'shape': 'roundrectangle',
+            'text-valign': 'center',
+            'text-halign': 'center',
+            'text-wrap': 'wrap',
+            'text-max-width': 120,
+            'events': 'no',
           },
-      },
-      {
+        },
+        {
           selector: 'edge[?is_reference]',
           style: {
-              'line-style': 'dashed',
-              'line-color': '#f59e0b',
-              'width': 1,
-              'opacity': 0.6,
-              'curve-style': 'taxi',
-              'taxi-direction': 'rightward',
-              'source-endpoint': '90deg',
-              'target-endpoint': '270deg',
+            'line-style': 'dashed',
+            'line-color': '#f59e0b',
+            'width': 1,
+            'opacity': 0.6,
+            'curve-style': 'taxi',
+            'taxi-direction': 'rightward',
+            'source-endpoint': '90deg',
+            'target-endpoint': '270deg',
           },
-      },
+        },
         { selector: 'edge.dimmed', style: { 'opacity': 0.1 } },
       ],
       selectionType: 'additive',
@@ -582,7 +589,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
     if (!intersectionIds.length) return;
     setCounting(true);
     try {
-        const result = await filterSearch.search(intersectionIds);
+      const result = await filterSearch.search(intersectionIds);
       if (result) {
         setFilterResult({
           count: result.count,
@@ -833,7 +840,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                        hover:bg-neutral-200 dark:hover:bg-neutral-700
                        text-gray-700 dark:text-gray-300
                        text-sm py-2 rounded-lg transition-colors">
-                      <IconEye className="w-4 h-4 inline mr-1 align-middle"/> Просмотр ({filterResult.count})
+                      <IconEye className="w-4 h-4 inline mr-1 align-middle" /> Просмотр ({filterResult.count})
                     </button>
                     <button
                       onClick={() => setShowCreateThread(true)}
@@ -872,7 +879,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 
                       dark:border-amber-800 rounded-lg px-4 py-2 mb-4">
               <p className="text-xs text-amber-800 dark:text-amber-400">
-               <IconLock className="w-4 h-4 inline mr-1" /> Режим только для чтения. У вас нет прав на изменение привязок.
+                <IconLock className="w-4 h-4 inline mr-1" /> Режим только для чтения. У вас нет прав на изменение привязок.
               </p>
             </div>
           )}
@@ -980,6 +987,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
               )}
 
               <BindingGraph
+                ref={bindingGraphRef}
                 productTypeId={selectedTypeId}
                 selectedTagIds={bindingTags}
                 mode={bindingMode}
@@ -989,7 +997,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                 onSelectionChange={(ids, refIds = []) => {
                   console.log('classifier:', ids, 'reference:', refIds, 'bindingTags:', bindingTags);
                   handleChainSelection([...ids, ...refIds]);
-              }}
+                }}
                 onConnect={async (fromId, toId, addEdge) => {
                   const { ok, data } = await catalogApi.connectValues(fromId, toId);
                   setDropResult(
@@ -1071,19 +1079,18 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                   await handleChainSelection(chainFilters);
                   setTimeout(() => setDropResult(null), 3000);
                 }}
-                onDetach={async (productIds) => {
-                  // Отвязываем все оси цепочки от выбранных товаров
-                  for (const axisValueId of chainFilters) {
-                    // Получаем axis_id для каждого value_id
-                  }
-                  // Проще — отвязать все параметры из цепочки у этих товаров
-                  const { ok, data } = await catalogApi.detachChain(productIds, chainFilters);
+                availableAxes={allAxes}  // ← все оси типа продукции
+                onDetachAxis={async (axisId, productIds) => {
+                  const { ok, data } = await catalogApi.detachAxisFromProducts(productIds, axisId);
                   if (ok && data.success) {
-                    setDropResult({ ok: true, message: `✓ Отвязано ${productIds.length} изделий` });
-                    handleChainSelection(chainFilters);
+                      setDropResult({ ok: true, message: `✓ Отвязано ${data.data.deleted} привязок` });
+                      bindingGraphRef.current?.resetSelection();  // ← сброс выделения
+                      await handleChainSelection(chainFilters);
+                  } else {
+                      setDropResult({ ok: false, message: data.error || 'Ошибка' });
                   }
                   setTimeout(() => setDropResult(null), 3000);
-                }}
+              }}
               />
             )}
             <div className="w-64 shrink-0" style={{ height: 600 }}>
