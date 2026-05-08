@@ -42,7 +42,6 @@ export function useChainSearch(productTypeId, { partial = false } = {}) {
             setCount(data.data.count);
             setPathsCount(data.data.paths_count);
             setPartialProducts(data.data.partial_products || []);
-            console.log('products:', data.data.products.length, 'partial:', data.data.partial_products.length, 'count:', data.data.count);
             return data.data;
 
         } finally {

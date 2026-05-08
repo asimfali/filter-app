@@ -27,7 +27,7 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
 
     return (
         <div
-            className={`w-44 shrink-0 flex flex-col bg-white dark:bg-neutral-900
+            className={`w-44 lg:w-56 xl:w-64 2xl:w-72 shrink-0 flex-col bg-white dark:bg-neutral-900
                         rounded-lg shadow overflow-hidden transition-colors
                         ${isDragOver ? 'ring-2 ring-emerald-400' : ''}`}
             style={{ maxHeight: 600 }}
@@ -144,7 +144,6 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
                                         <button
                                             key={axis.id}
                                             onClick={() => {
-                                                console.log('detach axis:', axis.id, 'products:', products.map(p => p.id).slice(0, 3));
                                                 setShowDetachMenu(false);
                                                 onDetachAxis?.(axis.id, products.map(p => p.id));
                                             }}
