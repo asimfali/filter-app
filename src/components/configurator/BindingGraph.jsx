@@ -208,6 +208,9 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                         shape: 'roundrectangle',
                         'text-valign': 'center',
                         'text-halign': 'center',
+                        'text-wrap': 'wrap',          // ← только это
+                        'text-max-width': 120,
+                        'z-index': 10,
                     },
                 },
                 {
@@ -238,6 +241,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                         'taxi-direction': 'rightward',
                         'source-endpoint': '90deg',
                         'target-endpoint': '270deg',
+                        'z-index': 10,
                     },
                 },
                 {
@@ -261,7 +265,8 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                 {
                     selector: 'node.chain-dimmed',
                     style: {
-                        opacity: 0.35,
+                        'background-opacity': 0.4,
+                        'border-opacity': 0.4,
                     },
                 },
                 {
@@ -271,12 +276,13 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                         'border-color': '#f59e0b',
                         'border-width': 1,
                         'border-style': 'dashed',
-                        color: '#92400e',
+                        color: '#1a1a1a',
                         'font-size': 11,
                         width: 130, height: 34,
                         shape: 'roundrectangle',
                         'text-valign': 'center',
                         'text-halign': 'center',
+                        'z-index': 10,
                     },
                 },
                 {
@@ -307,6 +313,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                         'taxi-direction': 'rightward',
                         'source-endpoint': '90deg',
                         'target-endpoint': '270deg',
+                        'z-index': 1,
                     },
                 },
             ],
@@ -480,43 +487,6 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                 connectSource = null;
                 cy.userPanningEnabled(true);
             }
-        });
-
-        cy.on('tap', 'node[type="value"]', (e) => {
-            if (modeRef.current !== 'connect' || readOnly) return;
-
-            const node = e.target;
-            const nodeId = node.id().replace('value-', '');
-
-            if (e.originalEvent?.shiftKey) {
-                // Shift+клик — bulk режим
-                if (!bulkSourceRef.current) {
-                    // Источник ещё не выбран — первый клик без Shift должен быть источником
-                    return;
-                }
-
-                const alreadyIdx = bulkTargetsRef.current.indexOf(nodeId);
-                if (alreadyIdx !== -1) {
-                    // Снимаем выделение
-                    bulkTargetsRef.current.splice(alreadyIdx, 1);
-                    node.removeClass('bulk-target');
-                } else {
-                    bulkTargetsRef.current.push(nodeId);
-                    node.addClass('bulk-target');
-                }
-                return;
-            }
-
-            // Обычный клик — выбираем источник
-            // Если уже был источник — сбрасываем bulk
-            if (bulkSourceRef.current) {
-                bulkSourceRef.current.removeClass('connect-source');
-                cy.nodes('.bulk-target').removeClass('bulk-target');
-                bulkTargetsRef.current = [];
-            }
-
-            bulkSourceRef.current = node;
-            node.addClass('connect-source');
         });
 
         cy.on('tap', 'edge', (e) => {

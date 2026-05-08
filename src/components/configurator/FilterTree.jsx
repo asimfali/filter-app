@@ -186,7 +186,10 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
     const load = async () => {
       try {
         const { ok, data } = await catalogApi.filteredConfiguration(selectedTypeId, selectedTags, false, true, true);
-        if (!ok || !data.success) throw new Error('API error');
+        if (!ok || !data.success) {
+          console.error('Загрузка графа:', { ok, data, status: data?.status });
+          throw new Error(`Загрузка графа: ${data?.error || 'нет ответа'}`);
+      }
 
         const { nodes, edges } = data.data;
 
@@ -378,7 +381,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
             'border-color': '#cbd5e1', 'border-width': 1,
             'color': '#334155', 'font-size': 12,
             'width': 130, 'height': 34, 'shape': 'roundrectangle',
-            'text-valign': 'center', 'text-halign': 'center',
+            'text-valign': 'center', 'text-halign': 'center', 'text-max-width': 120, 'text-wrap': 'wrap', 
           },
         },
         {
@@ -406,9 +409,12 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
         {
           selector: 'node.dimmed',
           style: {
-            'background-color': '#f8fafc', 'border-color': '#e2e8f0',
-            'color': '#94a3b8', 'opacity': 0.35,
-          },
+            'background-color': '#f8fafc',
+            'background-opacity': 0.35,
+            'border-color': '#e2e8f0',
+            'border-opacity': 0.35,
+            color: '#64748b',           // ← чуть темнее, чтобы был читаемым
+        },
         },
         {
           selector: 'node.attached',
