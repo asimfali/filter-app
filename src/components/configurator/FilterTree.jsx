@@ -38,6 +38,27 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
   const [dropResult, setDropResult] = useState(null);
   const bindingGraphRef = useRef(null);
   const [intersectionIds, setIntersectionIds] = useState([]);
+  const [orphanMode, setOrphanMode] = useState(false);
+  const [bindingReferenceAxes, setBindingReferenceAxes] = useState([]);
+  // ── Хуки поиска ───────────────────────────────────────────────────────────
+  const chainSearch = useChainSearch(selectedTypeId, { partial: partialSearch });
+  const filterSearch = useChainSearch(selectedTypeId, { partial: partialSearch });
+
+  const refAxesRef = useRef([]);
+  useEffect(() => {
+    refAxesRef.current = bindingReferenceAxes;
+  }, [bindingReferenceAxes]);
+
+  const orphanModeRef = useRef(false);
+  useEffect(() => {
+    orphanModeRef.current = orphanMode;
+  }, [orphanMode]);
+
+  useEffect(() => {
+    if (orphanModeRef.current) return;   // ← в orphan-режиме игнорируем chainSearch
+    setChainProducts(chainSearch.products);
+    setChainLoading(chainSearch.loading);
+  }, [chainSearch.products, chainSearch.loading]);
 
   // ── Теги ──────────────────────────────────────────────────────────────────
   const [tagValues, setTagValues] = useState([]);        // все доступные теги
@@ -50,9 +71,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
   const [chainLoading, setChainLoading] = useState(false);
   const [chainFilters, setChainFilters] = useState([]);
 
-  // ── Хуки поиска ───────────────────────────────────────────────────────────
-  const chainSearch = useChainSearch(selectedTypeId, { partial: partialSearch });
-  const filterSearch = useChainSearch(selectedTypeId, { partial: partialSearch });
 
   const axisValues = useRef({});
   const pendingGraphData = useRef(null);
@@ -64,14 +82,8 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
       setChainProducts([]);
       return;
     }
-    // Объединяем выбранные узлы графа + теги фильтра
     await chainSearch.search([...new Set([...chainValueIds, ...bindingTags])]);
   }, [chainSearch, bindingTags]);
-
-  useEffect(() => {
-    setChainProducts(chainSearch.products);
-    setChainLoading(chainSearch.loading);
-  }, [chainSearch.products, chainSearch.loading]);
 
   // ── Загрузка типов продукции ───────────────────────────────────────────────
 
@@ -106,6 +118,10 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
       cyInstanceRef.current = null;
     }
 
+    setSelectedNodes([]);
+    setFilterResult(null);
+    setIntersectionIds([]);
+
     const load = async () => {
       try {
         // Теги для фильтра графа — только первые две оси
@@ -118,7 +134,9 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
         const { ok: ok3, data: data3 } = await catalogApi.filteredConfiguration(selectedTypeId, [], true);
         if (ok3 && data3.success) {
           setBindingTagValues(data3.data.tag_values || []);  // ← для редактора
+          setBindingReferenceAxes(data3.data.reference_axes || []);
         }
+
 
         // Оси
         const { ok: ok2, data: data2 } = await catalogApi.configuration(selectedTypeId);
@@ -229,6 +247,37 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
       });
     });
   }, [graphLoading]);
+
+  const handleSelectionForOrphans = useCallback(async (selectedIds) => {
+    const axes = refAxesRef.current;
+    if (!selectedIds.length) {
+      orphanModeRef.current = false;
+      setOrphanMode(false);
+      return;
+    }
+    const refIds = selectedIds.filter(id =>
+      axes.some(rax => rax.values.some(v => String(v.id) === String(id)))
+    );
+    if (refIds.length !== 1 || selectedIds.length !== 1) {
+      orphanModeRef.current = false;
+      setOrphanMode(false);
+      return;
+    }
+
+    // Синхронно устанавливаем флаг ДО любых await
+    orphanModeRef.current = true;
+    setOrphanMode(true);
+
+    setChainLoading(true);
+    setChainFilters([refIds[0]]);
+    const { ok, data } = await catalogApi.findOrphanProducts(refIds[0]);
+    if (ok && data.success) {
+      setChainProducts(data.data.products);
+    } else {
+      setChainProducts([]);
+    }
+    setChainLoading(false);
+  }, []);
 
   // ── Инициализация Cytoscape ────────────────────────────────────────────────
 
@@ -514,6 +563,24 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
           axisLabel: cy.getElementById(`axis-${n.data('axis_id')}`).data('label') || '',
         }))
       );
+      const selectedClassifierIds = selected.map(n => n.id().replace('value-', ''));
+      referenceAxes.forEach(refAxis => {
+        const visible = refAxis.parent_value_ids.some(pid =>
+          selectedClassifierIds.includes(String(pid))
+        );
+        const display = visible ? 'element' : 'none';
+        cy.getElementById(`axis-${refAxis.axis_id}`).style('display', display);
+        refAxis.values.forEach(val => {
+          cy.getElementById(`value-${val.id}`).style('display', display);
+        });
+        // Рёбра между parent и reference-узлами
+        cy.edges(`[?is_reference]`).forEach(edge => {
+          const target = edge.data('target').replace('value-', '');
+          if (refAxis.values.some(v => String(v.id) === target)) {
+            edge.style('display', display);
+          }
+        });
+      });
     };
 
     cy.on('select unselect', 'node[type="value"]', updateSelection);
@@ -526,6 +593,13 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
         setFilterResult(null);
       }
     });
+    referenceAxes.forEach(refAxis => {
+      cy.getElementById(`axis-${refAxis.axis_id}`).style('display', 'none');
+      refAxis.values.forEach(val => {
+        cy.getElementById(`value-${val.id}`).style('display', 'none');
+      });
+    });
+    cy.edges('[?is_reference]').style('display', 'none');
 
     cyInstanceRef.current = cy;
   };
@@ -994,7 +1068,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                 dragMissingAxes={dragMissingAxes}
                 onDrop={handleBindingDrop}
                 onSelectionChange={(ids, refIds = []) => {
-                  console.log('classifier:', ids, 'reference:', refIds, 'bindingTags:', bindingTags);
                   handleChainSelection([...ids, ...refIds]);
                 }}
                 onConnect={async (fromId, toId, addEdge) => {
@@ -1044,8 +1117,17 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                   if (ok && data.success) addEdges();
                   setTimeout(() => setDropResult(null), 3000);
                 }}
+                onReferenceAxesLoaded={setBindingReferenceAxes}
+                onReferenceSelect={handleSelectionForOrphans}
               />
             </div>
+            {orphanMode && chainProducts.length > 0 && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 
+                    dark:border-red-800 rounded px-3 py-2 mb-2 text-xs text-red-700">
+                🧹 Осиротевшие · {chainProducts.length} шт. ·
+                отвяжите ось через "−ось"
+              </div>
+            )}
             {/* Панель изделий цепочки — слева от поиска */}
             {chainFilters.length > 0 && (
               <ChainProductsPanel
@@ -1082,14 +1164,14 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                 onDetachAxis={async (axisId, productIds) => {
                   const { ok, data } = await catalogApi.detachAxisFromProducts(productIds, axisId);
                   if (ok && data.success) {
-                      setDropResult({ ok: true, message: `✓ Отвязано ${data.data.deleted} привязок` });
-                      bindingGraphRef.current?.resetSelection();  // ← сброс выделения
-                      await handleChainSelection(chainFilters);
+                    setDropResult({ ok: true, message: `✓ Отвязано ${data.data.deleted} привязок` });
+                    bindingGraphRef.current?.resetSelection();  // ← сброс выделения
+                    await handleChainSelection(chainFilters);
                   } else {
-                      setDropResult({ ok: false, message: data.error || 'Ошибка' });
+                    setDropResult({ ok: false, message: data.error || 'Ошибка' });
                   }
                   setTimeout(() => setDropResult(null), 3000);
-              }}
+                }}
               />
             )}
             <div className="w-64 shrink-0" style={{ height: 600 }}>

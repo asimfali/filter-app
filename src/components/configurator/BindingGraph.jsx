@@ -12,7 +12,7 @@ import { catalogApi } from '../../api/catalog';
  * При drop вызывает onDrop(productIds, valueId).
  */
 const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedTagIds, onDrop, onDropBulk, onConnect,
-    onDisconnect, onSelectionChange, onBulkConnect, mode = 'attach', readOnly = false, dragMissingAxes = [], }, ref) {
+    onDisconnect, onSelectionChange, onBulkConnect, onReferenceSelect, onReferenceAxesLoaded, mode = 'attach', readOnly = false, dragMissingAxes = [], }, ref) {
 
     const dragMissingAxesRef = useRef([]);
     const cyRef = useRef(null);
@@ -54,6 +54,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         const load = async () => {
             const { ok, data } = await catalogApi.filteredConfiguration(productTypeId, selectedTagIds, false, true, false);
             if (!ok || !data.success || !data.data.nodes.length) return;
+            onReferenceAxesLoaded?.(data.data.reference_axes || []);
             initCytoscape(
                 data.data.nodes,
                 data.data.edges,
@@ -352,7 +353,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             if (modeRef.current === 'attach') {
                 const clickedAxisId = node.data('axis_id');
                 const isReference = node.data('is_reference');
-            
+
                 if (isReference) {
                     // Reference-узел — отдельная логика
                     const refIndex = selectedNodesRef.current.indexOf(nodeId);
@@ -372,9 +373,16 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                         }
                     }
                     highlightIntersection(cy, selectedNodesRef.current);
+                    const refOnly = selectedNodesRef.current.length === 1
+                        && cy.getElementById(`value-${selectedNodesRef.current[0]}`).data('is_reference');
+                    onReferenceSelect?.([...selectedNodesRef.current]);
+                    console.log('selectedNodesRef:', selectedNodesRef.current.map(id => {
+                        const n = cy.getElementById(`value-${id}`);
+                        return { id, label: n.data('label'), isRef: n.data('is_reference') };
+                    }));
                     return;
                 }
-            
+
                 // Classifier-узел — при смене сбрасываем reference той же цепочки
                 const selectedIndex = selectedNodesRef.current.indexOf(nodeId);
                 if (selectedIndex !== -1) {
@@ -390,15 +398,16 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                         onSelectionChange?.([], []);
                         return;
                     }
+                    onReferenceSelect?.([...selectedNodesRef.current]);
                     highlightIntersection(cy, selectedNodesRef.current);
                     return;
                 }
-            
+
                 const sameAxisIndex = selectedNodesRef.current.findIndex(id => {
                     const n = cy.getElementById(`value-${id}`);
                     return !n.data('is_reference') && n.data('axis_id') === clickedAxisId;
                 });
-            
+
                 if (e.originalEvent?.ctrlKey || e.originalEvent?.metaKey) {
                     selectedNodesRef.current = [...selectedNodesRef.current, nodeId];
                 } else if (sameAxisIndex !== -1) {
@@ -411,7 +420,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                 } else {
                     selectedNodesRef.current = [...selectedNodesRef.current, nodeId];
                 }
-            
+
                 highlightIntersection(cy, selectedNodesRef.current);
             }
         });
@@ -606,6 +615,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             // attach
             cy.nodes().removeClass('chain-selected chain-dimmed');
             selectedNodesRef.current = [];
+            onReferenceSelect?.([]);
             selectedChainRef.current = [];
             onSelectionChange?.([]);
             // connect

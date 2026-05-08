@@ -330,4 +330,16 @@ export const catalogApi = {
         const res = await apiFetch(`${BASE}/variant-rules/`);
         return { ok: res.ok, data: await res.json() };
     },
+
+    async findOrphanProducts(referenceValueId) {
+        const res = await apiFetch(`${BASE}/products/find-orphan-products/`, {
+            method: 'POST',
+            body: JSON.stringify({ reference_value_id: referenceValueId }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
 };
+
+if (typeof window !== 'undefined') {
+    window.catalogApi = catalogApi;
+}
