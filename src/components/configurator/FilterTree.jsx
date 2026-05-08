@@ -82,7 +82,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
       setChainProducts([]);
       return;
     }
-    await chainSearch.search([...new Set([...chainValueIds, ...bindingTags])]);
+    await chainSearch.search(chainValueIds);
   }, [chainSearch, bindingTags]);
 
   // ── Загрузка типов продукции ───────────────────────────────────────────────
