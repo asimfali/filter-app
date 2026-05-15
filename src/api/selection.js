@@ -1,0 +1,23 @@
+import { apiFetch } from './auth';
+
+const BASE = '/api/v1/selection';
+
+export const selectionApi = {
+    async formData() {
+        const res = await apiFetch(`${BASE}/form-data/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async regions(search) {
+        const res = await apiFetch(`${BASE}/regions/?search=${encodeURIComponent(search)}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async calculate(payload) {
+        const res = await apiFetch(`${BASE}/calculate/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+};

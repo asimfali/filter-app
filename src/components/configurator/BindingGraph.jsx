@@ -383,10 +383,6 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                     const refOnly = selectedNodesRef.current.length === 1
                         && cy.getElementById(`value-${selectedNodesRef.current[0]}`).data('is_reference');
                     onReferenceSelect?.([...selectedNodesRef.current]);
-                    console.log('selectedNodesRef:', selectedNodesRef.current.map(id => {
-                        const n = cy.getElementById(`value-${id}`);
-                        return { id, label: n.data('label'), isRef: n.data('is_reference') };
-                    }));
                     return;
                 }
 
@@ -521,8 +517,6 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
         };
 
         const highlightIntersection = (cy, selectedNodeIds) => {
-            console.log('[hi] selectedNodeIds:', selectedNodeIds);
-    console.log('[hi] cy:selected:', cy.nodes(':selected').map(n => n.id()));
             if (selectedNodeIds.length === 0) {
                 cy.nodes().removeClass('chain-selected chain-dimmed');
                 selectedChainRef.current = [];
@@ -577,8 +571,6 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             const referenceChain = intersection
                 .filter(n => n.data('type') === 'value' && n.data('is_reference'))
                 .map(n => n.id().replace('value-', ''));
-            console.log('[hi] classifierChain to send:', classifierChain);
-            console.log('[hi] referenceChain to send:', referenceChain);
             onSelectionChange?.(classifierChain, referenceChain);
         };
 

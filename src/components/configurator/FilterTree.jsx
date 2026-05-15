@@ -10,7 +10,7 @@ import { useChainSearch } from '../../hooks/useChainSearch';
 import { IconEye, IconLock } from '../common/Icons.jsx';
 
 
-const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) => {
+const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, savedState, onSaveState }) => {
   const cyRef = useRef(null);
   const cyInstanceRef = useRef(null);
   const { user, loading: authLoading } = useAuth();
@@ -21,17 +21,21 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
   const [dragMissingAxes, setDragMissingAxes] = useState([]);
 
   const [productTypes, setProductTypes] = useState([]);
-  const [selectedTypeId, setSelectedTypeId] = useState('');
+  const [selectedTypeId, setSelectedTypeId] = useState(savedState?.selectedTypeId || '');
   const [loading, setLoading] = useState(false);
   const [graphLoading, setGraphLoading] = useState(false);
   const [error, setError] = useState(null);
   const [productType, setProductType] = useState(null);
   const [allAxes, setAllAxes] = useState([]);
   const [selectedNodes, setSelectedNodes] = useState([]);
-  const [filterResult, setFilterResult] = useState(null);
+  const [filterResult, setFilterResult] = useState(savedState?.filterResult || null);
   const [counting, setCounting] = useState(false);
   const [graphHeight, setGraphHeight] = useState(500);
   const [showCreateThread, setShowCreateThread] = useState(false);
+  const [parentsOnly, setParentsOnly] = useState(false);
+  const restoredNodes = useRef(savedState?.selectedNodes || []);
+const restoredIntersectionIds = useRef(savedState?.intersectionIds || []);
+const isRestoringRef = useRef(!!savedState); 
   // ── Редактор привязок ──────────────────────────────────────────────────────
   const [mode, setMode] = useState('filter');
   const [pendingAssignments, setPendingAssignments] = useState({});
@@ -42,7 +46,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
   const [bindingReferenceAxes, setBindingReferenceAxes] = useState([]);
   // ── Хуки поиска ───────────────────────────────────────────────────────────
   const chainSearch = useChainSearch(selectedTypeId, { partial: partialSearch });
-  const filterSearch = useChainSearch(selectedTypeId, { partial: partialSearch });
+  const filterSearch = useChainSearch(selectedTypeId, { partial: partialSearch, parentsOnly });
 
   const refAxesRef = useRef([]);
   useEffect(() => {
@@ -62,7 +66,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
 
   // ── Теги ──────────────────────────────────────────────────────────────────
   const [tagValues, setTagValues] = useState([]);        // все доступные теги
-  const [selectedTags, setSelectedTags] = useState([]);  // выбранные tag value_ids
+  const [selectedTags, setSelectedTags] = useState(savedState?.selectedTags || []);  // выбранные tag value_ids
   const [bindingTags, setBindingTags] = useState([]);
   const [bindingMode, setBindingMode] = useState('attach');
   const [bindingTagValues, setBindingTagValues] = useState([]);
@@ -105,22 +109,21 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
 
   useEffect(() => {
     if (!selectedTypeId) return;
-
     setLoading(true);
     setError(null);
-    setSelectedNodes([]);
-    setFilterResult(null);
-    setSelectedTags([]);
-    setTagValues([]);
 
-    if (cyInstanceRef.current) {
-      cyInstanceRef.current.destroy();
-      cyInstanceRef.current = null;
+    if (!isRestoringRef.current) {
+        setSelectedNodes([]);
+        setFilterResult(null);
+        setSelectedTags([]);
+        setTagValues([]);
+        setIntersectionIds([]);
+        if (cyInstanceRef.current) {
+            cyInstanceRef.current.destroy();
+            cyInstanceRef.current = null;
+        }
     }
 
-    setSelectedNodes([]);
-    setFilterResult(null);
-    setIntersectionIds([]);
 
     const load = async () => {
       try {
@@ -187,9 +190,8 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
       try {
         const { ok, data } = await catalogApi.filteredConfiguration(selectedTypeId, selectedTags, false, true, true);
         if (!ok || !data.success) {
-          console.error('Загрузка графа:', { ok, data, status: data?.status });
           throw new Error(`Загрузка графа: ${data?.error || 'нет ответа'}`);
-      }
+        }
 
         const { nodes, edges } = data.data;
 
@@ -198,8 +200,14 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
           cyInstanceRef.current = null;
         }
 
-        setSelectedNodes([]);
-        setFilterResult(null);
+        if (cyInstanceRef.current) {
+          cyInstanceRef.current.destroy();
+          cyInstanceRef.current = null;
+      }
+      if (!isRestoringRef.current) {
+          setSelectedNodes([]);
+          setFilterResult(null);
+      }
 
         if (!nodes.length) {
           setGraphLoading(false);
@@ -239,17 +247,33 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
   useEffect(() => {
     if (graphLoading) return;
     if (!pendingGraphData.current) return;
-    if (!cyRef.current) return;
 
-    const { nodes, edges, byOrder, selectedIds, productPaths, referenceAxes } = pendingGraphData.current;
-    pendingGraphData.current = null;
+    // Ждём пока DOM отрендерится и cyRef привяжется
+    const timer = setTimeout(() => {
+        if (!cyRef.current || !pendingGraphData.current) return;
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+        const { nodes, edges, byOrder, selectedIds, productPaths, referenceAxes } = pendingGraphData.current;
+        pendingGraphData.current = null;
+
         initCytoscape(nodes, edges, byOrder, selectedIds, productPaths, referenceAxes);
-      });
-    });
-  }, [graphLoading]);
+
+        if (restoredNodes.current.length) {
+            setSelectedNodes(restoredNodes.current);
+            setIntersectionIds(restoredIntersectionIds.current);
+            if (cyInstanceRef.current) {
+                const cy = cyInstanceRef.current;
+                restoredNodes.current.forEach(n => {
+                    cy.getElementById(`value-${n.valueId}`).select();
+                });
+            }
+            restoredNodes.current = [];
+            restoredIntersectionIds.current = [];
+            isRestoringRef.current = false;
+        }
+    }, 100);
+
+    return () => clearTimeout(timer);
+}, [graphLoading]);
 
   const handleSelectionForOrphans = useCallback(async (selectedIds) => {
     const axes = refAxesRef.current;
@@ -381,7 +405,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
             'border-color': '#cbd5e1', 'border-width': 1,
             'color': '#334155', 'font-size': 12,
             'width': 130, 'height': 34, 'shape': 'roundrectangle',
-            'text-valign': 'center', 'text-halign': 'center', 'text-max-width': 120, 'text-wrap': 'wrap', 
+            'text-valign': 'center', 'text-halign': 'center', 'text-max-width': 120, 'text-wrap': 'wrap',
           },
         },
         {
@@ -414,7 +438,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
             'border-color': '#e2e8f0',
             'border-opacity': 0.35,
             color: '#64748b',           // ← чуть темнее, чтобы был читаемым
-        },
+          },
         },
         {
           selector: 'node.attached',
@@ -548,7 +572,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
 
       setIntersectionIds(
         intersection
-          .filter(n => n.data('type') === 'value')
+          .filter(n => n.data('type') === 'value' && !n.data('is_reference'))
           .map(n => n.id().replace('value-', ''))
       );
 
@@ -760,14 +784,25 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               Фильтр графа
             </span>
-            {selectedTags.length > 0 && (
-              <button
-                onClick={handleClearTags}
-                className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-              >
-                Сбросить
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={parentsOnly}
+                  onChange={e => setParentsOnly(e.target.checked)}
+                  className="rounded"
+                />
+                Только родители
+              </label>
+              {selectedTags.length > 0 && (
+                <button
+                  onClick={handleClearTags}
+                  className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  Сбросить
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Группы тегов по осям */}
@@ -826,7 +861,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
               Загрузка графа...
             </div>
           )}
-
           {/* Граф + панель */}
           {selectedTypeId && !loading && !graphLoading && selectedTags.length > 0 && !error && (
             <div className="flex gap-4 w-full">
@@ -906,7 +940,10 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                   <div className="border-t pt-4">
                     {canEditSpecs && (
                       <button
-                        onClick={() => onOpenSpecEditor(filterResult.product_ids)}
+                      onClick={() => {
+                        onSaveState?.({ selectedTypeId, selectedTags, selectedNodes, intersectionIds, filterResult });
+                        onOpenSpecEditor(filterResult.product_ids);
+                      }}
                         className="w-full bg-violet-600 hover:bg-violet-700 text-white
                  text-sm py-2 rounded-lg transition-colors"
                       >
@@ -914,7 +951,10 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
                       </button>
                     )}
                     <button
-                      onClick={() => onOpenSpecPreview(filterResult.product_ids)}
+                      onClick={() => {
+                        onSaveState?.({ selectedTypeId, selectedTags, selectedNodes, intersectionIds, filterResult });
+                        onOpenSpecPreview(filterResult.product_ids);
+                      }}
                       className="w-full bg-neutral-100 dark:bg-neutral-800
                        hover:bg-neutral-200 dark:hover:bg-neutral-700
                        text-gray-700 dark:text-gray-300
@@ -1198,4 +1238,4 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
   );
 };
 
-export default FilterTreeGraph;
+export default React.memo(FilterTreeGraph);
