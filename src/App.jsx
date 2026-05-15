@@ -30,6 +30,7 @@ import ProductMasterPage from './pages/ProductMasterPage';
 import CartPage from './pages/CartPage';
 import CartKPPage from './pages/CartKPPage';
 import VariantEditorPage from './pages/VariantEditorPage';
+import SelectionPage from './pages/SelectionPage';
 import { IconClock } from './components/common/Icons.jsx';
 
 
@@ -362,6 +363,7 @@ function MainApp() {
                     onBack={() => handleNavigate('sales')}
                   />
                 )}
+                {page === 'selection' && <SelectionPage />}
                 {page === 'defect-acts' && <DefectActPage />}
                 {page === 'variant-editor' && (
                   <VariantEditorPage onBack={() => handleNavigate('configurator')} />

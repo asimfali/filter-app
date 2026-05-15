@@ -187,7 +187,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread }) 
       try {
         const { ok, data } = await catalogApi.filteredConfiguration(selectedTypeId, selectedTags, false, true, true);
         if (!ok || !data.success) {
-          console.error('Загрузка графа:', { ok, data, status: data?.status });
           throw new Error(`Загрузка графа: ${data?.error || 'нет ответа'}`);
       }
 
