@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { tokenStorage } from '../api/auth';
 import { sessionsApi } from '../api/sessions';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,6 +29,8 @@ export default function SpecEditorPage({
     const [pushTaskId, setPushTaskId] = useState(null);
     const [expandedParents, setExpandedParents] = useState(new Set());
     const [propagateToVariants, setPropagateToVariants] = useState(true);
+    const visibleRowsRef = useRef([]);
+    const variantsByParentRef = useRef({});
 
     // Выделение диапазона
     // selection: { defId, startRow, endRow } | null
@@ -82,15 +84,14 @@ export default function SpecEditorPage({
     useEffect(() => {
         const handlePaste = (e) => {
             if (!selection.length || !data) return;
-
             e.preventDefault();
             const text = e.clipboardData.getData('text').trim();
             if (!text) return;
-
             setChanges(prev => {
                 const next = { ...prev };
                 selection.forEach(({ defId, rowIdx }) => {
-                    const product = data.products[rowIdx];
+                    const product = visibleRowsRef.current[rowIdx];
+                    if (!product) return;
                     const spec = product.specs[defId];
                     const key = `${product.id}:${defId}`;
                     next[key] = {
@@ -99,15 +100,27 @@ export default function SpecEditorPage({
                         spec_id: spec?.spec_id ?? null,
                         value: text,
                     };
+                    // Заполняем исполнения если галочка стоит
+                    if (propagateToVariants && variantsByParentRef.current[product.id]) {
+                        variantsByParent[product.id].forEach(variant => {
+                            const vKey = `${variant.id}:${defId}`;
+                            const vSpec = variant.specs[defId];
+                            next[vKey] = {
+                                product_id: variant.id,
+                                definition_id: defId,
+                                spec_id: vSpec?.spec_id ?? null,
+                                value: text,
+                            };
+                        });
+                    }
                 });
                 return next;
             });
             setSaveResult(null);
         };
-
         document.addEventListener('paste', handlePaste);
         return () => document.removeEventListener('paste', handlePaste);
-    }, [selection, data]);
+    }, [selection, data, propagateToVariants]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -430,6 +443,42 @@ export default function SpecEditorPage({
         ? `Выделено: ${selection.length} ячеек — скопируйте значение и нажмите Ctrl+V`
         : null;
 
+        const visibleRows = useMemo(() => {
+            if (!data) return [];
+            const { products } = data;
+            const parentProducts = products.filter(p => !p.parent_id);
+            const variantsByParent = products.reduce((acc, p) => {
+                if (p.parent_id) {
+                    if (!acc[p.parent_id]) acc[p.parent_id] = [];
+                    acc[p.parent_id].push(p);
+                }
+                return acc;
+            }, {});
+            const rows = [];
+            parentProducts.forEach(p => {
+                rows.push({ ...p, _isParent: true, _hasVariants: !!variantsByParent[p.id]?.length });
+                if (expandedParents.has(p.id) && variantsByParent[p.id]) {
+                    variantsByParent[p.id].forEach(v => rows.push({ ...v, _isVariant: true }));
+                }
+            });
+            visibleRowsRef.current = rows;
+            return rows;
+        }, [data, expandedParents]);
+        
+        const variantsByParent = useMemo(() => {
+            if (!data) return {};
+            const result = data.products.reduce((acc, p) => {
+                if (p.parent_id) {
+                    if (!acc[p.parent_id]) acc[p.parent_id] = [];
+                    acc[p.parent_id].push(p);
+                }
+                return acc;
+            }, {});
+            variantsByParentRef.current = result;
+            return result;
+        }, [data]);
+    
+
     // ── Рендер ────────────────────────────────────────────────────────────────
 
     if (loading) {
@@ -459,25 +508,6 @@ export default function SpecEditorPage({
     if (!data) return null;
 
     const { definitions, products } = data;
-
-    // Группируем: родители + их исполнения
-    const parentProducts = products.filter(p => !p.parent_id);
-    const variantsByParent = products.reduce((acc, p) => {
-        if (p.parent_id) {
-            if (!acc[p.parent_id]) acc[p.parent_id] = [];
-            acc[p.parent_id].push(p);
-        }
-        return acc;
-    }, {});
-
-    // Плоский список для рендера с метаданными
-    const visibleRows = [];
-    parentProducts.forEach(p => {
-        visibleRows.push({ ...p, _isParent: true, _hasVariants: !!variantsByParent[p.id]?.length });
-        if (expandedParents.has(p.id) && variantsByParent[p.id]) {
-            variantsByParent[p.id].forEach(v => visibleRows.push({ ...v, _isVariant: true }));
-        }
-    });
 
     return (
         <div className="space-y-4" style={{ userSelect: 'none' }}>
