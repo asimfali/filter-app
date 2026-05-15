@@ -67,13 +67,14 @@ export const catalogApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    async filterByChain(productTypeId, chainValueIds, partial = false) {
+    async filterByChain(productTypeId, chainValueIds, partial = false, parentsOnly = false) {
         const res = await apiFetch(`${BASE}/products/filter-by-chain/`, {
             method: 'POST',
             body: JSON.stringify({
                 product_type_id: productTypeId,
                 chain_value_ids: chainValueIds,
-                partial,            // ← новое
+                partial,
+                parents_only: parentsOnly,
             }),
         });
         return { ok: res.ok, data: await res.json() };

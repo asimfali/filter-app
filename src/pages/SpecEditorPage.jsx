@@ -27,6 +27,8 @@ export default function SpecEditorPage({
     const [pushing, setPushing] = useState(false);
     const [pushResult, setPushResult] = useState(null);
     const [pushTaskId, setPushTaskId] = useState(null);
+    const [expandedParents, setExpandedParents] = useState(new Set());
+    const [propagateToVariants, setPropagateToVariants] = useState(true);
 
     // Выделение диапазона
     // selection: { defId, startRow, endRow } | null
@@ -80,11 +82,11 @@ export default function SpecEditorPage({
     useEffect(() => {
         const handlePaste = (e) => {
             if (!selection.length || !data) return;
-    
+
             e.preventDefault();
             const text = e.clipboardData.getData('text').trim();
             if (!text) return;
-    
+
             setChanges(prev => {
                 const next = { ...prev };
                 selection.forEach(({ defId, rowIdx }) => {
@@ -102,7 +104,7 @@ export default function SpecEditorPage({
             });
             setSaveResult(null);
         };
-    
+
         document.addEventListener('paste', handlePaste);
         return () => document.removeEventListener('paste', handlePaste);
     }, [selection, data]);
@@ -112,13 +114,13 @@ export default function SpecEditorPage({
             if (!selection.length || !data) return;
             // Не перехватываем если фокус в input
             if (document.activeElement?.tagName === 'INPUT') return;
-    
+
             const { defId, startRow, endRow } = selection;
             const defIdx = definitions.indexOf(definitions.find(d => d.id === defId));
             const currentEnd = endRow;
             const rowCount = data.products.length;
             const defCount = definitions.length;
-    
+
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 if (e.shiftKey) {
@@ -166,7 +168,7 @@ export default function SpecEditorPage({
                 anchorCell.current = null;
             }
         };
-    
+
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [selection, data]);
@@ -241,10 +243,24 @@ export default function SpecEditorPage({
 
     const handleCellChange = (productId, defId, specId, value) => {
         const key = `${productId}:${defId}`;
-        setChanges(prev => ({
-            ...prev,
-            [key]: { product_id: productId, definition_id: defId, spec_id: specId, value },
-        }));
+        setChanges(prev => {
+            const next = { ...prev, [key]: { product_id: productId, definition_id: defId, spec_id: specId, value } };
+
+            // Если галочка стоит и это родитель — копируем в исполнения
+            if (propagateToVariants && variantsByParent[productId]) {
+                variantsByParent[productId].forEach(variant => {
+                    const vKey = `${variant.id}:${defId}`;
+                    const vSpec = variant.specs[defId];
+                    next[vKey] = {
+                        product_id: variant.id,
+                        definition_id: defId,
+                        spec_id: vSpec?.spec_id ?? null,
+                        value,
+                    };
+                });
+            }
+            return next;
+        });
         setSaveResult(null);
     };
 
@@ -263,7 +279,7 @@ export default function SpecEditorPage({
         if (e.shiftKey || e.ctrlKey || e.metaKey) return;
         e.preventDefault();
         document.activeElement?.blur();
-    
+
         anchorCell.current = { defId, rowIdx };
         dragStart.current = { defId, rowIdx };
         setIsDragging(true);
@@ -273,7 +289,7 @@ export default function SpecEditorPage({
     const handleMouseEnter = (defId, rowIdx) => {
         if (!isDragging || !dragStart.current) return;
         if (dragStart.current.defId !== defId) return;
-    
+
         const min = Math.min(dragStart.current.rowIdx, rowIdx);
         const max = Math.max(dragStart.current.rowIdx, rowIdx);
         const cells = [];
@@ -285,7 +301,7 @@ export default function SpecEditorPage({
 
     const handleCellClick = (e, defId, rowIdx) => {
         if (e.target.tagName === 'INPUT') return;
-    
+
         if (e.shiftKey && anchorCell.current && anchorCell.current.defId === defId) {
             // Shift — диапазон от anchor до текущей в той же колонке
             const min = Math.min(anchorCell.current.rowIdx, rowIdx);
@@ -444,6 +460,25 @@ export default function SpecEditorPage({
 
     const { definitions, products } = data;
 
+    // Группируем: родители + их исполнения
+    const parentProducts = products.filter(p => !p.parent_id);
+    const variantsByParent = products.reduce((acc, p) => {
+        if (p.parent_id) {
+            if (!acc[p.parent_id]) acc[p.parent_id] = [];
+            acc[p.parent_id].push(p);
+        }
+        return acc;
+    }, {});
+
+    // Плоский список для рендера с метаданными
+    const visibleRows = [];
+    parentProducts.forEach(p => {
+        visibleRows.push({ ...p, _isParent: true, _hasVariants: !!variantsByParent[p.id]?.length });
+        if (expandedParents.has(p.id) && variantsByParent[p.id]) {
+            variantsByParent[p.id].forEach(v => visibleRows.push({ ...v, _isVariant: true }));
+        }
+    });
+
     return (
         <div className="space-y-4" style={{ userSelect: 'none' }}>
 
@@ -509,6 +544,16 @@ export default function SpecEditorPage({
                         {savingDraft ? 'Сохраняю...' : draftSaved ? '✓ Черновик сохранён' : <><IconSave className="w-4 h-4 inline mr-1" />Сохранить черновик</>}
                     </button>
 
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={propagateToVariants}
+                            onChange={e => setPropagateToVariants(e.target.checked)}
+                            className="rounded"
+                        />
+                        Заполнять исполнения
+                    </label>
+
                     <button
                         onClick={handleSave}
                         disabled={!changesCount || saving}
@@ -560,18 +605,40 @@ export default function SpecEditorPage({
                         </tr>
                     </thead>
                     <tbody>
-                        {products.map((product, rowIdx) => (
+                        {visibleRows.map((product, rowIdx) => (
                             <tr
                                 key={product.id}
                                 className={`border-b border-gray-100 dark:border-gray-800
-                  ${rowIdx % 2 === 0 ? '' : 'bg-neutral-50/50 dark:bg-neutral-800/30'}`}
+            ${rowIdx % 2 === 0 ? '' : 'bg-neutral-50/50 dark:bg-neutral-800/30'}
+            ${product._isVariant ? 'opacity-70' : ''}
+        `}
                             >
-                                {/* Название — липкая колонка */}
                                 <td className="px-4 py-1.5 sticky left-0 z-10
-                               bg-white dark:bg-neutral-900
-                               text-gray-900 dark:text-white font-medium text-sm
-                               border-r border-gray-100 dark:border-gray-800">
-                                    {product.name}
+                       bg-white dark:bg-neutral-900
+                       text-gray-900 dark:text-white font-medium text-sm
+                       border-r border-gray-100 dark:border-gray-800">
+                                    <div className="flex items-center gap-1">
+                                        {product._isVariant && (
+                                            <span className="text-gray-400 dark:text-gray-500 ml-3">↳</span>
+                                        )}
+                                        {product._hasVariants && (
+                                            <button
+                                                onClick={() => setExpandedParents(prev => {
+                                                    const next = new Set(prev);
+                                                    next.has(product.id) ? next.delete(product.id) : next.add(product.id);
+                                                    return next;
+                                                })}
+                                                className="text-xs text-gray-400 hover:text-blue-500 w-5 h-5
+                                   flex items-center justify-center rounded"
+                                            >
+                                                {expandedParents.has(product.id) ? '−' : '+'}
+                                            </button>
+                                        )}
+                                        {!product._hasVariants && !product._isVariant && (
+                                            <span className="w-5" />
+                                        )}
+                                        {product.name}
+                                    </div>
                                 </td>
 
                                 {/* Ячейки характеристик */}

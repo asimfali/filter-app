@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { catalogApi } from '../api/catalog';
 
-export function useChainSearch(productTypeId, { partial = false } = {}) {
+export function useChainSearch(productTypeId, { partial = false, parentsOnly = false } = {}) {
     const [products, setProducts] = useState([]);
     const [count, setCount] = useState(0);
     const [pathsCount, setPathsCount] = useState(0);
@@ -12,6 +12,8 @@ export function useChainSearch(productTypeId, { partial = false } = {}) {
     // ← ref всегда содержит актуальное значение, без пересоздания search
     const partialRef = useRef(partial);
     partialRef.current = partial;
+    const parentsOnlyRef = useRef(parentsOnly);
+    parentsOnlyRef.current = parentsOnly;
 
     const search = useCallback(async (chainValueIds) => {
         if (!chainValueIds.length || !productTypeId) {
@@ -28,7 +30,8 @@ export function useChainSearch(productTypeId, { partial = false } = {}) {
             const { ok, data } = await catalogApi.filterByChain(
                 productTypeId,
                 chainValueIds,
-                partialRef.current,  // ← всегда актуальное значение
+                partialRef.current,
+                parentsOnlyRef.current,
             );
 
             if (!ok || !data.success) {

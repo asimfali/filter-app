@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { IssuesProvider } from './contexts/IssuesContext.jsx';
@@ -168,6 +168,10 @@ function MainApp() {
     const path = window.location.pathname.slice(1); // 'staff', 'documents', etc.
     return path || 'configurator';
   });
+  const [configuratorState, setConfiguratorState] = useState(() => {
+    const saved = sessionStorage.getItem('configuratorState');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [selectedProductId, setSelectedProductId] = useState(() => {
     const path = window.location.pathname.slice(1);
     if (path === 'product') {
@@ -195,6 +199,15 @@ function MainApp() {
   });
   const [modelViewerFile, setModelViewerFile] = useState(null);
   const [kpCartId, setKpCartId] = useState(null);
+
+  const handleSaveConfiguratorState = useCallback((state) => {
+    setConfiguratorState(state);
+    sessionStorage.setItem('configuratorState', JSON.stringify(state));
+  }, []);
+
+  const handleOpenSpecEditor = useCallback((ids) => handleNavigate('spec-editor', ids), []);
+  const handleOpenSpecPreview = useCallback((ids) => handleNavigate('spec-preview', ids), []);
+  const handleOpenThread = useCallback((id) => handleNavigate('issue-thread', id), []);
 
   const handleNavigate = (newPage, payload = null) => {
     setPage(newPage);
@@ -278,13 +291,15 @@ function MainApp() {
             {/* весь остальной контент без model-viewer */}
             {page === 'plm' && <PLMPage onOpenProduct={(id) => handleNavigate('product', id)} />}
             {page === 'part-editor' && <PartEditorPage />}
-            {page === 'configurator' && (
+            <div style={{ display: page === 'configurator' ? 'block' : 'none' }}>
               <FilterTreeGraph
-                onOpenSpecEditor={ids => handleNavigate('spec-editor', ids)}
-                onOpenSpecPreview={ids => handleNavigate('spec-preview', ids)}
-                onOpenThread={id => handleNavigate('issue-thread', id)}
+                onOpenSpecEditor={handleOpenSpecEditor}
+                onOpenSpecPreview={handleOpenSpecPreview}
+                onOpenThread={handleOpenThread}
+                savedState={configuratorState}
+                onSaveState={handleSaveConfiguratorState}
               />
-            )}
+            </div>
             {page === 'product' && (
               <ProductPage
                 productId={selectedProductId}
@@ -295,7 +310,7 @@ function MainApp() {
             )}
             {!user.is_confirmed && !PUBLIC_PAGES.includes(page) && (
               <div className="max-w-sm mx-auto text-center py-16">
-                <div className="text-4xl mb-4"><IconClock/></div>
+                <div className="text-4xl mb-4"><IconClock /></div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   Ожидание подтверждения
                 </h2>
