@@ -171,6 +171,10 @@ export default function SelectionPage() {
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [selectedRegion, setSelectedRegion] = useState(null);
+    const [coordInput, setCoordInput] = useState('');
+    const [coordError, setCoordError] = useState('');
+    const [locating, setLocating] = useState(false);
     const resultsRef = useRef(null);
 
     const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
@@ -210,6 +214,39 @@ export default function SelectionPage() {
             setLoading(false);
         }
     }, [form]);
+
+    const handleNearestByCoords = useCallback(async () => {
+        setCoordError('');
+        // Парсим "59.939003, 30.313994" или "59.939003 30.313994"
+        const parts = coordInput.trim().split(/[\s,]+/);
+        if (parts.length < 2) {
+            setCoordError('Введите координаты: 59.9390, 30.3139');
+            return;
+        }
+        const lat = parseFloat(parts[0]);
+        const lon = parseFloat(parts[1]);
+        if (isNaN(lat) || isNaN(lon)) {
+            setCoordError('Неверный формат координат');
+            return;
+        }
+        setLocating(true);
+        try {
+            const res = await selectionApi.nearestRegion(lat, lon);
+            if (res.ok && res.data.success) {
+                const r = res.data.data;
+                setSelectedRegion(r);
+                setCoordInput('');
+                set('tn', r.tn);
+                set('V', r.V);
+            } else {
+                setCoordError('Регион не найден');
+            }
+        } catch {
+            setCoordError('Ошибка соединения');
+        } finally {
+            setLocating(false);
+        }
+    }, [coordInput]);
 
     const radioClass = active =>
         `flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer
@@ -342,6 +379,8 @@ export default function SelectionPage() {
                             endpoint="/api/v1/selection/regions/"
                             placeholder="Начните вводить город..."
                             nameKey="name"
+                            value={selectedRegion}
+                            onClear={() => setSelectedRegion(null)}
                             renderItem={r => (
                                 <div className="flex justify-between">
                                     <span className="text-gray-900 dark:text-white font-medium">{r.name}</span>
@@ -349,10 +388,38 @@ export default function SelectionPage() {
                                 </div>
                             )}
                             onSelect={r => {
+                                setSelectedRegion(r);
                                 set('tn', r.tn);
                                 set('V', r.V);
                             }}
                         />
+                        {/* Поиск по координатам */}
+                        <div className="flex gap-2 mt-1">
+                            <input
+                                type="text"
+                                value={coordInput}
+                                onChange={e => setCoordInput(e.target.value)}
+                                placeholder="59.9390, 30.3139"
+                                className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg
+                px-3 py-1.5 text-xs bg-white dark:bg-neutral-800
+                text-gray-900 dark:text-white placeholder-gray-400
+                focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={handleNearestByCoords}
+                                disabled={locating}
+                                className="shrink-0 px-3 py-1.5 rounded-lg border border-gray-200
+                dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400
+                hover:border-blue-400 hover:text-blue-500
+                disabled:opacity-40 transition-colors whitespace-nowrap"
+                            >
+                                {locating ? '···' : 'Найти город'}
+                            </button>
+                        </div>
+                        {coordError && (
+                            <span className="text-xs text-red-500">{coordError}</span>
+                        )}
                     </div>
                     <NumberField label="Скорость ветра, м/с" value={form.V}
                         onChange={v => set('V', v)} step="0.1" min="0" max="5" required />

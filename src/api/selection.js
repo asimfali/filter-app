@@ -20,4 +20,9 @@ export const selectionApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
+
+    async nearestRegion(lat, lon) {
+        const res = await apiFetch(`${BASE}/regions/nearest/?lat=${lat}&lon=${lon}`);
+        return { ok: res.ok, data: await res.json() };
+    },
 };
