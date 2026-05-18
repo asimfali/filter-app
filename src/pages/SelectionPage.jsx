@@ -175,6 +175,7 @@ export default function SelectionPage() {
     const [coordInput, setCoordInput] = useState('');
     const [coordError, setCoordError] = useState('');
     const [locating, setLocating] = useState(false);
+    const [lastParams, setLastParams] = useState(null);
     const resultsRef = useRef(null);
 
     const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
@@ -204,6 +205,7 @@ export default function SelectionPage() {
             const { ok, data } = await selectionApi.calculate(payload);
             if (ok && data.success) {
                 setResults(data.data);
+                setLastParams(payload);
                 setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
             } else {
                 setError(data.error?.message || data.error?.details || 'Ошибка расчёта');
@@ -527,6 +529,25 @@ export default function SelectionPage() {
                         <SeriaCard key={seria.seria} seria={seria} />
                     ))}
                 </div>
+            )}
+            {results && results.results?.length > 0 && (
+                <button
+                    type="button"
+                    onClick={async () => {
+                        const res = await selectionApi.report(lastParams, results);
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'selection_report.pdf';
+                        a.click();
+                        setTimeout(() => URL.revokeObjectURL(url), 60000);
+                    }}
+                    className="w-full py-2.5 rounded-lg bg-green-600 hover:bg-green-700
+            text-white text-sm font-semibold transition-colors"
+                >
+                    Скачать PDF отчёт
+                </button>
             )}
         </div>
     );
