@@ -1,14 +1,4 @@
 .
-├── .vscode
-│   └── launch.json
-├── dist
-│   ├── assets
-│   │   ├── index-8c04z0J2.css
-│   │   ├── index-DX0Xeszx.js
-│   │   ├── index-legacy-CCOsM-KB.js
-│   │   └── polyfills-legacy-0Un4jnkQ.js
-│   ├── index.html
-│   └── vite.svg
 ├── public
 │   └── vite.svg
 ├── src
@@ -149,4 +139,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-24 directories, 126 files
+21 directories, 119 files

@@ -34,8 +34,8 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
   const [showCreateThread, setShowCreateThread] = useState(false);
   const [parentsOnly, setParentsOnly] = useState(false);
   const restoredNodes = useRef(savedState?.selectedNodes || []);
-const restoredIntersectionIds = useRef(savedState?.intersectionIds || []);
-const isRestoringRef = useRef(!!savedState); 
+  const restoredIntersectionIds = useRef(savedState?.intersectionIds || []);
+  const isRestoringRef = useRef(!!savedState);
   // ── Редактор привязок ──────────────────────────────────────────────────────
   const [mode, setMode] = useState('filter');
   const [pendingAssignments, setPendingAssignments] = useState({});
@@ -113,15 +113,15 @@ const isRestoringRef = useRef(!!savedState);
     setError(null);
 
     if (!isRestoringRef.current) {
-        setSelectedNodes([]);
-        setFilterResult(null);
-        setSelectedTags([]);
-        setTagValues([]);
-        setIntersectionIds([]);
-        if (cyInstanceRef.current) {
-            cyInstanceRef.current.destroy();
-            cyInstanceRef.current = null;
-        }
+      setSelectedNodes([]);
+      setFilterResult(null);
+      setSelectedTags([]);
+      setTagValues([]);
+      setIntersectionIds([]);
+      if (cyInstanceRef.current) {
+        cyInstanceRef.current.destroy();
+        cyInstanceRef.current = null;
+      }
     }
 
 
@@ -203,11 +203,11 @@ const isRestoringRef = useRef(!!savedState);
         if (cyInstanceRef.current) {
           cyInstanceRef.current.destroy();
           cyInstanceRef.current = null;
-      }
-      if (!isRestoringRef.current) {
+        }
+        if (!isRestoringRef.current) {
           setSelectedNodes([]);
           setFilterResult(null);
-      }
+        }
 
         if (!nodes.length) {
           setGraphLoading(false);
@@ -250,30 +250,30 @@ const isRestoringRef = useRef(!!savedState);
 
     // Ждём пока DOM отрендерится и cyRef привяжется
     const timer = setTimeout(() => {
-        if (!cyRef.current || !pendingGraphData.current) return;
+      if (!cyRef.current || !pendingGraphData.current) return;
 
-        const { nodes, edges, byOrder, selectedIds, productPaths, referenceAxes } = pendingGraphData.current;
-        pendingGraphData.current = null;
+      const { nodes, edges, byOrder, selectedIds, productPaths, referenceAxes } = pendingGraphData.current;
+      pendingGraphData.current = null;
 
-        initCytoscape(nodes, edges, byOrder, selectedIds, productPaths, referenceAxes);
+      initCytoscape(nodes, edges, byOrder, selectedIds, productPaths, referenceAxes);
 
-        if (restoredNodes.current.length) {
-            setSelectedNodes(restoredNodes.current);
-            setIntersectionIds(restoredIntersectionIds.current);
-            if (cyInstanceRef.current) {
-                const cy = cyInstanceRef.current;
-                restoredNodes.current.forEach(n => {
-                    cy.getElementById(`value-${n.valueId}`).select();
-                });
-            }
-            restoredNodes.current = [];
-            restoredIntersectionIds.current = [];
-            isRestoringRef.current = false;
+      if (restoredNodes.current.length) {
+        setSelectedNodes(restoredNodes.current);
+        setIntersectionIds(restoredIntersectionIds.current);
+        if (cyInstanceRef.current) {
+          const cy = cyInstanceRef.current;
+          restoredNodes.current.forEach(n => {
+            cy.getElementById(`value-${n.valueId}`).select();
+          });
         }
+        restoredNodes.current = [];
+        restoredIntersectionIds.current = [];
+        isRestoringRef.current = false;
+      }
     }, 100);
 
     return () => clearTimeout(timer);
-}, [graphLoading]);
+  }, [graphLoading]);
 
   const handleSelectionForOrphans = useCallback(async (selectedIds) => {
     const axes = refAxesRef.current;
@@ -417,6 +417,16 @@ const isRestoringRef = useRef(!!savedState);
           },
         },
         {
+          selector: 'node.dimmed',
+          style: {
+            'background-color': '#f8fafc',
+            'background-opacity': 0.35,
+            'border-color': '#e2e8f0',
+            'border-opacity': 0.35,
+            color: '#64748b',
+          },
+        },
+        {
           selector: 'node[type="value"]:selected',
           style: {
             'background-color': '#3b82f6', 'border-color': '#1d4ed8',
@@ -428,16 +438,6 @@ const isRestoringRef = useRef(!!savedState);
           style: {
             'background-color': '#dbeafe', 'border-color': '#3b82f6',
             'border-width': 2, 'color': '#1e40af',
-          },
-        },
-        {
-          selector: 'node.dimmed',
-          style: {
-            'background-color': '#f8fafc',
-            'background-opacity': 0.35,
-            'border-color': '#e2e8f0',
-            'border-opacity': 0.35,
-            color: '#64748b',           // ← чуть темнее, чтобы был читаемым
           },
         },
         {
@@ -515,6 +515,17 @@ const isRestoringRef = useRef(!!savedState);
           },
         },
         { selector: 'edge.dimmed', style: { 'opacity': 0.1 } },
+        {
+          selector: 'node[type="value"]:selected',
+          style: {
+            'background-color': '#3b82f6',
+            'border-color': '#1d4ed8',
+            'border-width': 2,
+            'color': '#ffffff',
+            'background-opacity': 1,
+            'border-opacity': 1,
+          },
+        },
       ],
       selectionType: 'additive',
       boxSelectionEnabled: true,
@@ -560,14 +571,24 @@ const isRestoringRef = useRef(!!savedState);
       };
 
       // ── Пересечение цепочек всех выбранных узлов ──
-      const allChains = [];
+      const byAxis = {};
       selected.forEach(node => {
-        allChains.push(getReachableNodes(node));
+        const axisId = node.data('axis_id');
+        if (!byAxis[axisId]) byAxis[axisId] = [];
+        byAxis[axisId].push(node);
       });
 
-      let intersection = allChains[0];
-      for (let i = 1; i < allChains.length; i++) {
-        intersection = intersection.filter(node => allChains[i].has(node));
+      const chainsByAxis = Object.values(byAxis).map(nodesInAxis => {
+        let union = cy.collection();
+        nodesInAxis.forEach(node => {
+          union = union.union(getReachableNodes(node));
+        });
+        return union;
+      });
+
+      let intersection = chainsByAxis[0];
+      for (let i = 1; i < chainsByAxis.length; i++) {
+        intersection = intersection.filter(node => chainsByAxis[i].has(node));
       }
 
       setIntersectionIds(
@@ -940,10 +961,10 @@ const isRestoringRef = useRef(!!savedState);
                   <div className="border-t pt-4">
                     {canEditSpecs && (
                       <button
-                      onClick={() => {
-                        onSaveState?.({ selectedTypeId, selectedTags, selectedNodes, intersectionIds, filterResult });
-                        onOpenSpecEditor(filterResult.product_ids);
-                      }}
+                        onClick={() => {
+                          onSaveState?.({ selectedTypeId, selectedTags, selectedNodes, intersectionIds, filterResult });
+                          onOpenSpecEditor(filterResult.product_ids);
+                        }}
                         className="w-full bg-violet-600 hover:bg-violet-700 text-white
                  text-sm py-2 rounded-lg transition-colors"
                       >
