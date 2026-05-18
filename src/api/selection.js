@@ -21,6 +21,14 @@ export const selectionApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    async report(params, data) {
+        const res = await apiFetch('/api/v1/selection/report/', {
+            method: 'POST',
+            body: JSON.stringify({ params, data }),
+        });
+        return res;  // raw response — caller делает blob()
+    },
+
     async nearestRegion(lat, lon) {
         const res = await apiFetch(`${BASE}/regions/nearest/?lat=${lat}&lon=${lon}`);
         return { ok: res.ok, data: await res.json() };
