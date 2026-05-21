@@ -79,6 +79,20 @@ const MODE_CONFIG = {
             return `✗ ${errs || 'Ошибка'}`;
         },
     },
+    extract: {
+    title: 'Импорт характеристик из PDF',
+    btnColor: 'bg-blue-600 hover:bg-blue-700',
+    permission: 'pdf.spec.write',
+    loadItems: async () => ({
+        ok: true,
+        data: {
+            success: true,
+            data: [{ id: 'zavesy', name: 'Воздушные завесы' }],
+        },
+    }),
+    isAsync: true,
+    formatResult: (result) => `✓ Найдено: ${result.items_found} моделей`,
+},
 };
 
 // ─── Компонент ────────────────────────────────────────────────────────────
@@ -91,6 +105,8 @@ export default function SyncModal({ user, onClose, mode }) {
     const [runningAll, setRunningAll] = useState(false);
     const [taskIds, setTaskIds] = useState({});
     const [opts, setOpts] = useState({});
+    const [files, setFiles] = useState({}); 
+    const [applyResults, setApplyResults] = useState({});
 
     useEffect(() => {
         config.loadItems().then(({ ok, data }) => {
@@ -111,18 +127,45 @@ export default function SyncModal({ user, onClose, mode }) {
 
         const interval = setInterval(async () => {
             for (const [itemId, taskId] of ids) {
-                const { ok, data } = await externalApi.taskStatus(taskId);
+                let ok, data;
+                if (mode === 'extract') {
+                    const { selectionApi } = await import('../../api/selection');
+                    ({ ok, data } = await selectionApi.extractStatus(taskId));
+                } else {
+                    ({ ok, data } = await externalApi.taskStatus(taskId));
+                }
+
                 if (!ok || !data.success) continue;
-                if (data.data.ready) {
-                    const result = data.data.result;
-                    setResults(prev => ({
-                        ...prev,
-                        [itemId]: {
-                            loading: false,
-                            ok: result.success,
-                            message: config.formatResult(result),
-                        },
-                    }));
+
+                const isReady = mode === 'extract'
+                    ? data.data.status === 'COMPLETED' || data.data.status === 'FAILED'
+                    : data.data.ready;
+
+                if (isReady) {
+                    if (mode === 'extract') {
+                        const isFailed = data.data.status === 'FAILED';
+                        setResults(prev => ({
+                            ...prev,
+                            [itemId]: {
+                                loading: false,
+                                ok: !isFailed,
+                                message: isFailed
+                                    ? `✗ ${data.data.error_log?.error || 'Ошибка'}`
+                                    : `✓ Найдено: ${data.data.items_found} моделей`,
+                                taskId: taskId,
+                            },
+                        }));
+                    } else {
+                        const result = data.data.result;
+                        setResults(prev => ({
+                            ...prev,
+                            [itemId]: {
+                                loading: false,
+                                ok: result.success,
+                                message: config.formatResult(result),
+                            },
+                        }));
+                    }
                     setTaskIds(prev => {
                         const next = { ...prev };
                         delete next[itemId];
@@ -138,35 +181,44 @@ export default function SyncModal({ user, onClose, mode }) {
     const runItem = async (itemId) => {
         setResults(prev => ({
             ...prev,
-            [itemId]: { loading: true, ok: null, message: ' Запуск...' },
+            [itemId]: { loading: true, ok: null, message: 'Запуск...' },
         }));
 
-        const { ok, data } = await config.runItem(itemId, opts);
+        let ok, data;
+
+        if (mode === 'extract') {
+            const file = files[itemId];
+            if (!file) {
+                setResults(prev => ({
+                    ...prev,
+                    [itemId]: { loading: false, ok: false, message: 'Выберите файл' },
+                }));
+                return;
+            }
+            const { selectionApi } = await import('../../api/selection');
+            ({ ok, data } = await selectionApi.extractUpload(itemId, file));
+        } else {
+            ({ ok, data } = await config.runItem(itemId, opts));
+        }
 
         if (!ok || !data.success) {
             setResults(prev => ({
                 ...prev,
-                [itemId]: { loading: false, ok: false, message: data?.error || 'Ошибка' },
+                [itemId]: { loading: false, ok: false, message: data?.error?.message || 'Ошибка' },
             }));
             return;
         }
 
         if (config.isAsync) {
-            // Ждём через поллинг
             setTaskIds(prev => ({ ...prev, [itemId]: data.data.task_id }));
             setResults(prev => ({
                 ...prev,
-                [itemId]: { loading: true, ok: null, message: ' Выполняется...' },
+                [itemId]: { loading: true, ok: null, message: 'Выполняется...' },
             }));
         } else {
-            // Результат сразу
             setResults(prev => ({
                 ...prev,
-                [itemId]: {
-                    loading: false,
-                    ok: data.success,
-                    message: config.formatResult(data),
-                },
+                [itemId]: { loading: false, ok: true, message: config.formatResult(data) },
             }));
         }
     };
@@ -221,35 +273,109 @@ export default function SyncModal({ user, onClose, mode }) {
                     )}
                     {items.map(item => {
                         const state = results[item.id];
+                        const fileInputId = `extract-file-${item.id}`;
                         return (
-                            <div key={item.id}
-                                 className="flex items-center justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                    <span className="text-sm text-gray-800 dark:text-gray-200">
-                                        {item.name}
-                                    </span>
-                                    {state?.message && (
-                                        <p className={`text-xs mt-0.5 ${
-                                            state.ok === true  ? 'text-emerald-500' :
-                                            state.ok === false ? 'text-red-500' :
-                                            'text-gray-400'
-                                        }`}>
-                                            {state.message}
-                                        </p>
-                                    )}
+                            <div key={item.id} className="space-y-1.5">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <span className="text-sm text-gray-800 dark:text-gray-200">
+                                            {item.name}
+                                        </span>
+                                        {state?.message && (
+                                            <p className={`text-xs mt-0.5 ${
+                                                state.ok === true  ? 'text-emerald-500' :
+                                                state.ok === false ? 'text-red-500' :
+                                                'text-gray-400'
+                                            }`}>
+                                                {state.message}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => mode === 'extract'
+                                            ? document.getElementById(fileInputId)?.click()
+                                            : runItem(item.id)
+                                        }
+                                        disabled={state?.loading || runningAll}
+                                        className={`shrink-0 px-3 py-1.5 text-xs font-medium
+                                                    rounded-lg text-white transition-colors
+                                                    disabled:opacity-40 ${config.btnColor}`}>
+                                        {state?.loading
+                                            ? <IconClock className="w-4 h-4" />
+                                            : mode === 'extract' ? 'Выбрать PDF' : 'Запустить'
+                                        }
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => runItem(item.id)}
-                                    disabled={state?.loading || runningAll}
-                                    className={`shrink-0 px-3 py-1.5 text-xs font-medium
-                                                rounded-lg text-white transition-colors
-                                                disabled:opacity-40 ${config.btnColor}`}>
-                                    {state?.loading ? <IconClock className="w-4 h-4" /> : 'Запустить'}
-                                </button>
+
+                                {/* Extract: файл + кнопки */}
+                                {mode === 'extract' && (
+                                    <>
+                                        <input
+                                            id={fileInputId}
+                                            type="file"
+                                            accept=".pdf"
+                                            className="hidden"
+                                            onChange={e => {
+                                                const f = e.target.files[0];
+                                                if (f) setFiles(prev => ({ ...prev, [item.id]: f }));
+                                            }}
+                                        />
+                                        {files[item.id] && !state?.loading && (
+                                            <div className="flex gap-1.5">
+                                                <span className="text-xs text-gray-400 truncate flex-1">
+                                                    {files[item.id].name}
+                                                </span>
+                                                <button
+                                                    onClick={() => runItem(item.id)}
+                                                    disabled={state?.loading}
+                                                    className="shrink-0 px-2 py-1 text-xs rounded
+                                                            bg-blue-600 hover:bg-blue-700
+                                                            text-white transition-colors">
+                                                    Обработать
+                                                </button>
+                                            </div>
+                                        )}
+                                        {state?.ok && state?.taskId && !applyResults[item.id] && (
+                                            <div className="flex gap-1.5">
+                                                <button
+                                                    onClick={async () => {
+                                                        const { selectionApi } = await import('../../api/selection');
+                                                        const { data } = await selectionApi.extractApply(state.taskId, true);
+                                                        if (data.success) setApplyResults(prev => ({ ...prev, [item.id]: { ...data.data, dry_run: true } }));
+                                                    }}
+                                                    className="flex-1 px-2 py-1 text-xs rounded
+                                                            bg-neutral-200 dark:bg-neutral-700
+                                                            text-gray-700 dark:text-gray-300
+                                                            hover:bg-neutral-300 transition-colors">
+                                                    Dry run
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        const { selectionApi } = await import('../../api/selection');
+                                                        const { data } = await selectionApi.extractApply(state.taskId, false);
+                                                        if (data.success) setApplyResults(prev => ({ ...prev, [item.id]: data.data }));
+                                                    }}
+                                                    className="flex-1 px-2 py-1 text-xs rounded
+                                                            bg-emerald-600 hover:bg-emerald-700
+                                                            text-white transition-colors">
+                                                    Применить
+                                                </button>
+                                            </div>
+                                        )}
+                                        {applyResults[item.id] && (
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                {applyResults[item.id].dry_run && <span className="text-amber-500">dry run · </span>}
+                                                найдено {applyResults[item.id].matched} · создано {applyResults[item.id].created} · обновлено {applyResults[item.id].updated}
+                                            </p>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         );
                     })}
                 </div>
+
+                
 
                 {/* Футер */}
                 <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800

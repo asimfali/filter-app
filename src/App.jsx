@@ -31,6 +31,7 @@ import CartPage from './pages/CartPage';
 import CartKPPage from './pages/CartKPPage';
 import VariantEditorPage from './pages/VariantEditorPage';
 import SelectionPage from './pages/SelectionPage';
+import FanChartPage from './pages/FanChartPage'
 import { IconClock } from './components/common/Icons.jsx';
 
 
@@ -383,6 +384,7 @@ function MainApp() {
                 {page === 'variant-editor' && (
                   <VariantEditorPage onBack={() => handleNavigate('configurator')} />
                 )}
+                {page === 'fan-charts' && <FanChartPage />}
               </>
             )}
           </main>
