@@ -215,6 +215,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'defect-acts', label: 'Ведомость дефектов', code: 'bom.defect.view' },
                 { id: 'variant-editor', label: 'Исполнения', code: 'product.variant.view' },
                 { id: 'selection', label: 'Подбор', code: 'portal.page.selection' },
+                { id: 'fan-charts', label: 'Графики', code: 'portal.page.selection' },
               ];
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [
