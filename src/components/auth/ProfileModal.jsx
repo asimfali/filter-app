@@ -353,6 +353,17 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         />
                     )}
 
+                    {can(user, 'pdf.spec.write') && (
+                        <button
+                            onClick={() => setSyncModal('extract')}
+                            className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                                    bg-blue-600 hover:bg-blue-700
+                                    text-white transition-colors">
+                            Импорт характеристик PDF
+                        </button>
+                    )}
+
+
                     {/* Тема */}
                     <div>
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400

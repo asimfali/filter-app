@@ -33,4 +33,34 @@ export const selectionApi = {
         const res = await apiFetch(`${BASE}/regions/nearest/?lat=${lat}&lon=${lon}`);
         return { ok: res.ok, data: await res.json() };
     },
+
+    async extractUpload(configSlug, file, page = null) {
+        const formData = new FormData();
+        formData.append('config_slug', configSlug);
+        formData.append('file', file);
+        if (page) formData.append('page', String(page));
+        const res = await apiFetch(`${BASE}/extract/upload/`, {
+            method: 'POST',
+            body: formData,
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+    
+    async extractStatus(taskId) {
+        const res = await apiFetch(`${BASE}/extract/${taskId}/status/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+    
+    async extractResult(taskId) {
+        const res = await apiFetch(`${BASE}/extract/${taskId}/result/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+    
+    async extractApply(taskId, dryRun = false) {
+        const res = await apiFetch(`${BASE}/extract/${taskId}/apply/`, {
+            method: 'POST',
+            body: JSON.stringify({ dry_run: dryRun }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
 };
