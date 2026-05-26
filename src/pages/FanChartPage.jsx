@@ -48,7 +48,10 @@ function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperati
     if (chartId) {
       const { ok, data } = await selectionApi.fanChartOperatingPoint(chartId, q, pv)
       if (ok && data.success) {
-        onOperatingPoint(data.data)
+        onOperatingPoint([
+          { q, pv, is_target: true, in_working_zone: true },  // ← добавить
+          ...data.data,
+        ])
       }
     }
   }
