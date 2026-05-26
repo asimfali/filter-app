@@ -10,6 +10,7 @@ const CURVE_COLORS = {
   EFFICIENCY: '#16a34a',
   POWER: '#d97706',
   TIP_SPEED: '#9333ea',
+  NETWORK: '#6b7280',
 }
 
 const CURVE_TYPE_LABELS = {
@@ -17,6 +18,65 @@ const CURVE_TYPE_LABELS = {
   EFFICIENCY: 'КПД η(Q)',
   POWER: 'Мощность Nu(Q)',
   TIP_SPEED: 'Окружная скорость u(Q)',
+}
+
+function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperatingPoint }) {
+  const [qRef, setQRef] = useState('')
+  const [pvRef, setPvRef] = useState('')
+
+  const handleCalc = async () => {
+    const q = parseFloat(qRef.replace(',', '.'))
+    const pv = parseFloat(pvRef.replace(',', '.'))
+    if (!q || !pv) return
+
+    const R = pv / (q * q)
+    const [xMin, xMax] = xDomain
+
+    onNetworkCurve({
+      id: 'network',
+      curve_type: 'NETWORK',
+      label: 'Сеть',
+      color: '#6b7280',
+      interpolation: 'linear',
+      points: [
+        { x: xMin, y: parseFloat((R * xMin * xMin).toFixed(2)) },
+        { x: xMax, y: parseFloat((R * xMax * xMax).toFixed(2)) },
+      ],
+    })
+
+    // Запрашиваем рабочую точку
+    if (chartId) {
+      const { ok, data } = await selectionApi.fanChartOperatingPoint(chartId, q, pv)
+      if (ok && data.success) {
+        onOperatingPoint(data.data)
+      }
+    }
+  }
+
+  const handleClear = () => {
+    onNetworkCurve(null)
+    onOperatingPoint(null)
+  }
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-200
+                    dark:border-gray-700 bg-gray-50 dark:bg-neutral-800">
+      <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
+        Характеристика сети:
+      </span>
+      <Field label="Q, тыс.м³/ч" value={qRef} onChange={setQRef} placeholder="1.5" />
+      <Field label="Pv, Па" value={pvRef} onChange={setPvRef} placeholder="200" />
+      <button onClick={handleCalc}
+        className="text-xs bg-gray-600 hover:bg-gray-700 text-white
+                   px-3 py-2 rounded-lg transition-colors shrink-0">
+        Построить
+      </button>
+      <button onClick={handleClear}
+        className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">
+        Очистить
+      </button>
+    </div>
+  )
 }
 
 // ─── Модалка создания графика ─────────────────────────────────────────────────
@@ -281,13 +341,18 @@ export default function FanChartPage() {
   const [activeCurveId, setActiveCurveId] = useState(null)
   const [editTool, setEditTool] = useState('move')
   const [saving, setSaving] = useState(false)
-const [saveStatus, setSaveStatus] = useState(null)
+  const [saveStatus, setSaveStatus] = useState(null)
+  const [networkCurve, setNetworkCurve] = useState(null)
+  const [operatingPoint, setOperatingPoint] = useState(null)
+
+  const allCurves = networkCurve
+    ? [...(chartData || []), networkCurve]
+    : (chartData || [])
 
   const handleSearch = async () => {
-    if (!productId.trim()) return
     setLoading(true)
     const { ok, data } = await selectionApi.fanCharts(productId.trim())
-    setCharts(ok && data.success ? data.data : [])
+    setCharts(ok ? (Array.isArray(data) ? data : data.results ?? []) : [])
     setSelectedChart(null)
     setChartData(null)
     setLoading(false)
@@ -302,15 +367,17 @@ const [saveStatus, setSaveStatus] = useState(null)
       return
     }
     setLoading(true)
-    const { ok, data } = await selectionApi.fanChartInterpolated(chart.id)
-    if (ok && data.success) {
-      setChartData(data.data.curves.map(c => ({
+    // было: fanChartInterpolated → стало: fanChartDetail
+    const { ok, data } = await selectionApi.fanChartDetail(chart.id)
+    console.log('domains:', data?.x_min, data?.x_max, data?.y_min, data?.y_max)
+    if (ok && data.curves) {
+      setChartData(data.curves.map(c => ({
         id: c.id,
-        curve_type: c.type,
+        curve_type: c.curve_type,
         label: c.label,
         color: c.color || null,
         interpolation: c.interpolation || 'spline',
-        points: c.points,
+        points: c.points.map(p => ({ x: p.x, y: p.y })),
       })))
     }
     setLoading(false)
@@ -320,7 +387,7 @@ const [saveStatus, setSaveStatus] = useState(null)
     if (!selectedChart?.id || String(selectedChart.id).startsWith('new_')) {
       // Новый график — создаём через API
       const { ok, data } = await selectionApi.fanChartCreate({
-        product_external_id: productId || 'unknown',
+        product_external_id: selectedChart.product_external_id || productId || '',
         d_ratio: selectedChart.d_ratio,
         temperature: selectedChart.temperature,
         source_page: selectedChart.source_page || null,
@@ -330,14 +397,15 @@ const [saveStatus, setSaveStatus] = useState(null)
         y_max: selectedChart.yDomain?.[1] ?? 1000,
         scale_type: selectedChart.scaleType ?? 'log',
       })
-      if (ok && data.success) {
-        // Обновляем id на реальный и сохраняем кривые
-        const realChart = { ...selectedChart, id: data.data.id }
+      console.log('fanChartCreate result:', ok, data)
+      if (ok) {
+        const realId = data.id
+        const realChart = { ...selectedChart, id: realId }
         setSelectedChart(realChart)
         setCharts(prev => prev.map(c =>
-          c.id === selectedChart.id ? { ...c, id: data.data.id } : c
+          c.id === selectedChart.id ? { ...c, id: realId } : c
         ))
-        await doSaveCurves(data.data.id, realChart)
+        await doSaveCurves(realId, realChart)
       }
       return
     }
@@ -394,9 +462,18 @@ const [saveStatus, setSaveStatus] = useState(null)
   }
 
   // Домены из выбранного графика или дефолт
-  const xDomain = selectedChart?.xDomain ?? [0.3, 2]
-  const yDomain = selectedChart?.yDomain ?? [60, 1000]
-  const scaleType = selectedChart?.scaleType ?? 'log'
+  const xDomain = selectedChart?.xDomain ?? [selectedChart?.x_min ?? 0.3, selectedChart?.x_max ?? 2]
+  const yDomain = selectedChart?.yDomain ?? [selectedChart?.y_min ?? 60, selectedChart?.y_max ?? 1000]
+  const scaleType = selectedChart?.scaleType ?? selectedChart?.scale_type ?? 'log'
+  const scaleRatio = selectedChart?.scale_ratio ?? null
+
+  const BASE_SIZE = 500
+  const chartWidth = scaleRatio && scaleRatio > 1
+    ? BASE_SIZE
+    : Math.round(BASE_SIZE * Math.abs(scaleRatio))
+  const chartHeight = scaleRatio && scaleRatio > 1
+    ? Math.round(BASE_SIZE * Math.abs(scaleRatio))
+    : BASE_SIZE
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -415,7 +492,7 @@ const [saveStatus, setSaveStatus] = useState(null)
           value={productId}
           onChange={e => setProductId(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSearch()}
-          placeholder="External ID изделия (напр. 00000030266)"
+          placeholder="Название изделия или External ID (напр. ВО-3.5)"
           className="flex-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700
                      bg-white dark:bg-neutral-900 text-gray-900 dark:text-white
                      px-4 py-2 focus:outline-none focus:border-blue-500"
@@ -431,28 +508,6 @@ const [saveStatus, setSaveStatus] = useState(null)
           + Новый график
         </button>
       </div>
-
-      {/* Демо */}
-      {charts.length === 0 && !loading && (
-        <div className="flex flex-col items-center gap-4 py-8">
-          <p className="text-sm text-gray-400">Введите External ID или откройте демо-график</p>
-          <button
-            onClick={() => {
-              const demo = {
-                id: 'demo', d_ratio: 0.9, temperature: 20,
-                xDomain: [0.3, 2], yDomain: [60, 1000], scaleType: 'log', curves: DEMO_CURVES
-              }
-              setCharts([demo])
-              handleSelectChart({ ...demo, curves: DEMO_CURVES })
-              setChartData(DEMO_CURVES)
-            }}
-            className="text-sm bg-neutral-700 hover:bg-neutral-600 text-white
-                       px-4 py-2 rounded-lg transition-colors"
-          >
-            Открыть демо-график
-          </button>
-        </div>
-      )}
 
       <div className="flex gap-6 items-start">
         {/* Список графиков */}
@@ -470,6 +525,11 @@ const [saveStatus, setSaveStatus] = useState(null)
                     : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-neutral-900 text-gray-700 dark:text-gray-300 hover:border-blue-300'
                   }`}
               >
+                {chart.product_external_id && (
+                  <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 truncate">
+                    {chart.product_external_id}
+                  </div>
+                )}
                 <div className="text-sm font-medium">
                   D = {chart.d_ratio} D<sub>ном</sub>
                 </div>
@@ -590,9 +650,9 @@ const [saveStatus, setSaveStatus] = useState(null)
             </div>
 
             <FanChartEditor
-              width={700}
-              height={500}
-              curves={chartData}          // ← было initialCurves
+              width={chartWidth}
+              height={chartHeight}
+              curves={allCurves}
               editable={mode === 'edit'}
               xDomain={xDomain}
               yDomain={yDomain}
@@ -601,7 +661,17 @@ const [saveStatus, setSaveStatus] = useState(null)
               activeCurveId={mode === 'edit' ? activeCurveId : null}
               editTool={mode === 'edit' ? editTool : 'move'}
               onAddPoint={handleAddPoint}
+              operatingPoint={operatingPoint}
             />
+
+            {chartData !== null && (
+              <NetworkCurvePanel
+                xDomain={xDomain}
+                chartId={selectedChart?.id}
+                onNetworkCurve={setNetworkCurve}
+                onOperatingPoint={setOperatingPoint}
+              />
+            )}
 
             {chartData.length > 0 && <Legend curves={chartData} />}
 

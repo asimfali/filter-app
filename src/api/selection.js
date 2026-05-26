@@ -65,9 +65,12 @@ export const selectionApi = {
     },
 
     // Fan Charts
-    async fanCharts(productExternalId) {
-        const res = await apiFetch(`${BASE}/fan-charts/?product=${encodeURIComponent(productExternalId)}`);
-        return { ok: res.ok, data: await res.json() };
+    async fanCharts(productExternalId = '') {
+        const url = productExternalId
+            ? `${BASE}/fan-charts/?product=${encodeURIComponent(productExternalId)}`
+            : `${BASE}/fan-charts/`
+        const res = await apiFetch(url)
+        return { ok: res.ok, data: await res.json() }
     },
 
     async fanChartDetail(chartId) {

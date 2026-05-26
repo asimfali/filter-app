@@ -8,10 +8,17 @@ import { curveMonotoneX, curveLinear } from 'd3-shape'
 const MARGIN = { top: 20, right: 40, bottom: 50, left: 60 }
 
 const CURVE_COLORS = {
-  PRESSURE: '#1d4ed8',
-  EFFICIENCY: '#16a34a',
-  POWER: '#d97706',
-  TIP_SPEED: '#9333ea',
+  PRESSURE: '#1d4ed8',  // синий
+  EFFICIENCY: '#16a34a',  // зелёный  
+  POWER: '#0072b6',  // голубой (как в оригинале)
+  TIP_SPEED: '#9333ea',  // фиолетовый
+}
+
+const CURVE_TYPE_LABELS = {
+  PRESSURE: 'Давление Pv(Q)',
+  EFFICIENCY: 'КПД η(Q)',
+  POWER: 'Мощность Nu(Q)',
+  TIP_SPEED: 'Окружная скорость u(Q)',
 }
 
 function clampToScale(scale, value) {
@@ -60,16 +67,27 @@ export default function FanChartEditor({
   height = 500,
   curves = [],          // ← controlled: управляется снаружи
   onChange,             // ← обязателен для drag
-  xDomain = [0.3, 2],
-  yDomain = [60, 1000],
+  xDomain: xDomainProp = [0.3, 2],
+  yDomain: yDomainProp = [60, 1000],
   editable = true,
   scaleType = 'log',
   activeCurveId = null,
   onAddPoint,
   editTool = 'move',
+  operatingPoint = null,
 }) {
   const innerW = width - MARGIN.left - MARGIN.right
   const innerH = height - MARGIN.top - MARGIN.bottom
+
+  const xDomain = useMemo(() => {
+    const [a, b] = xDomainProp
+    return [a <= 0 ? 0.01 : a, b]
+  }, [xDomainProp])
+
+  const yDomain = useMemo(() => {
+    const [a, b] = yDomainProp
+    return [a <= 0 ? 0.1 : a, b]
+  }, [yDomainProp])
 
   const curvesRef = useRef(curves)
   useEffect(() => { curvesRef.current = curves }, [curves])
@@ -86,6 +104,9 @@ export default function FanChartEditor({
     const fn = scaleType === 'log' ? scaleLog : scaleLinear
     return fn({ domain: yDomain, range: [innerH, 0], ...(scaleType === 'log' ? { base: 10 } : {}) })
   }, [yDomain, innerH, scaleType])
+
+  const [hoveredCurve, setHoveredCurve] = useState(null)
+  const [curveTooltip, setCurveTooltip] = useState(null)
 
   const handleTooltip = useCallback((screenX, screenY) => {
     if (screenX === null) { setTooltip(null); return }
@@ -118,18 +139,39 @@ export default function FanChartEditor({
     onChange?.(next)
   }
 
-  const xTicks = scaleType === 'log'
-    ? [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1, 1.5, 2]
-    : undefined
-  const yTicks = scaleType === 'log'
-    ? [60, 80, 100, 150, 200, 300, 400, 500, 600, 800, 1000]
-    : undefined
+  const xTicks = useMemo(() => {
+    if (scaleType !== 'log') return undefined
+    const [xMin, xMax] = xDomain
+    const ticks = []
+    const minExp = Math.floor(Math.log10(xMin))
+    const maxExp = Math.ceil(Math.log10(xMax))
+    for (let exp = minExp; exp <= maxExp; exp++) {
+      for (const mult of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+        const v = parseFloat((mult * 10 ** exp).toPrecision(10))
+        if (v >= xMin * 0.999 && v <= xMax * 1.001) ticks.push(v)
+      }
+    }
+    return ticks
+  }, [xDomain, scaleType])
+
+  const yTicks = useMemo(() => {
+    if (scaleType !== 'log') return undefined
+    const [yMin, yMax] = yDomain
+    const ticks = []
+    const minExp = Math.floor(Math.log10(yMin))
+    const maxExp = Math.ceil(Math.log10(yMax))
+    for (let exp = minExp; exp <= maxExp; exp++) {
+      for (const mult of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+        const v = mult * 10 ** exp
+        if (v >= yMin && v <= yMax) ticks.push(v)
+      }
+    }
+    return ticks
+  }, [yDomain, scaleType])
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-2 inline-block">
       <svg ref={svgRef} width={width} height={height}>
-        {/* debug — убрать после */}
-        {console.log('render check', { editable, activeCurveId })}
         <g
           transform={`translate(${MARGIN.left},${MARGIN.top})`}
           onClick={editable && activeCurveId && editTool === 'add' ? (e) => {
@@ -156,7 +198,10 @@ export default function FanChartEditor({
             stroke="#e5e7eb" strokeDasharray="3,3" tickValues={xTicks} />
 
           <AxisBottom top={innerH} scale={xScale} tickValues={xTicks}
-            tickFormat={v => v} label="Q, тыс.м³/час"
+            tickFormat={v => {
+              if (v >= 1) return String(v)
+              return String(parseFloat(v.toPrecision(2)))
+            }}
             labelProps={{ fontSize: 12, fill: '#374151', textAnchor: 'middle', dy: 36 }}
             tickLabelProps={{ fontSize: 10, fill: '#6b7280', textAnchor: 'middle' }}
             stroke="#9ca3af" tickStroke="#9ca3af" />
@@ -181,9 +226,24 @@ export default function FanChartEditor({
                     y={d => yScale(d.y)}
                     curve={curve.interpolation === 'linear' ? curveLinear : curveMonotoneX}
                     stroke={color}
-                    strokeWidth={isActive ? 2.5 : 2}
+                    strokeWidth={isActive ? 2.5 : hoveredCurve === curve.id ? 3 : 2}
                     fill="none"
                     opacity={activeCurveId && !isActive ? 0.35 : 1}
+                    style={{ cursor: 'pointer' }}
+                    onMouseEnter={(e) => {
+                      setHoveredCurve(curve.id)
+                      const rect = svgRef.current?.getBoundingClientRect()
+                      if (rect) setCurveTooltip({
+                        label: curve.label || CURVE_TYPE_LABELS[curve.curve_type] || curve.curve_type,
+                        color,
+                        x: e.clientX - rect.left,
+                        y: e.clientY - rect.top - 10,
+                      })
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredCurve(null)
+                      setCurveTooltip(null)
+                    }}
                   />
                 )}
                 {sorted.length > 0 && (
@@ -210,6 +270,38 @@ export default function FanChartEditor({
               </g>
             )
           })}
+          {/* Рабочие точки */}
+          {operatingPoint && operatingPoint.map((op, i) => {
+            const cx = xScale(op.q)
+            const cy = yScale(op.pv)
+            const color = op.in_working_zone !== false ? '#0891b2' : '#f97316'  // ← добавить
+            const line1 = `Q=${op.q} тыс.м³/ч`
+            const line2 = `Pv=${op.pv} Па`
+            const labelW = Math.max(line1.length, line2.length) * 6.5 + 12
+            return (
+              <g key={i}>
+                <line x1={cx} y1={cy} x2={cx} y2={innerH}
+                  stroke={color} strokeWidth={1} strokeDasharray="4,3" opacity={0.5} />
+                <line x1={0} y1={cy} x2={cx} y2={cy}
+                  stroke={color} strokeWidth={1} strokeDasharray="4,3" opacity={0.5} />
+                <circle cx={cx} cy={cy} r={6} fill={color} stroke="white" strokeWidth={2} />
+                <g transform={`translate(${cx + 10}, ${cy - 20})`}>
+                  <rect x={-4} y={-4} width={labelW} height={36} rx={4}
+                    fill="white" stroke={color} strokeWidth={1}
+                    className="dark:fill-neutral-900"
+                  />
+                  <text x={labelW / 2 - 4} y={10} textAnchor="middle"
+                    fontSize={11} fill={color} fontWeight="500">
+                    {line1}
+                  </text>
+                  <text x={labelW / 2 - 4} y={25} textAnchor="middle"
+                    fontSize={11} fill={color} fontWeight="500">
+                    {line2}
+                  </text>
+                </g>
+              </g>
+            )
+          })}
         </g>
 
         {tooltip && (
@@ -226,6 +318,25 @@ export default function FanChartEditor({
                 Q={tooltip.x}  Pv={tooltip.y} Па
               </text>
             </g>
+          </g>
+        )}
+        {curveTooltip && (
+          <g transform={`translate(${curveTooltip.x}, ${curveTooltip.y})`}>
+            <rect
+              x={-4} y={-18}
+              width={curveTooltip.label.length * 7 + 8}
+              height={22} rx={4}
+              fill="rgba(0,0,0,0.75)"
+            />
+            <text
+              x={curveTooltip.label.length * 3.5}
+              y={-3}
+              textAnchor="middle"
+              fontSize={11}
+              fill={curveTooltip.color}
+            >
+              {curveTooltip.label}
+            </text>
           </g>
         )}
       </svg>

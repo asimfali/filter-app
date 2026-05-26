@@ -47,6 +47,7 @@
 │   │   │   ├── AlertModal.jsx
 │   │   │   ├── ConfirmModal.jsx
 │   │   │   ├── Dropdown.jsx
+│   │   │   ├── FanChartEditor.jsx
 │   │   │   ├── FileDropZone.jsx
 │   │   │   ├── Icons.jsx
 │   │   │   ├── Modal.jsx
@@ -98,6 +99,7 @@
 │   │   ├── CartPage.jsx
 │   │   ├── DefectActPage.jsx
 │   │   ├── DocumentsPage.jsx
+│   │   ├── FanChartPage.jsx
 │   │   ├── FolderUploadPage.jsx
 │   │   ├── HeatExchangersPage.jsx
 │   │   ├── IssueThreadPage.jsx
@@ -129,6 +131,7 @@
 ├── .gitignore
 ├── README.md
 ├── add-dark-mode.sh
+├── deploy_frontend.sh
 ├── eslint.config.js
 ├── index.html
 ├── package-lock.json
@@ -139,4 +142,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-21 directories, 119 files
+21 directories, 122 files
