@@ -1,26 +1,7 @@
 import { useState } from 'react'
 import FanChartEditor, { DEMO_CURVES } from '../components/common/FanChartEditor'
 import { tokenStorage } from '../api/auth'
-
-// ─── API ─────────────────────────────────────────────────────────────────────
-
-async function fetchCharts(productExternalId) {
-  const res = await fetch(
-    `/api/v1/selection/fan-charts/?product=${productExternalId}`,
-    { headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` } }
-  )
-  const json = await res.json()
-  return json.success ? json.data : []
-}
-
-async function fetchInterpolated(chartId) {
-  const res = await fetch(
-    `/api/v1/selection/fan-charts/${chartId}/interpolated/`,
-    { headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` } }
-  )
-  const json = await res.json()
-  return json.success ? json.data : null
-}
+import { selectionApi } from '../api/selection'
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
@@ -299,12 +280,14 @@ export default function FanChartPage() {
   const [showAddCurve, setShowAddCurve] = useState(false)
   const [activeCurveId, setActiveCurveId] = useState(null)
   const [editTool, setEditTool] = useState('move')
+  const [saving, setSaving] = useState(false)
+const [saveStatus, setSaveStatus] = useState(null)
 
   const handleSearch = async () => {
     if (!productId.trim()) return
     setLoading(true)
-    const data = await fetchCharts(productId.trim())
-    setCharts(data)
+    const { ok, data } = await selectionApi.fanCharts(productId.trim())
+    setCharts(ok && data.success ? data.data : [])
     setSelectedChart(null)
     setChartData(null)
     setLoading(false)
@@ -312,24 +295,77 @@ export default function FanChartPage() {
 
   const handleSelectChart = async (chart) => {
     setSelectedChart(chart)
-    setActiveCurveId(null)   // ← добавить
+    setActiveCurveId(null)
     if (chart.curves !== undefined) {
       setChartData(chart.curves)
       setMode('edit')
       return
     }
     setLoading(true)
-    const data = await fetchInterpolated(chart.id)
-    if (data) {
-      setChartData(data.curves.map(c => ({
+    const { ok, data } = await selectionApi.fanChartInterpolated(chart.id)
+    if (ok && data.success) {
+      setChartData(data.data.curves.map(c => ({
         id: c.id,
         curve_type: c.type,
         label: c.label,
+        color: c.color || null,
+        interpolation: c.interpolation || 'spline',
         points: c.points,
-        interpolation: 'spline',
       })))
     }
     setLoading(false)
+  }
+
+  const handleSave = async () => {
+    if (!selectedChart?.id || String(selectedChart.id).startsWith('new_')) {
+      // Новый график — создаём через API
+      const { ok, data } = await selectionApi.fanChartCreate({
+        product_external_id: productId || 'unknown',
+        d_ratio: selectedChart.d_ratio,
+        temperature: selectedChart.temperature,
+        source_page: selectedChart.source_page || null,
+        x_min: selectedChart.xDomain?.[0] ?? 0.3,
+        x_max: selectedChart.xDomain?.[1] ?? 2.0,
+        y_min: selectedChart.yDomain?.[0] ?? 60,
+        y_max: selectedChart.yDomain?.[1] ?? 1000,
+        scale_type: selectedChart.scaleType ?? 'log',
+      })
+      if (ok && data.success) {
+        // Обновляем id на реальный и сохраняем кривые
+        const realChart = { ...selectedChart, id: data.data.id }
+        setSelectedChart(realChart)
+        setCharts(prev => prev.map(c =>
+          c.id === selectedChart.id ? { ...c, id: data.data.id } : c
+        ))
+        await doSaveCurves(data.data.id, realChart)
+      }
+      return
+    }
+    await doSaveCurves(selectedChart.id, selectedChart)
+  }
+
+  const doSaveCurves = async (chartId, chart) => {
+    setSaving(true)
+    const { ok, data } = await selectionApi.fanChartSave(chartId, {
+      x_min: chart.xDomain?.[0] ?? 0.3,
+      x_max: chart.xDomain?.[1] ?? 2.0,
+      y_min: chart.yDomain?.[0] ?? 60,
+      y_max: chart.yDomain?.[1] ?? 1000,
+      scale_type: chart.scaleType ?? 'log',
+      curves: chartData.map(c => ({
+        id: String(c.id).startsWith('curve_') ? null : c.id,
+        curve_type: c.curve_type,
+        label: c.label,
+        param_value: c.param_value ?? null,
+        param_unit: c.param_unit ?? '',
+        color: c.color ?? '',
+        interpolation: c.interpolation ?? 'spline',
+        points: c.points,
+      })),
+    })
+    setSaving(false)
+    setSaveStatus(ok && data.success ? 'ok' : 'error')
+    setTimeout(() => setSaveStatus(null), 3000)
   }
 
   const handleChartCreated = (chart) => {
@@ -471,6 +507,21 @@ export default function FanChartPage() {
                     className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white
                                px-3 py-1.5 rounded-lg transition-colors">
                     + Кривая
+                  </button>
+                )}
+                {mode === 'edit' && (
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className={`text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50
+      ${saveStatus === 'ok'
+                        ? 'bg-emerald-600 text-white'
+                        : saveStatus === 'error'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
+                  >
+                    {saving ? 'Сохранение...' : saveStatus === 'ok' ? '✓ Сохранено' : 'Сохранить'}
                   </button>
                 )}
                 {mode === 'edit' && chartData.length > 0 && (
