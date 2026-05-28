@@ -5,7 +5,12 @@ import { useCart } from '../../contexts/CartContext';
 import { can } from '../../utils/permissions';
 import SmartSelect from '../common/SmartSelect';
 import ProfileModal from '../auth/ProfileModal';
-import { IconBell, IconCart, IconSearch } from '../common/Icons';
+import {
+  IconBell, IconCart, IconSearch,
+  IconGrid, IconUsers, IconDocument, IconFlag, IconLifecycle,
+  IconThermometer, IconPuzzle, IconClipboard, IconChartBar,
+  IconFilter, IconBox, IconFile, IconText, IconSales,
+} from '../common/Icons'
 
 const NOTIFICATION_LABEL = {
   'issues.new_issue': 'Новое замечание',
@@ -201,22 +206,22 @@ export default function Header({ currentPage, onNavigate }) {
           <nav className="flex gap-1">
             {(() => {
               const ALL_PAGES = [
-                { id: 'configurator', label: 'Конфигуратор', code: null },
-                { id: 'sales', label: 'Продажи', code: 'sales.cart.write' },
-                { id: 'parameters', label: 'Параметры', code: 'portal.page.parameters' },
-                { id: 'series-master', label: 'Мастер серий', code: 'catalog.series.manage' },
-                { id: 'staff', label: 'Персонал', code: 'portal.page.staff' },
-                { id: 'documents', label: 'Документы', code: 'portal.page.documents' },
-                { id: 'issues', label: 'Замечания', code: 'portal.page.issues' },
-                { id: 'plm', label: 'PLM', code: 'plm.stage.manage' },
-                { id: 'part-editor', label: 'Спецификации', code: 'bom.spec.view' },
-                { id: 'heat-exchangers', label: 'Теплообменники', code: 'portal.heat_exchanger.view' },
-                { id: 'accessory-kits', label: 'Комплектующие', code: 'catalog.accessory.write' },
-                { id: 'defect-acts', label: 'Ведомость дефектов', code: 'bom.defect.view' },
-                { id: 'variant-editor', label: 'Исполнения', code: 'product.variant.view' },
-                { id: 'selection', label: 'Подбор', code: 'portal.page.selection' },
-                { id: 'fan-charts', label: 'Графики', code: 'portal.page.selection' },
-              ];
+                { id: 'configurator',  label: 'Конфигуратор',     code: null,                        icon: IconGrid },
+                { id: 'sales',         label: 'Продажи',           code: 'sales.cart.write',          icon: IconSales },
+                { id: 'parameters',    label: 'Параметры',         code: 'portal.page.parameters',    icon: IconFilter },
+                { id: 'series-master', label: 'Мастер серий',      code: 'catalog.series.manage',     icon: IconBox },
+                { id: 'staff',         label: 'Персонал',          code: 'portal.page.staff',         icon: IconUsers },
+                { id: 'documents',     label: 'Документы',         code: 'portal.page.documents',     icon: IconDocument },
+                { id: 'issues',        label: 'Замечания',         code: 'portal.page.issues',        icon: IconFlag },
+                { id: 'plm',           label: 'PLM',               code: 'plm.stage.manage',          icon: IconLifecycle },
+                { id: 'part-editor',   label: 'Спецификации',      code: 'bom.spec.view',             icon: IconClipboard },
+                { id: 'heat-exchangers', label: 'Теплообменники',  code: 'portal.heat_exchanger.view',icon: IconThermometer },
+                { id: 'accessory-kits',  label: 'Комплектующие',   code: 'catalog.accessory.write',   icon: IconPuzzle },
+                { id: 'defect-acts',   label: 'Ведомость дефектов',code: 'bom.defect.view',           icon: IconFile },
+                { id: 'variant-editor',label: 'Исполнения',        code: 'product.variant.view',      icon: IconText },
+                { id: 'selection',     label: 'Подбор',            code: 'portal.page.selection',     icon: IconFilter },
+                { id: 'fan-charts',    label: 'Графики',           code: 'portal.page.selection',     icon: IconChartBar },
+              ]
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [
                 ...visiblePages,
@@ -224,16 +229,33 @@ export default function Header({ currentPage, onNavigate }) {
                   ? [{ id: 'spec-editor', label: '✎ Редактор' }]
                   : []),
               ];
-              return navItems.map(item => (
-                <button key={item.id} onClick={() => onNavigate(item.id)}
-                  className={`px-3 py-1.5 rounded text-sm transition-colors
-                    ${currentPage === item.id
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                    }`}>
-                  {item.label}
-                </button>
-              ));
+              return navItems.map(item => {
+                const Icon = item.icon
+                const isActive = currentPage === item.id
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onNavigate(item.id)}
+                    title={item.label}
+                    className={`relative w-9 h-9 flex items-center justify-center rounded-lg
+                      transition-colors group
+                      ${isActive
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                  >
+                    {Icon && <Icon className="w-5 h-5" />}
+                    {/* Tooltip */}
+                    <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5
+                                     px-2 py-1 rounded text-xs whitespace-nowrap
+                                     bg-neutral-900 dark:bg-neutral-700 text-white
+                                     opacity-0 group-hover:opacity-100 pointer-events-none
+                                     transition-opacity z-50">
+                      {item.label}
+                    </span>
+                  </button>
+                )
+              })
             })()}
           </nav>
         )}

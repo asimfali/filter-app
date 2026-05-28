@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import FanChartEditor from '../components/common/FanChartEditor'
 import { tokenStorage } from '../api/auth'
 import { selectionApi } from '../api/selection'
+import ConfirmModal from '../components/common/ConfirmModal'
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
@@ -387,6 +388,7 @@ export default function FanChartPage() {
   const [lastQRef, setLastQRef] = useState(null)
   const [lastPvRef, setLastPvRef] = useState(null)
   const [lastSelection, setLastSelection] = useState(null)
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false)
 
   useEffect(() => {
     const update = () => {
@@ -648,7 +650,7 @@ export default function FanChartPage() {
     ]
 
     const points = [
-      { q: selectionData.q_ref, pv: selectionData.pv_ref, in_working_zone: true },
+      { q: selectionData.q_ref, pv: selectionData.pv_ref, in_working_zone: true, is_target: true },
       ...selectionData.selected.map(r => ({
         q: r.q_op,
         pv: r.pv_op,
@@ -854,7 +856,7 @@ export default function FanChartPage() {
                     )}
                     {mode === 'edit' && (
                       <button
-                        onClick={handleSave}
+                        onClick={() => setShowSaveConfirm(true)}
                         disabled={saving}
                         className={`text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50
       ${saveStatus === 'ok'
@@ -895,9 +897,21 @@ export default function FanChartPage() {
                                 className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0 shrink-0"
                                 title="Изменить цвет"
                               />
-                              <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-32">
-                                {c.label || c.curve_type}
-                              </span>
+                              <input
+                                type="text"
+                                value={c.label || ''}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => {
+                                  setChartData(prev => prev.map(curve =>
+                                    // eslint-disable-next-line eqeqeq
+                                    curve.id == c.id ? { ...curve, label: e.target.value } : curve
+                                  ))
+                                }}
+                                className="text-xs bg-transparent border-b border-gray-300 dark:border-gray-600
+             focus:outline-none focus:border-blue-500
+             text-gray-700 dark:text-gray-300 w-28 truncate"
+                                placeholder={c.curve_type}
+                              />
                             </div>
                           )
                         })}
@@ -955,6 +969,18 @@ export default function FanChartPage() {
                     chartId={selectedChart?.id}
                     onNetworkCurve={setNetworkCurve}
                     onOperatingPoint={setOperatingPoint}
+                  />
+                )}
+
+                {showSaveConfirm && (
+                  <ConfirmModal
+                    message="Сохранить изменения графика? Это перезапишет все кривые и точки. А также подписи"
+                    danger={false}
+                    onConfirm={() => {
+                      setShowSaveConfirm(false)
+                      handleSave()
+                    }}
+                    onCancel={() => setShowSaveConfirm(false)}
                   />
                 )}
 
