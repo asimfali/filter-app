@@ -220,7 +220,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'defect-acts',   label: 'Ведомость дефектов',code: 'bom.defect.view',           icon: IconFile },
                 { id: 'variant-editor',label: 'Исполнения',        code: 'product.variant.view',      icon: IconText },
                 { id: 'selection',     label: 'Подбор',            code: 'portal.page.selection',     icon: IconFilter },
-                { id: 'fan-charts',    label: 'Графики',           code: 'portal.page.selection',     icon: IconChartBar },
+                { id: 'fan-charts',    label: 'Графики',           code: 'page.graph.read',     icon: IconChartBar },
               ]
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [
