@@ -10,6 +10,16 @@ input[type=number] {
     -moz-appearance: textfield;
 }
 
+/* Счётчики где стрелки нужны */
+input[type=number].with-arrows::-webkit-outer-spin-button,
+input[type=number].with-arrows::-webkit-inner-spin-button {
+    -webkit-appearance: auto;
+    margin: 0;
+}
+input[type=number].with-arrows {
+    -moz-appearance: auto;
+}
+
 .dark body,
 .dark #root {
     background-color: #09090b;

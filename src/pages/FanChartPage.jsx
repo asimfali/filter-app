@@ -29,8 +29,8 @@ const CURVE_TYPE_LABELS = {
 function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperatingPoint, productFilter, onSelection, onCalc }) {
   const [qRef, setQRef] = useState('')
   const [pvRef, setPvRef] = useState('')
-  const [qMax, setQMax] = useState('')
-  const [pvMax, setPvMax] = useState('')
+  const [nAbove, setNAbove] = useState(3)
+  const [nBelow, setNBelow] = useState(1)
 
   const handleCalc = async () => {
     const q = parseFloat(qRef.replace(',', '.'))
@@ -57,9 +57,7 @@ function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperati
     if (productFilter && onSelection) {
       const { ok, data } = await selectionApi.fanChartSelect(
         q, pv, productFilter,
-        3, 0,
-        qMax ? parseFloat(qMax.replace(',', '.')) : null,
-        pvMax ? parseFloat(pvMax.replace(',', '.')) : null,
+        nAbove, nBelow,
       )
       console.log('select result:', ok, data?.success, data)
       if (ok && data.success) {   // ← добавить
@@ -93,9 +91,31 @@ function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperati
       <Field label="Q, тыс.м³/ч" value={qRef} onChange={setQRef} placeholder="1.5" />
       <Field label="Pv, Па" value={pvRef} onChange={setPvRef} placeholder="200" />
       {/* Разделитель */}
-      <span className="text-xs text-gray-400 shrink-0">до:</span>
-      <Field label="Q₂, тыс.м³/ч" value={qMax} onChange={setQMax} placeholder="необяз." />
-      <Field label="Pv₂, Па" value={pvMax} onChange={setPvMax} placeholder="необяз." />
+      <span className="text-xs text-gray-400 shrink-0">Подобрать:</span>
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-gray-500 shrink-0">выше:</span>
+        <input
+          type="number"
+          min={0} max={10}
+          value={nAbove}
+          onChange={e => setNAbove(parseInt(e.target.value) || 0)}
+          className="with-arrows w-14 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+               bg-white dark:bg-neutral-800 text-gray-900 dark:text-white
+               px-2 py-2 focus:outline-none focus:border-blue-500"
+        />
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-gray-500 shrink-0">ниже:</span>
+        <input
+          type="number"
+          min={0} max={10}
+          value={nBelow}
+          onChange={e => setNBelow(parseInt(e.target.value) || 0)}
+          className="with-arrows w-14 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+               bg-white dark:bg-neutral-800 text-gray-900 dark:text-white
+               px-2 py-2 focus:outline-none focus:border-blue-500"
+        />
+      </div>
       <button onClick={handleCalc}
         className="text-xs bg-gray-600 hover:bg-gray-700 text-white
                    px-3 py-2 rounded-lg transition-colors shrink-0">
@@ -646,7 +666,15 @@ export default function FanChartPage() {
         color: ABOVE_COLORS[i % ABOVE_COLORS.length],
         interpolation: 'spline',
         points: r.curve_points,
-      }))
+      })),
+      ...selectionData.below.map((r, i) => ({
+        id: r.curve_id,
+        curve_type: 'PRESSURE',
+        label: `${r.product_external_id} D=${r.d_ratio} ${r.curve_label}`,
+        color: BELOW_COLORS[i % BELOW_COLORS.length],
+        interpolation: 'spline',
+        points: r.curve_points,
+      })),
     ]
 
     const points = [

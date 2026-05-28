@@ -129,8 +129,6 @@ export const selectionApi = {
                 n_above: nAbove,
                 n_below: nBelow,
                 include_curves: true,
-                ...(qMax !== null && { q_max: qMax }),
-                ...(pvMax !== null && { pv_max: pvMax }),
             }),
         });
         return { ok: res.ok, data: await res.json() };
