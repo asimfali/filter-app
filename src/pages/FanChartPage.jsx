@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import FanChartEditor, { DEMO_CURVES } from '../components/common/FanChartEditor'
+import { useRef, useEffect, useState } from 'react'
+import FanChartEditor from '../components/common/FanChartEditor'
 import { tokenStorage } from '../api/auth'
 import { selectionApi } from '../api/selection'
 
@@ -13,6 +13,11 @@ const CURVE_COLORS = {
   NETWORK: '#6b7280',
 }
 
+const D_RATIO_COLORS = [
+  '#ef4444', '#f97316', '#1d4ed8', '#16a34a',
+  '#9333ea', '#0891b2', '#ca8a04', '#be185d',
+]
+
 const CURVE_TYPE_LABELS = {
   PRESSURE: 'Давление Pv(Q)',
   EFFICIENCY: 'КПД η(Q)',
@@ -20,14 +25,17 @@ const CURVE_TYPE_LABELS = {
   TIP_SPEED: 'Окружная скорость u(Q)',
 }
 
-function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperatingPoint }) {
+function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperatingPoint, productFilter, onSelection, onCalc }) {
   const [qRef, setQRef] = useState('')
   const [pvRef, setPvRef] = useState('')
+  const [qMax, setQMax] = useState('')
+  const [pvMax, setPvMax] = useState('')
 
   const handleCalc = async () => {
     const q = parseFloat(qRef.replace(',', '.'))
     const pv = parseFloat(pvRef.replace(',', '.'))
     if (!q || !pv) return
+    onCalc?.({ q, pv })
 
     const R = pv / (q * q)
     const [xMin, xMax] = xDomain
@@ -44,12 +52,25 @@ function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperati
       ],
     })
 
-    // Запрашиваем рабочую точку
+    // ── НОВОЕ: подбор ближайших кривых ──
+    if (productFilter && onSelection) {
+      const { ok, data } = await selectionApi.fanChartSelect(
+        q, pv, productFilter,
+        3, 0,
+        qMax ? parseFloat(qMax.replace(',', '.')) : null,
+        pvMax ? parseFloat(pvMax.replace(',', '.')) : null,
+      )
+      console.log('select result:', ok, data?.success, data)
+      if (ok && data.success) {   // ← добавить
+        onSelection(data.data)
+      }
+    }
+
     if (chartId) {
       const { ok, data } = await selectionApi.fanChartOperatingPoint(chartId, q, pv)
       if (ok && data.success) {
         onOperatingPoint([
-          { q, pv, is_target: true, in_working_zone: true },  // ← добавить
+          { q, pv, is_target: true, in_working_zone: true },
           ...data.data,
         ])
       }
@@ -59,6 +80,7 @@ function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperati
   const handleClear = () => {
     onNetworkCurve(null)
     onOperatingPoint(null)
+    onSelection?.(null)
   }
 
   return (
@@ -69,6 +91,10 @@ function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperati
       </span>
       <Field label="Q, тыс.м³/ч" value={qRef} onChange={setQRef} placeholder="1.5" />
       <Field label="Pv, Па" value={pvRef} onChange={setPvRef} placeholder="200" />
+      {/* Разделитель */}
+      <span className="text-xs text-gray-400 shrink-0">до:</span>
+      <Field label="Q₂, тыс.м³/ч" value={qMax} onChange={setQMax} placeholder="необяз." />
+      <Field label="Pv₂, Па" value={pvMax} onChange={setPvMax} placeholder="необяз." />
       <button onClick={handleCalc}
         className="text-xs bg-gray-600 hover:bg-gray-700 text-white
                    px-3 py-2 rounded-lg transition-colors shrink-0">
@@ -347,10 +373,43 @@ export default function FanChartPage() {
   const [saveStatus, setSaveStatus] = useState(null)
   const [networkCurve, setNetworkCurve] = useState(null)
   const [operatingPoint, setOperatingPoint] = useState(null)
+  const [activeTab, setActiveTab] = useState('editor')
+  const [combinedProduct, setCombinedProduct] = useState('')
+  const [combinedCurves, setCombinedCurves] = useState([])
+  const [combinedDomain, setCombinedDomain] = useState(null)
+  const [combinedLoading, setCombinedLoading] = useState(false)
+  const containerRef = useRef(null)
+  const [chartSize, setChartSize] = useState({ width: 800, height: 600 })
+  const [combinedNetworkCurve, setCombinedNetworkCurve] = useState(null)
+  const [selectedCurves, setSelectedCurves] = useState(null)
+  const [selectionPoints, setSelectionPoints] = useState(null)
+  const [pendingNetwork, setPendingNetwork] = useState(null)
+  const [lastQRef, setLastQRef] = useState(null)
+  const [lastPvRef, setLastPvRef] = useState(null)
+  const [lastSelection, setLastSelection] = useState(null)
+
+  useEffect(() => {
+    const update = () => {
+      const height = window.innerHeight - 250
+      const width = window.innerWidth - 80
+      setChartSize({ width, height })
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
 
   const allCurves = networkCurve
     ? [...(chartData || []), networkCurve]
     : (chartData || [])
+
+  const allCombinedCurves = combinedNetworkCurve
+    ? [...combinedCurves, combinedNetworkCurve]
+    : combinedCurves
+
+  const displayCurves = selectedCurves
+    ? [...selectedCurves, ...(combinedNetworkCurve ? [combinedNetworkCurve] : [])]
+    : allCombinedCurves
 
   const handleSearch = async () => {
     setLoading(true)
@@ -366,13 +425,12 @@ export default function FanChartPage() {
     setActiveCurveId(null)
     if (chart.curves !== undefined) {
       setChartData(chart.curves)
-      setMode('edit')
+      setMode('view')
       return
     }
     setLoading(true)
     // было: fanChartInterpolated → стало: fanChartDetail
     const { ok, data } = await selectionApi.fanChartDetail(chart.id)
-    console.log('domains:', data?.x_min, data?.x_max, data?.y_min, data?.y_max)
     if (ok && data.curves) {
       setChartData(data.curves.map(c => ({
         id: c.id,
@@ -385,6 +443,40 @@ export default function FanChartPage() {
     }
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (!pendingNetwork || !chartData || !selectedChart) return
+    const { q, pv } = pendingNetwork
+    const R = pv / (q * q)
+    const xMin = selectedChart.x_min ?? 0.3
+    const xMax = selectedChart.x_max ?? 10
+    setNetworkCurve({
+      id: 'network',
+      curve_type: 'NETWORK',
+      label: 'Сеть',
+      color: '#6b7280',
+      interpolation: 'linear',
+      points: [
+        { x: xMin, y: parseFloat((R * xMin * xMin).toFixed(2)) },
+        { x: xMax, y: parseFloat((R * xMax * xMax).toFixed(2)) },
+      ],
+    })
+
+    // ── Переключить в режим просмотра ──
+    setMode('view')
+
+    // ── Запросить точки пересечения ──
+    selectionApi.fanChartOperatingPoint(selectedChart.id, q, pv).then(({ ok, data }) => {
+      if (ok && data.success) {
+        setOperatingPoint([
+          { q, pv, is_target: true, in_working_zone: true },
+          ...data.data,
+        ])
+      }
+    })
+
+    setPendingNetwork(null)
+  }, [chartData, pendingNetwork, selectedChart])
 
   const handleSave = async () => {
     if (!selectedChart?.id || String(selectedChart.id).startsWith('new_')) {
@@ -400,7 +492,6 @@ export default function FanChartPage() {
         y_max: selectedChart.yDomain?.[1] ?? 1000,
         scale_type: selectedChart.scaleType ?? 'log',
       })
-      console.log('fanChartCreate result:', ok, data)
       if (ok) {
         const realId = data.id
         const realChart = { ...selectedChart, id: realId }
@@ -450,7 +541,6 @@ export default function FanChartPage() {
   }
 
   const handleAddPoint = (curveId, point) => {
-    console.log('addPoint', curveId, point, chartData)
     setChartData(prev => prev.map(c =>
       // eslint-disable-next-line eqeqeq
       c.id == curveId
@@ -462,6 +552,37 @@ export default function FanChartPage() {
     setChartData(prev => [...(prev || []), curve])
     setActiveCurveId(curve.id)
     setEditTool('add')
+  }
+
+  const handleCurveClick = (curveId) => {
+    // Найти chart по curve_id среди selectedCurves
+    const curve = selectedCurves?.find(c => c.id === curveId)
+    if (!curve) return
+
+    // Найти chart_id из данных подбора
+    const found = [
+      ...(lastSelection?.above || []),
+      ...(lastSelection?.below || []),
+    ].find(r => r.curve_id === curveId)
+    if (!found) return
+
+    const loadChart = (chart) => {
+      setActiveTab('editor')
+      handleSelectChart(chart)
+      if (lastQRef && lastPvRef) setPendingNetwork({ q: lastQRef, pv: lastPvRef })
+    }
+
+    const existing = charts.find(c => c.id === found.chart_id)
+    if (existing) {
+      loadChart(existing)
+    } else {
+      selectionApi.fanChartDetail(found.chart_id).then(({ ok, data }) => {
+        if (!ok) return
+        const newChart = { ...data, id: found.chart_id }
+        setCharts(prev => [...prev, newChart])
+        loadChart(newChart)
+      })
+    }
   }
 
   // Домены из выбранного графика или дефолт
@@ -478,8 +599,84 @@ export default function FanChartPage() {
     ? Math.round(BASE_SIZE * Math.abs(scaleRatio))
     : BASE_SIZE
 
+  const handleCombinedSearch = async () => {
+    if (!combinedProduct.trim()) return
+    setCombinedLoading(true)
+    const { ok, data } = await selectionApi.fanChartCombined(combinedProduct.trim())
+    if (ok && data.success) {
+      // Строим colorMap: d_ratio → цвет
+      const ratios = [...new Set(data.data.charts.map(c => c.d_ratio))].sort((a, b) => a - b)
+      const colorMap = Object.fromEntries(
+        ratios.map((d, i) => [d, D_RATIO_COLORS[i % D_RATIO_COLORS.length]])
+      )
+      // Маппим в формат FanChartEditor
+      const curves = data.data.charts.flatMap(chart =>
+        chart.curves.map(curve => ({
+          id: curve.id,
+          curve_type: 'PRESSURE',
+          label: `${chart.product_external_id} D=${chart.d_ratio} ${curve.label}`,
+          color: colorMap[chart.d_ratio],
+          interpolation: 'spline',
+          points: curve.points,
+        }))
+      )
+      setCombinedCurves(curves)
+      setCombinedDomain({
+        x: data.data.x_domain,
+        y: data.data.y_domain,
+        colorMap,
+      })
+    }
+    setCombinedLoading(false)
+  }
+
+  const buildSelectionCurves = (selectionData) => {
+    if (!selectionData) return null
+
+    const ABOVE_COLORS = ['#ef4444', '#f97316']  // красный, оранжевый
+    const BELOW_COLORS = ['#1d4ed8', '#16a34a']  // синий, зелёный
+
+    const curves = [
+      ...selectionData.above.map((r, i) => ({
+        id: r.curve_id,
+        curve_type: 'PRESSURE',
+        label: `${r.product_external_id} D=${r.d_ratio} ${r.curve_label}`,
+        color: ABOVE_COLORS[i % ABOVE_COLORS.length],
+        interpolation: 'spline',
+        points: r.curve_points,
+      }))
+    ]
+
+    const points = [
+      { q: selectionData.q_ref, pv: selectionData.pv_ref, in_working_zone: true },
+      ...selectionData.selected.map(r => ({
+        q: r.q_op,
+        pv: r.pv_op,
+        in_working_zone: true,
+      })),
+    ]
+
+    return { curves, points }
+  }
+
+  const handleSelection = (selectionData) => {
+    if (!selectionData) {
+      setSelectedCurves(null)
+      setSelectionPoints(null)
+      setLastSelection(null)
+      return
+    }
+    setLastSelection(selectionData)
+    const built = buildSelectionCurves(selectionData)
+    setSelectedCurves(built.curves)
+    setSelectionPoints(built.points)
+  }
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className={activeTab === 'combined'
+      ? "px-6 space-y-6"
+      : "max-w-screen-2xl mx-auto px-6 space-y-6"
+    }>
       <div>
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
           Аэродинамические характеристики
@@ -489,205 +686,292 @@ export default function FanChartPage() {
         </p>
       </div>
 
-      {/* Поиск */}
-      <div className="flex gap-2">
-        <input
-          value={productId}
-          onChange={e => setProductId(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSearch()}
-          placeholder="Название изделия или External ID (напр. ВО-3.5)"
-          className="flex-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700
-                     bg-white dark:bg-neutral-900 text-gray-900 dark:text-white
-                     px-4 py-2 focus:outline-none focus:border-blue-500"
-        />
-        <button onClick={handleSearch} disabled={loading}
-          className="text-sm bg-blue-600 hover:bg-blue-700 text-white
-                     px-4 py-2 rounded-lg disabled:opacity-50 transition-colors">
-          {loading ? '...' : 'Найти'}
-        </button>
-        <button onClick={() => setShowCreateChart(true)}
-          className="text-sm bg-neutral-700 hover:bg-neutral-600 text-white
-                     px-4 py-2 rounded-lg transition-colors">
-          + Новый график
-        </button>
+      {/* ── ДОБАВИТЬ: переключатель вкладок ── */}
+      <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg w-fit">
+        {[['editor', 'Редактор'], ['combined', 'Все графики']].map(([tab, label]) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`px-4 py-1.5 rounded text-sm transition-colors
+            ${activeTab === tab
+                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'
+              }`}>
+            {label}
+          </button>
+        ))}
       </div>
 
-      <div className="flex gap-6 items-start">
-        {/* Список графиков */}
-        {charts.length > 0 && (
-          <div className="w-56 shrink-0 space-y-2">
-            <div className="text-xs font-medium text-gray-500 dark:text-gray-400
-                            uppercase tracking-wide px-1">
-              Графики ({charts.length})
-            </div>
-            {charts.map(chart => (
-              <button key={chart.id} onClick={() => handleSelectChart(chart)}
-                className={`w-full text-left px-4 py-3 rounded-lg border transition-colors
-                  ${selectedChart?.id === chart.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-neutral-900 text-gray-700 dark:text-gray-300 hover:border-blue-300'
-                  }`}
-              >
-                {chart.product_external_id && (
-                  <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 truncate">
-                    {chart.product_external_id}
-                  </div>
-                )}
-                <div className="text-sm font-medium">
-                  D = {chart.d_ratio} D<sub>ном</sub>
-                </div>
-                <div className="text-xs text-gray-400 mt-0.5">t = {chart.temperature}°C</div>
-                {chart.source_page && (
-                  <div className="text-xs text-gray-400">стр. {chart.source_page}</div>
-                )}
-              </button>
-            ))}
-            <button onClick={() => setShowCreateChart(true)}
-              className="w-full text-sm text-blue-600 dark:text-blue-400
-                         border border-dashed border-blue-300 dark:border-blue-700
-                         rounded-lg px-4 py-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/10
-                         transition-colors">
-              + Добавить график
+      {/* ── ДОБАВИТЬ: вкладка combined ── */}
+      {activeTab === 'combined' && (
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <input
+              value={combinedProduct}
+              onChange={e => setCombinedProduct(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCombinedSearch()}
+              placeholder="Серия, напр. ВЦ 4-70"
+              className="flex-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                       bg-white dark:bg-neutral-900 text-gray-900 dark:text-white
+                       px-4 py-2 focus:outline-none focus:border-blue-500"
+            />
+            <button onClick={handleCombinedSearch} disabled={combinedLoading}
+              className="text-sm bg-blue-600 hover:bg-blue-700 text-white
+                       px-4 py-2 rounded-lg disabled:opacity-50 transition-colors">
+              {combinedLoading ? '...' : 'Показать'}
             </button>
           </div>
-        )}
 
-        {/* Область графика */}
-        {chartData !== null && (
-          <div className="flex-1 space-y-4">
-            {/* Тулбар */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                D = {selectedChart?.d_ratio} D<sub>ном</sub>,
-                t = {selectedChart?.temperature}°C
-                {scaleType === 'log' && (
-                  <span className="ml-2 text-xs text-gray-400">(лог. шкала)</span>
-                )}
+          {combinedDomain && (
+            <div className="space-y-3">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {combinedCurves.length} кривых давления
               </div>
-              <div className="flex items-center gap-2">
-                {mode === 'edit' && (
-                  <button onClick={() => setShowAddCurve(true)}
-                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white
-                               px-3 py-1.5 rounded-lg transition-colors">
-                    + Кривая
-                  </button>
-                )}
-                {mode === 'edit' && (
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className={`text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50
-      ${saveStatus === 'ok'
-                        ? 'bg-emerald-600 text-white'
-                        : saveStatus === 'error'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white'
-                      }`}
-                  >
-                    {saving ? 'Сохранение...' : saveStatus === 'ok' ? '✓ Сохранено' : 'Сохранить'}
-                  </button>
-                )}
-                {mode === 'edit' && chartData.length > 0 && (
-                  <div className="flex flex-col gap-1">
-                    {chartData.map(c => {
-                      const isSelected = activeCurveId == c.id
-                      const curveColor = (c.color || CURVE_COLORS[c.curve_type]) ?? '#374151'
-                      return (
-                        <div key={c.id}
-                          className={`flex items-center gap-2 px-2 py-1 rounded-lg border cursor-pointer transition-colors
-            ${isSelected
-                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                              : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                            }`}
-                          onClick={() => setActiveCurveId(String(c.id))}
-                        >
-                          {/* Цветовой пикер */}
-                          <input
-                            type="color"
-                            value={curveColor}
-                            onClick={e => e.stopPropagation()}
-                            onChange={e => {
-                              setChartData(prev => prev.map(curve =>
-                                // eslint-disable-next-line eqeqeq
-                                curve.id == c.id ? { ...curve, color: e.target.value } : curve
-                              ))
-                            }}
-                            className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0 shrink-0"
-                            title="Изменить цвет"
-                          />
-                          <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-32">
-                            {c.label || c.curve_type}
-                          </span>
+              <div className="flex flex-wrap gap-4">
+                {Object.entries(combinedDomain.colorMap).map(([d, color]) => (
+                  <div key={d} className="flex items-center gap-1.5">
+                    <span className="inline-block w-5 h-0.5 rounded"
+                      style={{ backgroundColor: color }} />
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      D = {d} D<sub>ном</sub>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <FanChartEditor
+                width={chartSize.width}
+                height={chartSize.height}
+                curves={displayCurves}
+                xDomain={combinedDomain.x}
+                yDomain={combinedDomain.y}
+                scaleType="log"
+                editable={false}
+                activeCurveId={null}
+                editTool="move"
+                operatingPoint={selectionPoints}
+                onCurveClick={selectedCurves ? handleCurveClick : null}
+                xLabel={selectedChart?.x_label ?? 'Q, тыс.м³/ч'}
+                yLabel={selectedChart?.y_label ?? 'Pv, Па'}
+              />
+              <NetworkCurvePanel
+                xDomain={combinedDomain.x}
+                chartId={null}
+                onNetworkCurve={setCombinedNetworkCurve}
+                onOperatingPoint={() => { }}
+                productFilter={combinedProduct}
+                onSelection={handleSelection}
+                onCalc={({ q, pv }) => { setLastQRef(q); setLastPvRef(pv) }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'editor' && (
+        <>
+          {/* Поиск */}
+          <div className="flex gap-2">
+            <input
+              value={productId}
+              onChange={e => setProductId(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              placeholder="Название изделия или External ID (напр. ВО-3.5)"
+              className="flex-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                     bg-white dark:bg-neutral-900 text-gray-900 dark:text-white
+                     px-4 py-2 focus:outline-none focus:border-blue-500"
+            />
+            <button onClick={handleSearch} disabled={loading}
+              className="text-sm bg-blue-600 hover:bg-blue-700 text-white
+                     px-4 py-2 rounded-lg disabled:opacity-50 transition-colors">
+              {loading ? '...' : 'Найти'}
+            </button>
+            <button onClick={() => setShowCreateChart(true)}
+              className="text-sm bg-neutral-700 hover:bg-neutral-600 text-white
+                     px-4 py-2 rounded-lg transition-colors">
+              + Новый график
+            </button>
+          </div>
+
+          <div className="flex gap-6 items-start">
+            {/* Список графиков */}
+            {charts.length > 0 && (
+              <div className="w-56 shrink-0 flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400
+                    uppercase tracking-wide px-1 mb-2 shrink-0">
+                  Графики ({charts.length})
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {charts.map(chart => (
+                    <button key={chart.id} onClick={() => handleSelectChart(chart)}
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition-colors
+            ${selectedChart?.id === chart.id
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-neutral-900 text-gray-700 dark:text-gray-300 hover:border-blue-300'
+                        }`}
+                    >
+                      {chart.product_external_id && (
+                        <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 truncate">
+                          {chart.product_external_id}
                         </div>
-                      )
-                    })}
-                  </div>
-                )}
-                {mode === 'edit' && activeCurveId && (
-                  <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
-                    {[['move', '✥ Двигать'], ['add', '+ Точка']].map(([val, label]) => (
-                      <button key={val} onClick={() => setEditTool(val)}
-                        className={`px-3 py-1 rounded text-xs transition-colors
-          ${editTool === val
-                            ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'
-                          }`}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
-                  {['view', 'edit'].map(m => (
-                    <button key={m} onClick={() => setMode(m)}
-                      className={`px-3 py-1 rounded text-xs transition-colors
-                        ${mode === m
-                          ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'
-                        }`}>
-                      {m === 'view' ? 'Просмотр' : 'Редактор'}
+                      )}
+                      <div className="text-sm font-medium">
+                        D = {chart.d_ratio} D<sub>ном</sub>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">t = {chart.temperature}°C</div>
+                      {chart.source_page && (
+                        <div className="text-xs text-gray-400">стр. {chart.source_page}</div>
+                      )}
                     </button>
                   ))}
                 </div>
+                <button onClick={() => setShowCreateChart(true)}
+                  className="mt-2 shrink-0 w-full text-sm text-blue-600 dark:text-blue-400
+                 border border-dashed border-blue-300 dark:border-blue-700
+                 rounded-lg px-4 py-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/10
+                 transition-colors">
+                  + Добавить график
+                </button>
               </div>
-            </div>
-
-            <FanChartEditor
-              width={chartWidth}
-              height={chartHeight}
-              curves={allCurves}
-              editable={mode === 'edit'}
-              xDomain={xDomain}
-              yDomain={yDomain}
-              scaleType={scaleType}
-              onChange={handleCurvesChange}
-              activeCurveId={mode === 'edit' ? activeCurveId : null}
-              editTool={mode === 'edit' ? editTool : 'move'}
-              onAddPoint={handleAddPoint}
-              operatingPoint={operatingPoint}
-            />
-
-            {chartData !== null && (
-              <NetworkCurvePanel
-                xDomain={xDomain}
-                chartId={selectedChart?.id}
-                onNetworkCurve={setNetworkCurve}
-                onOperatingPoint={setOperatingPoint}
-              />
             )}
 
-            {chartData.length > 0 && <Legend curves={chartData} />}
+            {/* Область графика */}
+            {chartData !== null && (
+              <div className="flex-1 space-y-4">
+                {/* Тулбар */}
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    D = {selectedChart?.d_ratio} D<sub>ном</sub>,
+                    t = {selectedChart?.temperature}°C
+                    {scaleType === 'log' && (
+                      <span className="ml-2 text-xs text-gray-400">(лог. шкала)</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {mode === 'edit' && (
+                      <button onClick={() => setShowAddCurve(true)}
+                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white
+                               px-3 py-1.5 rounded-lg transition-colors">
+                        + Кривая
+                      </button>
+                    )}
+                    {mode === 'edit' && (
+                      <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className={`text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50
+      ${saveStatus === 'ok'
+                            ? 'bg-emerald-600 text-white'
+                            : saveStatus === 'error'
+                              ? 'bg-red-600 text-white'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          }`}
+                      >
+                        {saving ? 'Сохранение...' : saveStatus === 'ok' ? '✓ Сохранено' : 'Сохранить'}
+                      </button>
+                    )}
+                    {mode === 'edit' && chartData.length > 0 && (
+                      <div className="flex flex-col gap-1">
+                        {chartData.map(c => {
+                          const isSelected = activeCurveId == c.id
+                          const curveColor = (c.color || CURVE_COLORS[c.curve_type]) ?? '#374151'
+                          return (
+                            <div key={c.id}
+                              className={`flex items-center gap-2 px-2 py-1 rounded-lg border cursor-pointer transition-colors
+            ${isSelected
+                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                  : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                                }`}
+                              onClick={() => setActiveCurveId(String(c.id))}
+                            >
+                              {/* Цветовой пикер */}
+                              <input
+                                type="color"
+                                value={curveColor}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => {
+                                  setChartData(prev => prev.map(curve =>
+                                    // eslint-disable-next-line eqeqeq
+                                    curve.id == c.id ? { ...curve, color: e.target.value } : curve
+                                  ))
+                                }}
+                                className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0 shrink-0"
+                                title="Изменить цвет"
+                              />
+                              <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-32">
+                                {c.label || c.curve_type}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {mode === 'edit' && activeCurveId && (
+                      <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
+                        {[['move', '✥ Двигать'], ['add', '+ Точка']].map(([val, label]) => (
+                          <button key={val} onClick={() => setEditTool(val)}
+                            className={`px-3 py-1 rounded text-xs transition-colors
+          ${editTool === val
+                                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'
+                              }`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
+                      {['view', 'edit'].map(m => (
+                        <button key={m} onClick={() => setMode(m)}
+                          className={`px-3 py-1 rounded text-xs transition-colors
+                        ${mode === m
+                              ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'
+                            }`}>
+                          {m === 'view' ? 'Просмотр' : 'Редактор'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
 
-            {/* Подсказка если кривых нет */}
-            {chartData.length === 0 && mode === 'edit' && (
-              <div className="text-center py-8 text-sm text-gray-400 border-2 border-dashed
+                <FanChartEditor
+                  width={chartWidth}
+                  height={chartHeight}
+                  curves={allCurves}
+                  editable={mode === 'edit'}
+                  xDomain={xDomain}
+                  yDomain={yDomain}
+                  scaleType={scaleType}
+                  onChange={handleCurvesChange}
+                  activeCurveId={mode === 'edit' ? activeCurveId : null}
+                  editTool={mode === 'edit' ? editTool : 'move'}
+                  onAddPoint={handleAddPoint}
+                  operatingPoint={operatingPoint}
+                  xLabel={selectedChart?.x_label ?? 'Q, тыс.м³/ч'}
+                  yLabel={selectedChart?.y_label ?? 'Pv, Па'}
+                />
+
+                {chartData !== null && (
+                  <NetworkCurvePanel
+                    xDomain={xDomain}
+                    chartId={selectedChart?.id}
+                    onNetworkCurve={setNetworkCurve}
+                    onOperatingPoint={setOperatingPoint}
+                  />
+                )}
+
+                {chartData.length > 0 && <Legend curves={chartData} />}
+
+                {/* Подсказка если кривых нет */}
+                {chartData.length === 0 && mode === 'edit' && (
+                  <div className="text-center py-8 text-sm text-gray-400 border-2 border-dashed
                               border-gray-200 dark:border-gray-700 rounded-xl">
-                График пустой — добавьте первую кривую
+                    График пустой — добавьте первую кривую
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Модалки */}
       {showCreateChart && (

@@ -5,7 +5,7 @@ import { AxisBottom, AxisLeft } from '@visx/axis'
 import { GridRows, GridColumns } from '@visx/grid'
 import { curveMonotoneX, curveLinear } from 'd3-shape'
 
-const MARGIN = { top: 20, right: 40, bottom: 50, left: 60 }
+const MARGIN = { top: 20, right: 40, bottom: 60, left: 65 }
 
 const CURVE_COLORS = {
   PRESSURE: '#1d4ed8',  // синий
@@ -75,6 +75,9 @@ export default function FanChartEditor({
   onAddPoint,
   editTool = 'move',
   operatingPoint = null,
+  onCurveClick = null,
+  xLabel = 'Q, тыс.м³/ч',
+  yLabel = 'Pv, Па',
 }) {
   const innerW = width - MARGIN.left - MARGIN.right
   const innerH = height - MARGIN.top - MARGIN.bottom
@@ -170,7 +173,7 @@ export default function FanChartEditor({
   }, [yDomain, scaleType])
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-2 inline-block">
+    <div className="bg-white rounded-xl border border-gray-200 p-2 w-full">
       <svg ref={svgRef} width={width} height={height}>
         <g
           transform={`translate(${MARGIN.left},${MARGIN.top})`}
@@ -198,21 +201,32 @@ export default function FanChartEditor({
             stroke="#e5e7eb" strokeDasharray="3,3" tickValues={xTicks} />
 
           <AxisBottom top={innerH} scale={xScale} tickValues={xTicks}
-            tickFormat={v => {
-              if (v >= 1) return String(v)
-              return String(parseFloat(v.toPrecision(2)))
-            }}
-            labelProps={{ fontSize: 12, fill: '#374151', textAnchor: 'middle', dy: 36 }}
+            tickFormat={v => v >= 1 ? String(v) : String(parseFloat(v.toPrecision(2)))}
+            label="Q, тыс.м³/ч"
+            labelProps={{ fontSize: 12, fill: '#6b7280', textAnchor: 'middle', dy: 38 }}
             tickLabelProps={{ fontSize: 10, fill: '#6b7280', textAnchor: 'middle' }}
             stroke="#9ca3af" tickStroke="#9ca3af" />
+
+          {/* Подпись оси X */}
+          <text x={innerW} y={innerH + 48} textAnchor="end" fontSize={12} fill="#6b7280">
+            {xLabel}
+          </text>
+
           <AxisLeft scale={yScale} tickValues={yTicks}
             tickFormat={v => v} label="Pv, Па"
-            labelProps={{ fontSize: 12, fill: '#374151', textAnchor: 'middle', dx: -36 }}
+            labelProps={{ fontSize: 12, fill: '#6b7280', textAnchor: 'middle', dx: -42 }}
             tickLabelProps={{ fontSize: 10, fill: '#6b7280', textAnchor: 'end', dy: 3 }}
             stroke="#9ca3af" tickStroke="#9ca3af" />
 
+          {/* Подпись оси Y */}
+          <text x={-MARGIN.left + 4} y={-8} textAnchor="start" fontSize={12} fill="#6b7280">
+            {yLabel}
+          </text>
+
           {curves.map((curve, ci) => {
-            const color = curve.color || (CURVE_COLORS[curve.curve_type] ?? '#374151')
+            const color = curve.color || (
+              curve.curve_type === 'PRESSURE' ? '#111827' : (CURVE_COLORS[curve.curve_type] ?? '#374151')
+            )
             // eslint-disable-next-line eqeqeq
             const isActive = activeCurveId != null && curve.id == activeCurveId
             const sorted = [...curve.points].sort((a, b) => a.x - b.x)
@@ -226,9 +240,13 @@ export default function FanChartEditor({
                     y={d => yScale(d.y)}
                     curve={curve.interpolation === 'linear' ? curveLinear : curveMonotoneX}
                     stroke={color}
-                    strokeWidth={isActive ? 2.5 : hoveredCurve === curve.id ? 3 : 2}
+                    strokeWidth={
+                      curve.curve_type === 'PRESSURE' ? 2.5 :
+                        curve.curve_type === 'EFFICIENCY' ? 0.8 : 1.5
+                    }
                     fill="none"
                     opacity={activeCurveId && !isActive ? 0.35 : 1}
+                    onClick={() => onCurveClick?.(curve.id)}
                     style={{ cursor: 'pointer' }}
                     onMouseEnter={(e) => {
                       setHoveredCurve(curve.id)
@@ -274,10 +292,18 @@ export default function FanChartEditor({
           {operatingPoint && operatingPoint.map((op, i) => {
             const cx = xScale(op.q)
             const cy = yScale(op.pv)
-            const color = op.in_working_zone !== false ? '#0891b2' : '#f97316'  // ← добавить
+            const color = op.is_target
+              ? '#f97316'
+              : op.in_working_zone !== false ? '#0891b2' : '#ef4444'
             const line1 = `Q=${op.q} тыс.м³/ч`
             const line2 = `Pv=${op.pv} Па`
             const labelW = Math.max(line1.length, line2.length) * 6.5 + 12
+
+            // Чередуем: чётные — вправо-вверх, нечётные — влево-вверх
+            const side = i % 2 === 0 ? 1 : -1
+            const offsetX = side === 1 ? 10 : -(labelW + 10)
+            const offsetY = -20 - Math.floor(i / 2) * 50  // каждая пара ниже предыдущей
+
             return (
               <g key={i}>
                 <line x1={cx} y1={cy} x2={cx} y2={innerH}
@@ -285,7 +311,14 @@ export default function FanChartEditor({
                 <line x1={0} y1={cy} x2={cx} y2={cy}
                   stroke={color} strokeWidth={1} strokeDasharray="4,3" opacity={0.5} />
                 <circle cx={cx} cy={cy} r={6} fill={color} stroke="white" strokeWidth={2} />
-                <g transform={`translate(${cx + 10}, ${cy - 20})`}>
+                {/* Линия от точки до подписи */}
+                <line
+                  x1={cx} y1={cy}
+                  x2={cx + offsetX + (side === 1 ? 0 : labelW)}
+                  y2={cy + offsetY + 36}
+                  stroke={color} strokeWidth={1} opacity={0.5}
+                />
+                <g transform={`translate(${cx + offsetX}, ${cy + offsetY})`}>
                   <rect x={-4} y={-4} width={labelW} height={36} rx={4}
                     fill="white" stroke={color} strokeWidth={1}
                     className="dark:fill-neutral-900"
@@ -343,28 +376,3 @@ export default function FanChartEditor({
     </div>
   )
 }
-
-export const DEMO_CURVES = [
-  {
-    id: 1, curve_type: 'PRESSURE', label: 'n=2750 об/мин', interpolation: 'spline',
-    points: [
-      { x: 0.5, y: 500 }, { x: 0.7, y: 480 }, { x: 1.0, y: 430 },
-      { x: 1.4, y: 350 }, { x: 1.8, y: 220 }, { x: 2.0, y: 140 },
-    ],
-  },
-  {
-    id: 2, curve_type: 'PRESSURE', label: 'n=1350 об/мин', interpolation: 'spline',
-    points: [
-      { x: 0.35, y: 120 }, { x: 0.5, y: 110 }, { x: 0.7, y: 90 },
-      { x: 0.85, y: 70 }, { x: 1.0, y: 55 },
-    ],
-  },
-  {
-    id: 3, curve_type: 'EFFICIENCY', label: 'η=0.68', interpolation: 'spline',
-    points: [{ x: 0.8, y: 390 }, { x: 1.0, y: 430 }, { x: 1.2, y: 400 }],
-  },
-  {
-    id: 4, curve_type: 'POWER', label: 'Nu=0.37 кВт', interpolation: 'linear',
-    points: [{ x: 0.7, y: 250 }, { x: 1.0, y: 350 }, { x: 1.4, y: 480 }],
-  },
-]

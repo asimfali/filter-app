@@ -113,4 +113,26 @@ export const selectionApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
+
+    async fanChartCombined(product) {
+        const res = await apiFetch(`${BASE}/fan-charts/combined/?product=${encodeURIComponent(product)}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async fanChartSelect(qRef, pvRef, productFilter = '', nAbove = 3, nBelow = 0, qMax = null, pvMax = null) {
+        const res = await apiFetch(`${BASE}/fan-charts/select/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                q_ref: qRef,
+                pv_ref: pvRef,
+                product_filter: productFilter,
+                n_above: nAbove,
+                n_below: nBelow,
+                include_curves: true,
+                ...(qMax !== null && { q_max: qMax }),
+                ...(pvMax !== null && { pv_max: pvMax }),
+            }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
 };
