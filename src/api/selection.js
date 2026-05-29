@@ -133,4 +133,12 @@ export const selectionApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
+
+    async proposal(params, combo) {
+        const res = await apiFetch(`${BASE}/proposal/`, {
+            method: 'POST',
+            body: JSON.stringify({ params, combo }),
+        });
+        return res;  // raw response — caller делает blob()
+    },
 };

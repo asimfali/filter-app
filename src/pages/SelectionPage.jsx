@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { selectionApi } from '../api/selection';
 import SmartSelect from '../components/common/SmartSelect';
+import { useAuth } from '../contexts/AuthContext';
 
 // ── Константы ─────────────────────────────────────────────────────────────────
 
@@ -72,50 +73,42 @@ function NumberField({ label, value, onChange, ...rest }) {
 
 // ── Карточка результата ───────────────────────────────────────────────────────
 
-function CombinationRow({ combo, index }) {
+function CombinationRow({ combo, index, selected, onSelect }) {
     const tsmColor = combo.tsm >= 0
         ? 'text-green-600 dark:text-green-400'
         : 'text-red-500 dark:text-red-400';
 
     return (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+        <label className={`block rounded-lg border p-4 space-y-3 cursor-pointer transition-colors
+            ${selected
+                ? 'border-blue-500 bg-blue-50/40 dark:bg-blue-900/10'
+                : 'border-gray-200 dark:border-gray-700 hover:border-gray-400'}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                    <input type="radio" checked={selected} onChange={onSelect}
+                        className="accent-blue-600" />
                     Вариант {index + 1}
                 </span>
                 <div className="flex flex-wrap gap-4 text-sm">
                     <span className="text-gray-500 dark:text-gray-400">
-                        Угол: <strong className="text-gray-900 dark:text-white">
-                            {combo.angle}°
-                        </strong>
+                        Угол: <strong className="text-gray-900 dark:text-white">{combo.angle}°</strong>
                     </span>
                     <span className="text-gray-500 dark:text-gray-400">
                         T выход: <strong className="text-gray-900 dark:text-white">
-                            {combo.Tz > 0 ? '+' : ''}{combo.Tz}°C
-                        </strong>
+                            {combo.Tz > 0 ? '+' : ''}{combo.Tz}°C</strong>
                     </span>
                     <span className="text-gray-500 dark:text-gray-400">
                         T смеси: <strong className={tsmColor}>
-                            {combo.tsm > 0 ? '+' : ''}{combo.tsm}°C
-                        </strong>
+                            {combo.tsm > 0 ? '+' : ''}{combo.tsm}°C</strong>
                     </span>
                 </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
                 {combo.products.map((p, i) => (
-                    <div key={i}
-                        className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20
-                            rounded-lg px-3 py-1.5">
-                        <span className="font-mono text-sm font-semibold
-                            text-blue-800 dark:text-blue-200">
-                            {p.name}
-                        </span>
-                        <span className="text-xs bg-blue-200 dark:bg-blue-800
-                            text-blue-800 dark:text-blue-200
-                            rounded-full px-2 py-0.5 font-semibold">
-                            ×{p.count}
-                        </span>
+                    <div key={i} className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-1.5">
+                        <span className="font-mono text-sm font-semibold text-blue-800 dark:text-blue-200">{p.name}</span>
+                        <span className="text-xs bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full px-2 py-0.5 font-semibold">×{p.count}</span>
                     </div>
                 ))}
             </div>
@@ -123,11 +116,11 @@ function CombinationRow({ combo, index }) {
             <div className="text-xs text-gray-400 dark:text-gray-500">
                 Суммарная длина: <strong>{combo.total_length} м</strong>
             </div>
-        </div>
+        </label>
     );
 }
 
-function SeriaCard({ seria }) {
+function SeriaCard({ seria, selectedKey, onSelect }) {
     const [expanded, setExpanded] = useState(true);
 
     return (
@@ -154,9 +147,14 @@ function SeriaCard({ seria }) {
 
             {expanded && (
                 <div className="px-5 pb-5 space-y-3">
-                    {seria.combinations.map((combo, idx) => (
-                        <CombinationRow key={idx} combo={combo} index={idx} />
-                    ))}
+                    {seria.combinations.map((combo, idx) => {
+                        const key = `${seria.seria}:${idx}`;
+                        return (
+                            <CombinationRow key={idx} combo={combo} index={idx}
+                                selected={selectedKey === key}
+                                onSelect={() => onSelect(key, combo)} />
+                        );
+                    })}
                 </div>
             )}
         </div>
@@ -177,6 +175,10 @@ export default function SelectionPage() {
     const [locating, setLocating] = useState(false);
     const [lastParams, setLastParams] = useState(null);
     const resultsRef = useRef(null);
+    const [selectedKey, setSelectedKey] = useState(null);
+    const [selectedCombo, setSelectedCombo] = useState(null);
+    const { user } = useAuth();
+    const [customer, setCustomer] = useState('');
 
     const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -190,6 +192,8 @@ export default function SelectionPage() {
         setLoading(true);
         setError(null);
         setResults(null);
+        setSelectedKey(null);
+        setSelectedCombo(null);
         try {
             const payload = {
                 ...form,
@@ -497,6 +501,22 @@ export default function SelectionPage() {
                     </div>
                 )}
 
+                <label className="flex flex-col gap-1">
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                        Заказчик (для предложения)
+                    </span>
+                    <input
+                        type="text"
+                        value={customer}
+                        onChange={e => setCustomer(e.target.value)}
+                        placeholder="Название фирмы заказчика"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
+                            px-3 py-2 text-sm bg-white dark:bg-neutral-800
+                            text-gray-900 dark:text-white placeholder-gray-400
+                            focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </label>
+
                 <button type="submit" disabled={loading || tempError}
                     className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700
                         disabled:opacity-50 text-white text-sm font-semibold
@@ -526,7 +546,9 @@ export default function SelectionPage() {
                         </div>
                     )}
                     {results.results?.map(seria => (
-                        <SeriaCard key={seria.seria} seria={seria} />
+                        <SeriaCard key={seria.seria} seria={seria}
+                            selectedKey={selectedKey}
+                            onSelect={(key, combo) => { setSelectedKey(key); setSelectedCombo(combo); }} />
                     ))}
                 </div>
             )}
@@ -534,12 +556,19 @@ export default function SelectionPage() {
                 <button
                     type="button"
                     onClick={async () => {
-                        const res = await selectionApi.report(lastParams, results);
+                        const proposalParams = {
+                            ...lastParams,
+                            customer,
+                            engineer_name: engineerName,
+                            // proposal_no: пока пусто — будет из журнала подборов
+                        };
+                        const res = await selectionApi.proposal(proposalParams, selectedCombo);
+                        if (!res.ok) { setError('Ошибка формирования предложения'); return; }
                         const blob = await res.blob();
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = 'selection_report.pdf';
+                        a.download = customer ? `Предложение для ${customer}.pdf` : 'Предложение.pdf';
                         a.click();
                         setTimeout(() => URL.revokeObjectURL(url), 60000);
                     }}
@@ -547,6 +576,28 @@ export default function SelectionPage() {
             text-white text-sm font-semibold transition-colors"
                 >
                     Скачать PDF отчёт
+                </button>
+            )}
+            {results && results.results?.length > 0 && (
+                <button
+                    type="button"
+                    disabled={!selectedCombo}
+                    onClick={async () => {
+                        const proposalParams = { ...lastParams, customer };
+                        const res = await selectionApi.proposal(proposalParams, selectedCombo);
+                        if (!res.ok) { setError('Ошибка формирования предложения'); return; }
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = customer ? `Предложение для ${customer}.pdf` : 'Предложение.pdf';
+                        a.click();
+                        setTimeout(() => URL.revokeObjectURL(url), 60000);
+                    }}
+                    className="w-full py-2.5 rounded-lg bg-green-600 hover:bg-green-700
+                        disabled:opacity-40 text-white text-sm font-semibold transition-colors"
+                >
+                    {selectedCombo ? 'Скачать предложение (PDF)' : 'Выберите вариант для предложения'}
                 </button>
             )}
         </div>
