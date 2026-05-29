@@ -141,4 +141,12 @@ export const selectionApi = {
         });
         return res;  // raw response — caller делает blob()
     },
+
+    async accessories(productIds) {
+        const res = await apiFetch(`${BASE}/accessories/`, {
+            method: 'POST',
+            body: JSON.stringify({ product_ids: productIds }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
 };

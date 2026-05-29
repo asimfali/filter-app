@@ -102,6 +102,23 @@ function CombinationRow({ combo, index, selected, onSelect }) {
                             {combo.tsm > 0 ? '+' : ''}{combo.tsm}°C</strong>
                     </span>
                 </div>
+                {combo.aero && (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500
+                    border-t border-gray-100 dark:border-gray-800 pt-2">
+                        {combo.aero.q != null && (
+                            <span>q: <strong className="text-gray-700 dark:text-gray-300">{combo.aero.q}</strong></span>
+                        )}
+                        {combo.aero.Gn != null && (
+                            <span>Gн: <strong className="text-gray-700 dark:text-gray-300">{combo.aero.Gn}</strong> кг/с</span>
+                        )}
+                        {combo.aero.Gz != null && (
+                            <span>Gз: <strong className="text-gray-700 dark:text-gray-300">{combo.aero.Gz}</strong> кг/с</span>
+                        )}
+                        {combo.aero.Ge != null && (
+                            <span>Gэ: <strong className="text-gray-700 dark:text-gray-300">{combo.aero.Ge}</strong> кг/с</span>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -179,6 +196,10 @@ export default function SelectionPage() {
     const [selectedCombo, setSelectedCombo] = useState(null);
     const { user } = useAuth();
     const [customer, setCustomer] = useState('');
+    const [accessories, setAccessories] = useState(null);   // {items, has_pcb}
+    const [selectedExtra, setSelectedExtra] = useState([]); // accessory_id прочего оборудования (чекбоксы)
+    const [selectedMix, setSelectedMix] = useState(null);   // accessory_id смесительного узла (один)
+    const [selectedWA, setSelectedWA] = useState(null);
 
     const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -269,34 +290,120 @@ export default function SelectionPage() {
                     Подбор воздушных завес
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Аэродинамический и тепловой расчёт по методу Ю.Н. Марра
+                    Аэродинамический и тепловой расчёт завода Тепломаш
                 </p>
             </div>
 
             <form onSubmit={handleSubmit}
                 className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-5 space-y-5">
 
-                {/* Источник тепла */}
-                <div className="space-y-2">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Источник тепла
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                        {heatingValues.map(h => (
-                            <label key={h.id} className={radioClass(form.heat_type === h.value)}>
-                                <input type="radio" className="hidden"
-                                    checked={form.heat_type === h.value}
-                                    onChange={() => set('heat_type', h.value)} />
-                                {h.value === 'E' ? 'Электро' :
-                                    h.value === 'W' ? 'Вода' :
-                                        h.value === 'A' ? 'Без нагрева' :
-                                            h.value}
-                            </label>
-                        ))}
+                {/* 1. Организация (заказчик) */}
+                <label className="flex flex-col gap-1">
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                        Организация (заказчик)
+                    </span>
+                    <input
+                        type="text"
+                        value={customer}
+                        onChange={e => setCustomer(e.target.value)}
+                        placeholder="Название фирмы заказчика"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
+                            px-3 py-2 text-sm bg-white dark:bg-neutral-800
+                            text-gray-900 dark:text-white placeholder-gray-400
+                            focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </label>
+
+                {/* 2. Типовой проём (пресеты) */}
+                {standardOpenings.length > 0 && (
+                    <div className="space-y-1.5">
+                        <p className="text-xs text-gray-400 dark:text-gray-500">Типовой проём</p>
+                        <div className="flex flex-wrap gap-2">
+                            {standardOpenings.map(o => (
+                                <button key={o.id} type="button"
+                                    onClick={() => { set('h', o.h); set('b', o.b); }}
+                                    className={`px-3 py-1.5 rounded-lg border text-xs transition-colors
+                                        ${form.h == o.h && form.b == o.b
+                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'}`}>
+                                    {o.name} <span className="text-gray-400 dark:text-gray-500">{o.h}×{o.b}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* 3. Размеры проёма */}
+                <div className="grid grid-cols-2 gap-4">
+                    <NumberField label="Высота проёма, м" value={form.h}
+                        onChange={v => set('h', v)} step="0.1" min="1.5" max="7" required />
+                    <NumberField label="Ширина проёма, м" value={form.b}
+                        onChange={v => set('b', v)} step="0.1" min="1.5" max="7" required />
+                </div>
+
+                {/* 4. Регион + координаты — одна строка */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">Регион (необязательно)</span>
+                        <SmartSelect
+                            endpoint="/api/v1/selection/regions/"
+                            placeholder="Начните вводить город..."
+                            nameKey="name"
+                            value={selectedRegion}
+                            onClear={() => setSelectedRegion(null)}
+                            renderItem={r => (
+                                <div className="flex justify-between">
+                                    <span className="text-gray-900 dark:text-white font-medium">{r.name}</span>
+                                    <span className="text-gray-400">{r.tn}°C / {r.V} м/с</span>
+                                </div>
+                            )}
+                            onSelect={r => { setSelectedRegion(r); set('tn', r.tn); set('V', r.V); }}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">Поиск по координатам</span>
+                        <div className="flex gap-2">
+                            <input type="text" value={coordInput}
+                                onChange={e => setCoordInput(e.target.value)}
+                                placeholder="59.9390, 30.3139"
+                                className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg
+                                    px-3 py-2 text-sm bg-white dark:bg-neutral-800
+                                    text-gray-900 dark:text-white placeholder-gray-400
+                                    focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                            <button type="button" onClick={handleNearestByCoords} disabled={locating}
+                                className="shrink-0 px-3 py-2 rounded-lg border border-gray-200
+                                    dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400
+                                    hover:border-blue-400 hover:text-blue-500
+                                    disabled:opacity-40 transition-colors whitespace-nowrap">
+                                {locating ? '···' : 'Найти город'}
+                            </button>
+                        </div>
+                        {coordError && <span className="text-xs text-red-500">{coordError}</span>}
                     </div>
                 </div>
 
-                {/* Способ установки */}
+                {/* 5. Tн, Tв, Tсмеси, Скорость — одна строка */}
+                <div className="grid grid-cols-4 gap-4">
+                    <NumberField label="T наружная, °C" value={form.tn}
+                        onChange={v => set('tn', v)} step="1" min="-70" max="5" required />
+                    <NumberField label="T внутренняя, °C" value={form.tv}
+                        onChange={v => set('tv', v)} step="1" min="-5" max="30" required />
+                    <label className="flex flex-col gap-1">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">Желат. T смеси, °C</span>
+                        <select value={form.tsm}
+                            onChange={e => set('tsm', parseInt(e.target.value))}
+                            className="border border-gray-300 dark:border-gray-600 rounded-lg
+                                px-3 py-2 text-sm bg-white dark:bg-neutral-800
+                                text-gray-900 dark:text-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            {TSM_OPTIONS.map(v => <option key={v} value={v}>{v}°C</option>)}
+                        </select>
+                    </label>
+                    <NumberField label="Скорость ветра, м/с" value={form.V}
+                        onChange={v => set('V', v)} step="0.1" min="0" max="5" required />
+                </div>
+
+                {/* 6. Способ установки */}
                 <div className="space-y-2">
                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                         Способ установки
@@ -313,7 +420,28 @@ export default function SelectionPage() {
                     </div>
                 </div>
 
-                {/* Степень защиты */}
+                {/* 7. Источник тепла (Газ вместо G) */}
+                <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Источник тепла
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {heatingValues.map(h => (
+                            <label key={h.id} className={radioClass(form.heat_type === h.value)}>
+                                <input type="radio" className="hidden"
+                                    checked={form.heat_type === h.value}
+                                    onChange={() => set('heat_type', h.value)} />
+                                {h.value === 'E' ? 'Электро' :
+                                    h.value === 'W' ? 'Вода' :
+                                        h.value === 'A' ? 'Без нагрева' :
+                                            h.value === 'G' ? 'Газ' :
+                                                h.value}
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 8. Степень защиты (IP) */}
                 <div className="space-y-2">
                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                         Степень защиты
@@ -333,141 +461,20 @@ export default function SelectionPage() {
                     </div>
                 </div>
 
-                {/* Размеры проёма */}
-                <div className="space-y-3">
-                    {standardOpenings.length > 0 && (
-                        <div className="space-y-1.5">
-                            <p className="text-xs text-gray-400 dark:text-gray-500">
-                                Типовой проём
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                                {standardOpenings.map(o => (
-                                    <button
-                                        key={o.id}
-                                        type="button"
-                                        onClick={() => {
-                                            set('h', o.h);
-                                            set('b', o.b);
-                                        }}
-                                        className={`px-3 py-1.5 rounded-lg border text-xs transition-colors
-                            ${form.h == o.h && form.b == o.b
-                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'
-                                            }`}
-                                    >
-                                        {o.name} <span className="text-gray-400 dark:text-gray-500">
-                                            {o.h}×{o.b}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <NumberField label="Высота проёма, м" value={form.h}
-                            onChange={v => set('h', v)} step="0.1" min="1.5" max="7" required />
-                        <NumberField label="Ширина проёма, м" value={form.b}
-                            onChange={v => set('b', v)} step="0.1" min="1.5" max="7" required />
-                        <NumberField label="T наружная, °C" value={form.tn}
-                            onChange={v => set('tn', v)} step="1" min="-70" max="5" required />
-                        <NumberField label="T внутренняя, °C" value={form.tv}
-                            onChange={v => set('tv', v)} step="1" min="-5" max="30" required />
-                    </div>
-                </div>
-
-                {/* Климат + скорость + tsm */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
-                            Регион (необязательно)
-                        </span>
-                        <SmartSelect
-                            endpoint="/api/v1/selection/regions/"
-                            placeholder="Начните вводить город..."
-                            nameKey="name"
-                            value={selectedRegion}
-                            onClear={() => setSelectedRegion(null)}
-                            renderItem={r => (
-                                <div className="flex justify-between">
-                                    <span className="text-gray-900 dark:text-white font-medium">{r.name}</span>
-                                    <span className="text-gray-400">{r.tn}°C / {r.V} м/с</span>
-                                </div>
-                            )}
-                            onSelect={r => {
-                                setSelectedRegion(r);
-                                set('tn', r.tn);
-                                set('V', r.V);
-                            }}
-                        />
-                        {/* Поиск по координатам */}
-                        <div className="flex gap-2 mt-1">
-                            <input
-                                type="text"
-                                value={coordInput}
-                                onChange={e => setCoordInput(e.target.value)}
-                                placeholder="59.9390, 30.3139"
-                                className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg
-                px-3 py-1.5 text-xs bg-white dark:bg-neutral-800
-                text-gray-900 dark:text-white placeholder-gray-400
-                focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                            <button
-                                type="button"
-                                onClick={handleNearestByCoords}
-                                disabled={locating}
-                                className="shrink-0 px-3 py-1.5 rounded-lg border border-gray-200
-                dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400
-                hover:border-blue-400 hover:text-blue-500
-                disabled:opacity-40 transition-colors whitespace-nowrap"
-                            >
-                                {locating ? '···' : 'Найти город'}
-                            </button>
-                        </div>
-                        {coordError && (
-                            <span className="text-xs text-red-500">{coordError}</span>
-                        )}
-                    </div>
-                    <NumberField label="Скорость ветра, м/с" value={form.V}
-                        onChange={v => set('V', v)} step="0.1" min="0" max="5" required />
-                    <label className="flex flex-col gap-1">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
-                            Желат. T смеси, °C
-                        </span>
-                        <select
-                            value={form.tsm}
-                            onChange={e => set('tsm', parseInt(e.target.value))}
-                            className="border border-gray-300 dark:border-gray-600 rounded-lg
-                                px-3 py-2 text-sm bg-white dark:bg-neutral-800
-                                text-gray-900 dark:text-white
-                                focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {TSM_OPTIONS.map(v => (
-                                <option key={v} value={v}>{v}°C</option>
-                            ))}
-                        </select>
-                    </label>
-                </div>
-
-                {/* Параметры воды */}
+                {/* 9. Параметры воды */}
                 {form.heat_type === 'W' && (
                     <div className="grid grid-cols-2 gap-4 p-4 rounded-lg
                         bg-orange-50 dark:bg-orange-900/10
                         border border-orange-200 dark:border-orange-800">
                         <label className="flex flex-col gap-1">
-                            <span className="text-xs text-gray-400 dark:text-gray-500">
-                                T прямой ветки, °C
-                            </span>
-                            <select
-                                value={form.Tpr}
+                            <span className="text-xs text-gray-400 dark:text-gray-500">T прямой ветки, °C</span>
+                            <select value={form.Tpr}
                                 onChange={e => set('Tpr', parseInt(e.target.value))}
                                 className="border border-gray-300 dark:border-gray-600 rounded-lg
                                     px-3 py-2 text-sm bg-white dark:bg-neutral-800
                                     text-gray-900 dark:text-white
-                                    focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                {TPR_OPTIONS.map(v => (
-                                    <option key={v} value={v}>{v}°C</option>
-                                ))}
+                                    focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                {TPR_OPTIONS.map(v => <option key={v} value={v}>{v}°C</option>)}
                             </select>
                         </label>
                         <div className="flex items-end pb-2 text-xs text-gray-400 dark:text-gray-500">
@@ -476,7 +483,7 @@ export default function SelectionPage() {
                     </div>
                 )}
 
-                {/* Оптимизация */}
+                {/* 10. Оптимизация */}
                 <label className="flex items-center gap-2 cursor-pointer text-sm
                     text-gray-700 dark:text-gray-300">
                     <input type="checkbox" className="rounded"
@@ -501,26 +508,9 @@ export default function SelectionPage() {
                     </div>
                 )}
 
-                <label className="flex flex-col gap-1">
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
-                        Заказчик (для предложения)
-                    </span>
-                    <input
-                        type="text"
-                        value={customer}
-                        onChange={e => setCustomer(e.target.value)}
-                        placeholder="Название фирмы заказчика"
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
-                            px-3 py-2 text-sm bg-white dark:bg-neutral-800
-                            text-gray-900 dark:text-white placeholder-gray-400
-                            focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </label>
-
                 <button type="submit" disabled={loading || tempError}
                     className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700
-                        disabled:opacity-50 text-white text-sm font-semibold
-                        transition-colors">
+                        disabled:opacity-50 text-white text-sm font-semibold transition-colors">
                     {loading ? 'Выполняется расчёт...' : 'Подобрать завесы'}
                 </button>
             </form>
@@ -548,42 +538,89 @@ export default function SelectionPage() {
                     {results.results?.map(seria => (
                         <SeriaCard key={seria.seria} seria={seria}
                             selectedKey={selectedKey}
-                            onSelect={(key, combo) => { setSelectedKey(key); setSelectedCombo(combo); }} />
+                            onSelect={async (key, combo) => {
+                                setSelectedKey(key);
+                                setSelectedCombo(combo);
+                                setSelectedExtra([]); setSelectedMix(null); setSelectedWA(null);
+                                const ids = combo.products.map(p => p.id);
+                                const { ok, data } = await selectionApi.accessories(ids);
+                                setAccessories(ok && data.success ? data.data : null);
+                            }}
+                        />
                     ))}
                 </div>
             )}
-            {results && results.results?.length > 0 && (
-                <button
-                    type="button"
-                    onClick={async () => {
-                        const proposalParams = {
-                            ...lastParams,
-                            customer,
-                            engineer_name: engineerName,
-                            // proposal_no: пока пусто — будет из журнала подборов
-                        };
-                        const res = await selectionApi.proposal(proposalParams, selectedCombo);
-                        if (!res.ok) { setError('Ошибка формирования предложения'); return; }
-                        const blob = await res.blob();
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = customer ? `Предложение для ${customer}.pdf` : 'Предложение.pdf';
-                        a.click();
-                        setTimeout(() => URL.revokeObjectURL(url), 60000);
-                    }}
-                    className="w-full py-2.5 rounded-lg bg-green-600 hover:bg-green-700
-            text-white text-sm font-semibold transition-colors"
-                >
-                    Скачать PDF отчёт
-                </button>
+            {selectedCombo && accessories && accessories.items.length > 0 && (
+                <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm
+                    border border-gray-200 dark:border-gray-700 p-5 space-y-4">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Дополнительное оборудование
+                    </p>
+
+                    {/* Смесительные узлы — один из */}
+                    {accessories.items.filter(i => i.kind === 'mix_unit').length > 0 && (
+                        <div className="space-y-1.5">
+                            <p className="text-xs text-gray-400">Марка смесительного узла</p>
+                            {accessories.items.filter(i => i.kind === 'mix_unit').map(i => (
+                                <label key={i.accessory_id} className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="radio" name="mix-unit" className="accent-blue-600"
+                                        checked={selectedMix === i.accessory_id}
+                                        onChange={() => setSelectedMix(i.accessory_id)} />
+                                    {i.name}
+                                </label>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Блок-WA — один из */}
+                    {accessories.items.filter(i => i.kind === 'control_wa').length > 0 && (
+                        <div className="space-y-1.5">
+                            <p className="text-xs text-gray-400">Блок управления (WA)</p>
+                            {accessories.items.filter(i => i.kind === 'control_wa').map(i => (
+                                <label key={i.accessory_id} className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="radio" name="wa-unit" className="accent-blue-600"
+                                        checked={selectedWA === i.accessory_id}
+                                        onChange={() => setSelectedWA(i.accessory_id)} />
+                                    {i.name}
+                                </label>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Прочее — много */}
+                    {accessories.items.filter(i => i.kind === 'other').length > 0 && (
+                        <div className="space-y-1.5">
+                            <p className="text-xs text-gray-400">Комплектующие / автоматика</p>
+                            {accessories.items.filter(i => i.kind === 'other').map(i => (
+                                <label key={i.accessory_id} className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="checkbox" className="rounded accent-blue-600"
+                                        checked={selectedExtra.includes(i.accessory_id)}
+                                        onChange={e => setSelectedExtra(prev =>
+                                            e.target.checked
+                                                ? [...prev, i.accessory_id]
+                                                : prev.filter(x => x !== i.accessory_id))} />
+                                    {i.name}{i.quantity > 1 && <span className="text-xs text-gray-400">×{i.quantity}</span>}
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                </div>
             )}
             {results && results.results?.length > 0 && (
                 <button
                     type="button"
                     disabled={!selectedCombo}
                     onClick={async () => {
-                        const proposalParams = { ...lastParams, customer };
+                        const acc = accessories?.items || [];
+                        const byId = id => acc.find(i => i.accessory_id === id);
+                        const proposalParams = {
+                            ...lastParams,
+                            customer,
+                            mix_unit: selectedMix ? byId(selectedMix)?.name : '',
+                            control_unit: selectedWA ? byId(selectedWA)?.name : '',
+                            extra_equipment: selectedExtra.map(id => byId(id)?.name).filter(Boolean),
+                            has_pcb: accessories?.has_pcb || false,
+                        };
                         const res = await selectionApi.proposal(proposalParams, selectedCombo);
                         if (!res.ok) { setError('Ошибка формирования предложения'); return; }
                         const blob = await res.blob();
