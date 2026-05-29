@@ -26,20 +26,35 @@ const CURVE_TYPE_LABELS = {
   TIP_SPEED: 'Окружная скорость u(Q)',
 }
 
-function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperatingPoint, productFilter, onSelection, onCalc }) {
+function NetworkCurvePanel({ xDomain, onNetworkCurve, onOperatingPoint,
+  productFilter, onSelection, onCalc, scaleType = 'log', chartId = null }) {
   const [qRef, setQRef] = useState('')
   const [pvRef, setPvRef] = useState('')
   const [nAbove, setNAbove] = useState(3)
   const [nBelow, setNBelow] = useState(1)
 
   const handleCalc = async () => {
-    const q = parseFloat(qRef.replace(',', '.'))
+    const qRaw = parseFloat(qRef.replace(',', '.'))
     const pv = parseFloat(pvRef.replace(',', '.'))
-    if (!q || !pv) return
+    if (!qRaw || !pv) return
+
+    const q = scaleType === 'linear' ? qRaw * 1000 : qRaw
     onCalc?.({ q, pv })
 
     const R = pv / (q * q)
     const [xMin, xMax] = xDomain
+
+    const networkPoints = scaleType === 'log'
+      ? [
+        { x: xMin, y: parseFloat((R * xMin * xMin).toFixed(2)) },
+        { x: xMax, y: parseFloat((R * xMax * xMax).toFixed(2)) },
+      ]
+      : Array.from({ length: 51 }, (_, i) => {
+        const x = xMin + (xMax - xMin) * i / 50
+        const y = R * x * x
+        if (!isFinite(y) || y < 0) return null
+        return { x: parseFloat(x.toFixed(2)), y: parseFloat(y.toFixed(2)) }
+      }).filter(Boolean)
 
     onNetworkCurve({
       id: 'network',
@@ -47,10 +62,7 @@ function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperati
       label: 'Сеть',
       color: '#6b7280',
       interpolation: 'linear',
-      points: [
-        { x: xMin, y: parseFloat((R * xMin * xMin).toFixed(2)) },
-        { x: xMax, y: parseFloat((R * xMax * xMax).toFixed(2)) },
-      ],
+      points: networkPoints,
     })
 
     // ── НОВОЕ: подбор ближайших кривых ──
@@ -65,7 +77,7 @@ function NetworkCurvePanel({ xDomain, curves, onNetworkCurve, chartId, onOperati
       }
     }
 
-    if (chartId) {
+    if (typeof chartId !== 'undefined' && chartId) {
       const { ok, data } = await selectionApi.fanChartOperatingPoint(chartId, q, pv)
       if (ok && data.success) {
         onOperatingPoint([
@@ -647,6 +659,7 @@ export default function FanChartPage() {
         x: data.data.x_domain,
         y: data.data.y_domain,
         colorMap,
+        scaleType: data.data.scale_type ?? 'log',
       })
     }
     setCombinedLoading(false)
@@ -789,6 +802,7 @@ export default function FanChartPage() {
                 productFilter={combinedProduct}
                 onSelection={handleSelection}
                 onCalc={({ q, pv }) => { setLastQRef(q); setLastPvRef(pv) }}
+                scaleType={combinedDomain.scaleType ?? 'log'}
               />
             </div>
           )}
@@ -997,6 +1011,7 @@ export default function FanChartPage() {
                     chartId={selectedChart?.id}
                     onNetworkCurve={setNetworkCurve}
                     onOperatingPoint={setOperatingPoint}
+                    scaleType={scaleType}
                   />
                 )}
 
