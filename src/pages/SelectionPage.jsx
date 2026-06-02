@@ -73,10 +73,15 @@ function NumberField({ label, value, onChange, ...rest }) {
 
 // ── Карточка результата ───────────────────────────────────────────────────────
 
-function CombinationRow({ combo, index, selected, onSelect }) {
+function CombinationRow({ combo, index, selected, onSelect,
+    accessories, selectedExtra, setSelectedExtra,
+    selectedMix, setSelectedMix, selectedWA, setSelectedWA }) {
     const tsmColor = combo.tsm >= 0
         ? 'text-green-600 dark:text-green-400'
         : 'text-red-500 dark:text-red-400';
+    const mix = accessories?.items.filter(i => i.kind === 'mix_unit') || [];
+    const wa = accessories?.items.filter(i => i.kind === 'control_wa') || [];
+    const other = accessories?.items.filter(i => i.kind === 'other') || [];
 
     return (
         <label className={`block rounded-lg border p-4 space-y-3 cursor-pointer transition-colors
@@ -137,7 +142,9 @@ function CombinationRow({ combo, index, selected, onSelect }) {
     );
 }
 
-function SeriaCard({ seria, selectedKey, onSelect }) {
+function SeriaCard({ seria, selectedKey, onSelect,
+    accessories, selectedExtra, setSelectedExtra,
+    selectedMix, setSelectedMix, selectedWA, setSelectedWA }) {
     const [expanded, setExpanded] = useState(true);
 
     return (
@@ -166,10 +173,15 @@ function SeriaCard({ seria, selectedKey, onSelect }) {
                 <div className="px-5 pb-5 space-y-3">
                     {seria.combinations.map((combo, idx) => {
                         const key = `${seria.seria}:${idx}`;
+                        const isSel = selectedKey === key;
                         return (
                             <CombinationRow key={idx} combo={combo} index={idx}
-                                selected={selectedKey === key}
-                                onSelect={() => onSelect(key, combo)} />
+                                selected={isSel}
+                                onSelect={() => onSelect(key, combo)}
+                                accessories={isSel ? accessories : null}
+                                selectedExtra={selectedExtra} setSelectedExtra={setSelectedExtra}
+                                selectedMix={selectedMix} setSelectedMix={setSelectedMix}
+                                selectedWA={selectedWA} setSelectedWA={setSelectedWA} />
                         );
                     })}
                 </div>
@@ -548,62 +560,6 @@ export default function SelectionPage() {
                             }}
                         />
                     ))}
-                </div>
-            )}
-            {selectedCombo && accessories && accessories.items.length > 0 && (
-                <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm
-                    border border-gray-200 dark:border-gray-700 p-5 space-y-4">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        Дополнительное оборудование
-                    </p>
-
-                    {/* Смесительные узлы — один из */}
-                    {accessories.items.filter(i => i.kind === 'mix_unit').length > 0 && (
-                        <div className="space-y-1.5">
-                            <p className="text-xs text-gray-400">Марка смесительного узла</p>
-                            {accessories.items.filter(i => i.kind === 'mix_unit').map(i => (
-                                <label key={i.accessory_id} className="flex items-center gap-2 text-sm cursor-pointer">
-                                    <input type="radio" name="mix-unit" className="accent-blue-600"
-                                        checked={selectedMix === i.accessory_id}
-                                        onChange={() => setSelectedMix(i.accessory_id)} />
-                                    {i.name}
-                                </label>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Блок-WA — один из */}
-                    {accessories.items.filter(i => i.kind === 'control_wa').length > 0 && (
-                        <div className="space-y-1.5">
-                            <p className="text-xs text-gray-400">Блок управления (WA)</p>
-                            {accessories.items.filter(i => i.kind === 'control_wa').map(i => (
-                                <label key={i.accessory_id} className="flex items-center gap-2 text-sm cursor-pointer">
-                                    <input type="radio" name="wa-unit" className="accent-blue-600"
-                                        checked={selectedWA === i.accessory_id}
-                                        onChange={() => setSelectedWA(i.accessory_id)} />
-                                    {i.name}
-                                </label>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Прочее — много */}
-                    {accessories.items.filter(i => i.kind === 'other').length > 0 && (
-                        <div className="space-y-1.5">
-                            <p className="text-xs text-gray-400">Комплектующие / автоматика</p>
-                            {accessories.items.filter(i => i.kind === 'other').map(i => (
-                                <label key={i.accessory_id} className="flex items-center gap-2 text-sm cursor-pointer">
-                                    <input type="checkbox" className="rounded accent-blue-600"
-                                        checked={selectedExtra.includes(i.accessory_id)}
-                                        onChange={e => setSelectedExtra(prev =>
-                                            e.target.checked
-                                                ? [...prev, i.accessory_id]
-                                                : prev.filter(x => x !== i.accessory_id))} />
-                                    {i.name}{i.quantity > 1 && <span className="text-xs text-gray-400">×{i.quantity}</span>}
-                                </label>
-                            ))}
-                        </div>
-                    )}
                 </div>
             )}
             {results && results.results?.length > 0 && (
