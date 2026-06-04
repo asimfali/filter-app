@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { selectionApi } from '../api/selection';
 import SmartSelect from '../components/common/SmartSelect';
 import { useAuth } from '../contexts/AuthContext';
+import ProposalsPanel from '../components/selection/ProposalsPanel';
 
 // ── Константы ─────────────────────────────────────────────────────────────────
 
@@ -212,6 +213,9 @@ export default function SelectionPage() {
     const [selectedExtra, setSelectedExtra] = useState([]); // accessory_id прочего оборудования (чекбоксы)
     const [selectedMix, setSelectedMix] = useState(null);   // accessory_id смесительного узла (один)
     const [selectedWA, setSelectedWA] = useState(null);
+    const [proposalsPanelOpen, setProposalsPanelOpen] = useState(false);
+    const [currentProposalId, setCurrentProposalId] = useState(null);
+    const [currentProposalNumber, setCurrentProposalNumber] = useState('');
 
     const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -242,6 +246,16 @@ export default function SelectionPage() {
             const { ok, data } = await selectionApi.calculate(payload);
             if (ok && data.success) {
                 setResults(data.data);
+                const saveRes = await selectionApi.proposalsCreate({
+                    selection_type: 'CURTAIN_SHUTTER',
+                    customer: customer,
+                    params: {
+                        ...payload,
+                        _region: selectedRegion ? { id: selectedRegion.id, name: selectedRegion.name, tn: selectedRegion.tn, V: selectedRegion.V } : null,
+                    },
+                    results: data.data,
+                    selected_combo: null,
+                });
                 setLastParams(payload);
                 setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
             } else {
@@ -287,6 +301,74 @@ export default function SelectionPage() {
         }
     }, [coordInput]);
 
+    const buildProposalParams = () => {
+        const acc = accessories?.items || [];
+        const byId = id => acc.find(i => i.accessory_id === id);
+        return {
+            ...lastParams,
+            customer,
+            mix_unit: selectedMix ? byId(selectedMix)?.name : '',
+            control_unit: selectedWA ? byId(selectedWA)?.name : '',
+            extra_equipment: selectedExtra.map(id => byId(id)?.name).filter(Boolean),
+            has_pcb: accessories?.has_pcb || false,
+            proposal_no: currentProposalNumber,
+        };
+    };
+
+    const handleGenerateProposal = async (openInBrowser) => {
+        const proposalParams = buildProposalParams();
+        let proposalNumber = currentProposalNumber;
+
+        if (!currentProposalId) {
+            const saveRes = await selectionApi.proposalsCreate({
+                selection_type: 'CURTAIN_SHUTTER',
+                customer,
+                params: {
+                    ...lastParams,
+                    _region: selectedRegion
+                        ? { id: selectedRegion.id, name: selectedRegion.name, tn: selectedRegion.tn, V: selectedRegion.V }
+                        : null,
+                },
+                results,
+                selected_combo: selectedCombo,
+            });
+            if (saveRes.ok) {
+                const saved = saveRes.data;
+                setCurrentProposalId(saved.id);
+                setCurrentProposalNumber(saved.proposal_number || '');
+                proposalNumber = saved.proposal_number || '';
+            }
+        } else {
+            await selectionApi.proposalsUpdate(currentProposalId, {
+                selected_combo: selectedCombo,
+                status: openInBrowser ? 'DRAFT' : 'SENT',
+            });
+        }
+        const res = await selectionApi.proposal(
+            { ...proposalParams, proposal_no: proposalNumber },
+            selectedCombo,
+        );
+        if (!res.ok) { setError('Ошибка формирования предложения'); return; }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+
+        if (openInBrowser) {
+            const newTab = window.open('', '_blank');
+            newTab.document.write(`<html><head><title>${customer ? `Предложение для ${customer}` : 'Предложение'
+                }</title></head><body style="margin:0">
+            <embed src="${url}" type="application/pdf" width="100%" height="100%"/>
+            </body></html>`);
+            newTab.document.close();
+        } else {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = customer ? `Предложение для ${customer}.pdf` : 'Предложение.pdf';
+            a.click();
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+    };
+
     const radioClass = active =>
         `flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer
         transition-colors text-sm
@@ -297,13 +379,24 @@ export default function SelectionPage() {
     return (
         <div className="space-y-4">
             {/* Шапка */}
-            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4">
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                    Подбор воздушных завес
-                </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Аэродинамический и тепловой расчёт завода Тепломаш
-                </p>
+            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-4
+    flex items-center justify-between">
+                <div>
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                        Подбор воздушных завес
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Аэродинамический и тепловой расчёт завода Тепломаш
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setProposalsPanelOpen(true)}
+                    className="text-xs px-3 py-2 rounded-lg border border-gray-200
+            dark:border-gray-700 text-gray-600 dark:text-gray-400
+            hover:border-blue-400 hover:text-blue-500 transition-colors">
+                    История
+                </button>
             </div>
 
             <form onSubmit={handleSubmit}
@@ -563,36 +656,54 @@ export default function SelectionPage() {
                 </div>
             )}
             {results && results.results?.length > 0 && (
-                <button
-                    type="button"
-                    disabled={!selectedCombo}
-                    onClick={async () => {
-                        const acc = accessories?.items || [];
-                        const byId = id => acc.find(i => i.accessory_id === id);
-                        const proposalParams = {
-                            ...lastParams,
-                            customer,
-                            mix_unit: selectedMix ? byId(selectedMix)?.name : '',
-                            control_unit: selectedWA ? byId(selectedWA)?.name : '',
-                            extra_equipment: selectedExtra.map(id => byId(id)?.name).filter(Boolean),
-                            has_pcb: accessories?.has_pcb || false,
-                        };
-                        const res = await selectionApi.proposal(proposalParams, selectedCombo);
-                        if (!res.ok) { setError('Ошибка формирования предложения'); return; }
-                        const blob = await res.blob();
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = customer ? `Предложение для ${customer}.pdf` : 'Предложение.pdf';
-                        a.click();
-                        setTimeout(() => URL.revokeObjectURL(url), 60000);
-                    }}
-                    className="w-full py-2.5 rounded-lg bg-green-600 hover:bg-green-700
-                        disabled:opacity-40 text-white text-sm font-semibold transition-colors"
-                >
-                    {selectedCombo ? 'Скачать предложение (PDF)' : 'Выберите вариант для предложения'}
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        type="button"
+                        disabled={!selectedCombo}
+                        onClick={() => handleGenerateProposal(true)}
+                        className="flex-1 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700
+                disabled:opacity-40 text-white text-sm font-semibold transition-colors">
+                        {selectedCombo ? 'Просмотреть предложение' : 'Выберите вариант'}
+                    </button>
+                    <button
+                        type="button"
+                        disabled={!selectedCombo}
+                        onClick={() => handleGenerateProposal(false)}
+                        className="flex-1 py-2.5 rounded-lg bg-green-600 hover:bg-green-700
+                disabled:opacity-40 text-white text-sm font-semibold transition-colors">
+                        Скачать PDF
+                    </button>
+                </div>
             )}
+
+            <ProposalsPanel
+                open={proposalsPanelOpen}
+                onClose={() => setProposalsPanelOpen(false)}
+                onRestore={proposal => {
+                    const p = proposal.params || {};
+                    setForm({
+                        heat_type: p.heat_type ?? 'E',
+                        install_type: p.install_type ?? 'V',
+                        ip: p.ip ?? 21,
+                        h: p.h ?? '',
+                        b: p.b ?? '',
+                        tn: p.tn ?? '',
+                        tv: p.tv ?? 10,
+                        V: p.V ?? '',
+                        tsm: p.tsm ?? 5,
+                        Tpr: p.Tpr ?? 95,
+                        optimize: p.optimize ?? false,
+                    });
+                    setCustomer(proposal.customer || '');
+                    setCurrentProposalId(proposal.id);
+                    setCurrentProposalNumber(proposal.proposal_number || '');
+                    if (p._region) setSelectedRegion(p._region);
+                    else setSelectedRegion(null);
+                    setResults(null);
+                    setSelectedKey(null);
+                    setSelectedCombo(null);
+                }}
+            />
         </div>
     );
 }

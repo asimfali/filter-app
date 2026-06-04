@@ -149,4 +149,41 @@ export const selectionApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
+
+    // Proposals (журнал подборов)
+    async proposalsList(params = {}) {
+        const query = new URLSearchParams();
+        if (params.customer) query.set('customer', params.customer);
+        if (params.type) query.set('type', params.type);
+        if (params.status) query.set('status', params.status);
+        const qs = query.toString();
+        const res = await apiFetch(`${BASE}/proposals/${qs ? '?' + qs : ''}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async proposalsCreate(payload) {
+        const res = await apiFetch(`${BASE}/proposals/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async proposalsUpdate(id, payload) {
+        const res = await apiFetch(`${BASE}/proposals/${id}/`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async proposalsByNumber(number) {
+        const res = await apiFetch(`${BASE}/proposals/by-number/?n=${encodeURIComponent(number)}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async proposalsDetail(id) {
+        const res = await apiFetch(`${BASE}/proposals/${id}/`);
+        return { ok: res.ok, data: await res.json() };
+    },
 };

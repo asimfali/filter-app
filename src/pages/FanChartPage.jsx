@@ -71,7 +71,6 @@ function NetworkCurvePanel({ xDomain, onNetworkCurve, onOperatingPoint,
         q, pv, productFilter,
         nAbove, nBelow,
       )
-      console.log('select result:', ok, data?.success, data)
       if (ok && data.success) {   // ← добавить
         onSelection(data.data)
       }
