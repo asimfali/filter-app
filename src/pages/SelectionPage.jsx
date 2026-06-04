@@ -245,17 +245,7 @@ export default function SelectionPage() {
             };
             const { ok, data } = await selectionApi.calculate(payload);
             if (ok && data.success) {
-                setResults(data.data);
-                const saveRes = await selectionApi.proposalsCreate({
-                    selection_type: 'CURTAIN_SHUTTER',
-                    customer: customer,
-                    params: {
-                        ...payload,
-                        _region: selectedRegion ? { id: selectedRegion.id, name: selectedRegion.name, tn: selectedRegion.tn, V: selectedRegion.V } : null,
-                    },
-                    results: data.data,
-                    selected_combo: null,
-                });
+                setResults(data.data);    
                 setLastParams(payload);
                 setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
             } else {
@@ -318,45 +308,49 @@ export default function SelectionPage() {
     const handleGenerateProposal = async (openInBrowser) => {
         const proposalParams = buildProposalParams();
         let proposalNumber = currentProposalNumber;
-
-        if (!currentProposalId) {
-            const saveRes = await selectionApi.proposalsCreate({
-                selection_type: 'CURTAIN_SHUTTER',
-                customer,
-                params: {
-                    ...lastParams,
-                    _region: selectedRegion
-                        ? { id: selectedRegion.id, name: selectedRegion.name, tn: selectedRegion.tn, V: selectedRegion.V }
-                        : null,
-                },
-                results,
-                selected_combo: selectedCombo,
-            });
-            if (saveRes.ok) {
-                const saved = saveRes.data;
-                setCurrentProposalId(saved.id);
-                setCurrentProposalNumber(saved.proposal_number || '');
-                proposalNumber = saved.proposal_number || '';
+    
+        if (!openInBrowser) {
+            // Сохраняем только при скачивании
+            if (!currentProposalId) {
+                const saveRes = await selectionApi.proposalsCreate({
+                    selection_type: 'CURTAIN_SHUTTER',
+                    customer,
+                    params: {
+                        ...lastParams,
+                        _region: selectedRegion
+                            ? { id: selectedRegion.id, name: selectedRegion.name, tn: selectedRegion.tn, V: selectedRegion.V }
+                            : null,
+                    },
+                    results,
+                    selected_combo: selectedCombo,
+                });
+                if (saveRes.ok) {
+                    setCurrentProposalId(saveRes.data.id);
+                    setCurrentProposalNumber(saveRes.data.proposal_number || '');
+                    proposalNumber = saveRes.data.proposal_number || '';
+                }
+            } else {
+                await selectionApi.proposalsUpdate(currentProposalId, {
+                    selected_combo: selectedCombo,
+                    status: 'SENT',
+                });
             }
-        } else {
-            await selectionApi.proposalsUpdate(currentProposalId, {
-                selected_combo: selectedCombo,
-                status: openInBrowser ? 'DRAFT' : 'SENT',
-            });
         }
+    
         const res = await selectionApi.proposal(
             { ...proposalParams, proposal_no: proposalNumber },
             selectedCombo,
         );
         if (!res.ok) { setError('Ошибка формирования предложения'); return; }
-
+    
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-
+    
         if (openInBrowser) {
             const newTab = window.open('', '_blank');
-            newTab.document.write(`<html><head><title>${customer ? `Предложение для ${customer}` : 'Предложение'
-                }</title></head><body style="margin:0">
+            newTab.document.write(`<html><head><title>${
+                customer ? `Предложение для ${customer}` : 'Предложение'
+            }</title></head><body style="margin:0">
             <embed src="${url}" type="application/pdf" width="100%" height="100%"/>
             </body></html>`);
             newTab.document.close();

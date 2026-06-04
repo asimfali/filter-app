@@ -69,6 +69,8 @@
 │   │   │   ├── PLMSidePanel.jsx
 │   │   │   ├── ProductStages.jsx
 │   │   │   └── StageTransferPanel.jsx
+│   │   ├── selection
+│   │   │   └── ProposalsPanel.jsx
 │   │   └── sync
 │   │       └── SyncModal.jsx
 │   ├── contexts
@@ -142,4 +144,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-21 directories, 122 files
+22 directories, 123 files
