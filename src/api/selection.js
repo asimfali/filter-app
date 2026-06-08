@@ -186,4 +186,31 @@ export const selectionApi = {
         const res = await apiFetch(`${BASE}/proposals/${id}/`);
         return { ok: res.ok, data: await res.json() };
     },
+
+    async dxfImportUpload(files, product = '', temperature = 20.0, autoDetect = true, merge = false) {
+        const formData = new FormData();
+        files.forEach(f => formData.append('files', f));
+        if (product) formData.append('product', product);
+        formData.append('temperature', String(temperature));
+        formData.append('auto_detect_d_ratio', String(autoDetect));
+        formData.append('merge', String(merge));
+        const res = await apiFetch(`${BASE}/fan-chart-import/upload/`, {
+            method: 'POST',
+            body: formData,
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+    
+    // Проверка существования графика перед загрузкой
+    async dxfCheckExists(product, dRatio = null, temperature = 20.0) {
+        const params = new URLSearchParams({ product, temperature: String(temperature) });
+        if (dRatio !== null) params.set('d_ratio', String(dRatio));
+        const res = await apiFetch(`${BASE}/fan-charts/?${params}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+    
+    async dxfImportStatus(taskId) {
+        const res = await apiFetch(`${BASE}/fan-chart-import/${taskId}/status/`);
+        return { ok: res.ok, data: await res.json() };
+    },
 };

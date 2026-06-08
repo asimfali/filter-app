@@ -363,6 +363,16 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         </button>
                     )}
 
+                    {can(user, 'portal.chart.write') && (
+                        <button
+                            onClick={() => setSyncModal('dxf_import')}
+                            className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                   bg-violet-600 hover:bg-violet-700
+                   text-white transition-colors">
+                            Импорт DXF (аэродинамика)
+                        </button>
+                    )}
+
 
                     {/* Тема */}
                     <div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { externalApi } from '../../api/external';
 import { can } from '../../utils/permissions';
+import { selectionApi } from '../../api/selection';
 import { IconLink, IconClock } from '../common/Icons';
 
 // ─── Конфигурация режимов ─────────────────────────────────────────────────
@@ -60,10 +61,10 @@ const MODE_CONFIG = {
             data: {
                 success: true,
                 data: [
-                    { id: 'all',         name: 'Все файлы' },
-                    { id: 'passport',    name: 'Паспорта' },
+                    { id: 'all', name: 'Все файлы' },
+                    { id: 'passport', name: 'Паспорта' },
                     { id: 'certificate', name: 'Сертификаты' },
-                    { id: 'gallery',     name: 'Галерея' },
+                    { id: 'gallery', name: 'Галерея' },
                     { id: 'declaration', name: 'Декларации' },
                 ],
             },
@@ -79,20 +80,35 @@ const MODE_CONFIG = {
             return `✗ ${errs || 'Ошибка'}`;
         },
     },
+    dxf_import: {
+        title: 'Импорт DXF (аэродинамика)',
+        btnColor: 'bg-violet-600 hover:bg-violet-700',
+        permission: 'portal.chart.write',
+        // Статический список — один пункт "Загрузить файлы"
+        loadItems: async () => ({
+            ok: true,
+            data: { success: true, data: [{ id: 'dxf', name: 'DXF-файлы вентиляторов' }] },
+        }),
+        isAsync: true,
+        formatResult: (result) =>
+            result.success !== false
+                ? `✓ Импортировано файлов: ${result.files_done ?? 0}, ошибок: ${result.files_failed ?? 0}`
+                : `✗ Ошибка`,
+    },
     extract: {
-    title: 'Импорт характеристик из PDF',
-    btnColor: 'bg-blue-600 hover:bg-blue-700',
-    permission: 'pdf.spec.write',
-    loadItems: async () => ({
-        ok: true,
-        data: {
-            success: true,
-            data: [{ id: 'zavesy', name: 'Воздушные завесы' }],
-        },
-    }),
-    isAsync: true,
-    formatResult: (result) => `✓ Найдено: ${result.items_found} моделей`,
-},
+        title: 'Импорт характеристик из PDF',
+        btnColor: 'bg-blue-600 hover:bg-blue-700',
+        permission: 'pdf.spec.write',
+        loadItems: async () => ({
+            ok: true,
+            data: {
+                success: true,
+                data: [{ id: 'zavesy', name: 'Воздушные завесы' }],
+            },
+        }),
+        isAsync: true,
+        formatResult: (result) => `✓ Найдено: ${result.items_found} моделей`,
+    },
 };
 
 // ─── Компонент ────────────────────────────────────────────────────────────
@@ -105,8 +121,12 @@ export default function SyncModal({ user, onClose, mode }) {
     const [runningAll, setRunningAll] = useState(false);
     const [taskIds, setTaskIds] = useState({});
     const [opts, setOpts] = useState({});
-    const [files, setFiles] = useState({}); 
+    const [files, setFiles] = useState({});
     const [applyResults, setApplyResults] = useState({});
+    const [dxfProduct, setDxfProduct] = useState('');
+    const [dxfMerge, setDxfMerge] = useState(false);
+    const [dxfExistsWarning, setDxfExistsWarning] = useState(false);
+    const [pendingDxfItem, setPendingDxfItem] = useState(null);
 
     useEffect(() => {
         config.loadItems().then(({ ok, data }) => {
@@ -131,6 +151,9 @@ export default function SyncModal({ user, onClose, mode }) {
                 if (mode === 'extract') {
                     const { selectionApi } = await import('../../api/selection');
                     ({ ok, data } = await selectionApi.extractStatus(taskId));
+                } else if (mode === 'dxf_import') {
+                    const { selectionApi } = await import('../../api/selection');
+                    ({ ok, data } = await selectionApi.dxfImportStatus(taskId));
                 } else {
                     ({ ok, data } = await externalApi.taskStatus(taskId));
                 }
@@ -139,44 +162,89 @@ export default function SyncModal({ user, onClose, mode }) {
 
                 const isReady = mode === 'extract'
                     ? data.data.status === 'COMPLETED' || data.data.status === 'FAILED'
-                    : data.data.ready;
+                    : (mode === 'dxf_import')
+                        ? data.data.status === 'COMPLETED' || data.data.status === 'FAILED'
+                        : data.data.ready;
 
                 if (isReady) {
-                    if (mode === 'extract') {
-                        const isFailed = data.data.status === 'FAILED';
-                        setResults(prev => ({
-                            ...prev,
-                            [itemId]: {
-                                loading: false,
-                                ok: !isFailed,
-                                message: isFailed
-                                    ? `✗ ${data.data.error_log?.error || 'Ошибка'}`
-                                    : `✓ Найдено: ${data.data.items_found} моделей`,
-                                taskId: taskId,
-                            },
-                        }));
-                    } else {
-                        const result = data.data.result;
-                        setResults(prev => ({
-                            ...prev,
-                            [itemId]: {
-                                loading: false,
-                                ok: result.success,
-                                message: config.formatResult(result),
-                            },
-                        }));
-                    }
-                    setTaskIds(prev => {
-                        const next = { ...prev };
-                        delete next[itemId];
-                        return next;
-                    });
+                    const isFailed = data.data.status === 'FAILED';
+                    const msg = (mode === 'extract')
+                        ? (isFailed
+                            ? `✗ ${data.data.error_log?.error || 'Ошибка'}`
+                            : `✓ Найдено: ${data.data.items_found} моделей`)
+                        : (mode === 'dxf_import')
+                            ? (isFailed
+                                ? `✗ Ошибка импорта`
+                                : `✓ Файлов: ${data.data.files_done}, ошибок: ${data.data.files_failed}`)
+                            : config.formatResult(data.data.result);
+
+                    setResults(prev => ({
+                        ...prev,
+                        [itemId]: { loading: false, ok: !isFailed, message: msg },
+                    }));
+                    setTaskIds(prev => { const n = { ...prev }; delete n[itemId]; return n; });
                 }
             }
         }, 2000);
 
         return () => clearInterval(interval);
     }, [taskIds]);
+
+    const checkAndRunDxf = async (itemId) => {
+        const fileList = files[itemId];
+        if (!fileList?.length) {
+            setResults(prev => ({
+                ...prev,
+                [itemId]: { loading: false, ok: false, message: 'Выберите DXF-файлы' },
+            }));
+            return;
+        }
+
+        // Проверяем существование по имени первого файла
+        const product = dxfProduct.trim() || fileList[0].name.replace('.dxf', '');
+        const { ok, data } = await selectionApi.dxfCheckExists(product);
+        const exists = ok && data?.results?.length > 0 || (Array.isArray(data) && data.length > 0);
+
+        if (exists && !dxfExistsWarning) {
+            setPendingDxfItem(itemId);
+            setDxfExistsWarning(true);
+            return;
+        }
+
+        setDxfExistsWarning(false);
+        setPendingDxfItem(null);
+        runItem(itemId);
+    };
+
+    const runDxfImport = async (itemId, merge) => {
+        const fileList = files[itemId];
+        setResults(prev => ({
+            ...prev,
+            [itemId]: { loading: true, ok: null, message: 'Запуск...' },
+        }));
+
+        const { ok, data } = await selectionApi.dxfImportUpload(
+            Array.from(fileList),
+            dxfProduct.trim(),
+            20.0,
+            true,
+            merge,
+        );
+
+        if (!ok || !data.success) {
+            setResults(prev => ({
+                ...prev,
+                [itemId]: { loading: false, ok: false, message: data?.error?.message || 'Ошибка' },
+            }));
+            return;
+        }
+
+        setTaskIds(prev => ({ ...prev, [itemId]: data.data.task_id }));
+        setResults(prev => ({
+            ...prev,
+            [itemId]: { loading: true, ok: null, message: 'Выполняется...' },
+        }));
+    };
 
     const runItem = async (itemId) => {
         setResults(prev => ({
@@ -197,6 +265,25 @@ export default function SyncModal({ user, onClose, mode }) {
             }
             const { selectionApi } = await import('../../api/selection');
             ({ ok, data } = await selectionApi.extractUpload(itemId, file));
+
+        } else if (mode === 'dxf_import') {
+            const fileList = files[itemId];  // FileList или массив
+            if (!fileList || !fileList.length) {
+                setResults(prev => ({
+                    ...prev,
+                    [itemId]: { loading: false, ok: false, message: 'Выберите DXF-файлы' },
+                }));
+                return;
+            }
+            const { selectionApi } = await import('../../api/selection');
+            ({ ok, data } = await selectionApi.dxfImportUpload(
+                Array.from(fileList),
+                dxfProduct.trim(),
+                20.0,
+                true,
+                dxfMerge,
+            ));
+
         } else {
             ({ ok, data } = await config.runItem(itemId, opts));
         }
@@ -237,12 +324,12 @@ export default function SyncModal({ user, onClose, mode }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-             onClick={onClose}>
+            onClick={onClose}>
             <div className="w-96 bg-white dark:bg-neutral-900
                             rounded-xl shadow-2xl
                             border border-gray-200 dark:border-gray-700
                             overflow-hidden"
-                 onClick={e => e.stopPropagation()}>
+                onClick={e => e.stopPropagation()}>
 
                 {/* Шапка */}
                 <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800
@@ -251,7 +338,7 @@ export default function SyncModal({ user, onClose, mode }) {
                         {config.title}
                     </h2>
                     <button onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600
+                        className="text-gray-400 hover:text-gray-600
                                        dark:hover:text-gray-300 text-lg">
                         ×
                     </button>
@@ -282,19 +369,21 @@ export default function SyncModal({ user, onClose, mode }) {
                                             {item.name}
                                         </span>
                                         {state?.message && (
-                                            <p className={`text-xs mt-0.5 ${
-                                                state.ok === true  ? 'text-emerald-500' :
+                                            <p className={`text-xs mt-0.5 ${state.ok === true ? 'text-emerald-500' :
                                                 state.ok === false ? 'text-red-500' :
-                                                'text-gray-400'
-                                            }`}>
+                                                    'text-gray-400'
+                                                }`}>
                                                 {state.message}
                                             </p>
                                         )}
                                     </div>
                                     <button
-                                        onClick={() => mode === 'extract'
-                                            ? document.getElementById(fileInputId)?.click()
-                                            : runItem(item.id)
+                                        onClick={() =>
+                                            mode === 'extract'
+                                                ? document.getElementById(fileInputId)?.click()
+                                                : mode === 'dxf_import'
+                                                    ? document.getElementById(`dxf-file-${item.id}`)?.click()
+                                                    : runItem(item.id)
                                         }
                                         disabled={state?.loading || runningAll}
                                         className={`shrink-0 px-3 py-1.5 text-xs font-medium
@@ -302,7 +391,9 @@ export default function SyncModal({ user, onClose, mode }) {
                                                     disabled:opacity-40 ${config.btnColor}`}>
                                         {state?.loading
                                             ? <IconClock className="w-4 h-4" />
-                                            : mode === 'extract' ? 'Выбрать PDF' : 'Запустить'
+                                            : mode === 'extract' ? 'Выбрать PDF'
+                                                : mode === 'dxf_import' ? 'Выбрать DXF'
+                                                    : 'Запустить'
                                         }
                                     </button>
                                 </div>
@@ -370,12 +461,84 @@ export default function SyncModal({ user, onClose, mode }) {
                                         )}
                                     </>
                                 )}
+
+                                {mode === 'dxf_import' && (
+                                    <>
+                                        <input
+                                            id={`dxf-file-${item.id}`}
+                                            type="file" accept=".dxf" multiple className="hidden"
+                                            onChange={e => {
+                                                if (e.target.files?.length)
+                                                    setFiles(prev => ({ ...prev, [item.id]: e.target.files }));
+                                                // Сбросить предупреждение при смене файлов
+                                                setDxfExistsWarning(false);
+                                            }}
+                                        />
+                                        <input
+                                            value={dxfProduct}
+                                            onChange={e => setDxfProduct(e.target.value)}
+                                            placeholder="External ID (если пусто — из имени файла)"
+                                            className="w-full text-xs px-3 py-1.5 rounded-lg border
+                       border-gray-200 dark:border-gray-700
+                       bg-white dark:bg-neutral-800
+                       text-gray-900 dark:text-white
+                       focus:outline-none focus:border-blue-500"
+                                        />
+
+                                        {/* Диалог при существующем графике */}
+                                        {dxfExistsWarning && pendingDxfItem === item.id && (
+                                            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20
+                            border border-amber-200 dark:border-amber-700 space-y-2">
+                                                <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+                                                    График уже существует в БД
+                                                </p>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setDxfExistsWarning(false);
+                                                            setPendingDxfItem(null);
+                                                            runDxfImport(item.id, false);
+                                                        }}
+                                                        className="flex-1 px-2 py-1.5 text-xs rounded-lg
+               bg-red-600 hover:bg-red-700 text-white transition-colors">
+                                                        Заменить
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setDxfExistsWarning(false);
+                                                            setPendingDxfItem(null);
+                                                            runDxfImport(item.id, true);
+                                                        }}
+                                                        className="flex-1 px-2 py-1.5 text-xs rounded-lg
+               bg-emerald-600 hover:bg-emerald-700 text-white transition-colors">
+                                                        Добавить кривые
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {files[item.id] && !results[item.id]?.loading && !dxfExistsWarning && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-gray-400 flex-1">
+                                                    {files[item.id].length} файл(ов)
+                                                </span>
+                                                <button
+                                                    onClick={() => checkAndRunDxf(item.id)}
+                                                    className="px-2 py-1 text-xs rounded
+                               bg-violet-600 hover:bg-violet-700
+                               text-white transition-colors">
+                                                    Импортировать
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         );
                     })}
                 </div>
 
-                
+
 
                 {/* Футер */}
                 <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800
