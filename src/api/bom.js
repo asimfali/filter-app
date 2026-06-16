@@ -231,4 +231,13 @@ export const bomApi = {
             headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` },
         });
     },
+    fuzzySearchPart: (q) => {
+        const qs = new URLSearchParams({ q });
+        return request('GET', `${BASE}/parts/fuzzy-search/?${qs}`);
+    },
+    mergeSpecMaterial: (materialId, targetPartId) =>
+        request('POST', `${BASE}/parts/merge/`, {
+            material_id: materialId,
+            target_part_id: targetPartId,
+        }),
 };

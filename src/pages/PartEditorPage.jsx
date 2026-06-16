@@ -88,7 +88,6 @@ export default function PartEditorPage() {
     const [specs, setSpecs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedSpec, setSelectedSpec] = useState(null);
-
     const { restore, save } = useBomSession();
 
     useEffect(() => {
@@ -123,7 +122,7 @@ export default function PartEditorPage() {
             setSelectedSpec(data.data);
             setView('editor');
             if (canWrite) await bomApi.lockSpec(specId);
-            await save({ spec_id: specId });  // ← сохраняем
+            await save({ spec_id: specId });
         }
     };
 
@@ -131,7 +130,7 @@ export default function PartEditorPage() {
         if (selectedSpec) await bomApi.unlockSpec(selectedSpec.id);
         setSelectedSpec(null);
         setView('list');
-        await save({});  // ← очищаем
+        await save({});
         loadSpecs();
     };
 

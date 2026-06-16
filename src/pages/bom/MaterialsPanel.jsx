@@ -3,8 +3,9 @@ import { bomApi } from '../../api/bom';
 import Dropdown from '../../components/common/Dropdown';
 import MaterialCombobox from '../../components/bom/MaterialCombobox';
 import { inputCls } from '../../utils/styles';
+import FuzzyMergeModal from '../../components/bom/FuzzyMergeModal';
 
-export default function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, canWrite, canView, validation }) {
+export default function MaterialsPanel({ materials, presets, sheetMappings, onSave, saving, canWrite, canView, validation, suggestions = {} }) {
     const [rows, setRows] = useState(materials);
     const [partSearch, setPartSearch] = useState({});
     const [partResults, setPartResults] = useState({});
@@ -13,6 +14,7 @@ export default function MaterialsPanel({ materials, presets, sheetMappings, onSa
     const partRefs = useRef({});
     const matRefs = useRef({});
     const [units, setUnits] = useState([]);
+    const [fuzzyMaterial, setFuzzyMaterial] = useState(null);
 
     useEffect(() => {
         bomApi.getUnits().then(({ ok, data }) => {
@@ -138,7 +140,8 @@ export default function MaterialsPanel({ materials, presets, sheetMappings, onSa
                                 return (
                                     <tr key={idx}
                                         className={`border-b border-gray-50 dark:border-gray-800
-                                            ${hasError ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
+                                        ${hasError ? 'bg-red-50/50 dark:bg-red-900/10' : ''}
+                                        ${row.validation_status === 'warning' ? 'bg-amber-50/50 dark:bg-amber-900/10' : ''}`}>
 
                                         {/* Пресет */}
                                         <td className="py-1.5 pr-3">
@@ -179,6 +182,20 @@ export default function MaterialsPanel({ materials, presets, sheetMappings, onSa
                                                     className={`${inputCls} ${hasError ? 'border-red-300' : ''}`}
                                                     placeholder="Наименование"
                                                 />
+                                                {row.validation_status === 'warning' && canWrite && (
+                                                    <button
+                                                        onClick={() => setFuzzyMaterial({
+                                                            id: row.id,
+                                                            part_name: row.part_name,
+                                                        })}
+                                                        title="Найдены похожие — уточните выбор"
+                                                        className="shrink-0 text-xs px-1.5 py-0.5 rounded border
+                                                                    border-amber-400 text-amber-600 dark:text-amber-400
+                                                                    hover:bg-amber-50 dark:hover:bg-amber-900/20
+                                                                    transition-colors whitespace-nowrap">
+                                                        ≈
+                                                    </button>
+                                                )}
                                             </div>
                                             <Dropdown
                                                 anchorRef={{ current: partRefs.current[idx] }}
@@ -315,6 +332,21 @@ export default function MaterialsPanel({ materials, presets, sheetMappings, onSa
                         </tbody>
                     </table>
                 </div>
+            )}
+
+            {fuzzyMaterial && (
+                <FuzzyMergeModal
+                    material={fuzzyMaterial}
+                    onClose={() => setFuzzyMaterial(null)}
+                    onMerged={({ new_name }) => {
+                        setRows(r => r.map(row =>
+                            row.id === fuzzyMaterial.id
+                                ? { ...row, part_name: new_name, validation_status: 'pending' }
+                                : row
+                        ));
+                        setFuzzyMaterial(null);
+                    }}
+                />
             )}
 
             {/* Липкая нижняя панель действий */}

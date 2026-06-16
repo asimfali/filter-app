@@ -44,6 +44,7 @@ export default function SpecList({ specs, loading, canWrite, canView, onOpen, on
     const [packagingOpen, setPackagingOpen] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const { showConfirm, showAlert, modals } = useModals();
+    const [pendingSuggestions, setPendingSuggestions] = useState(null);
 
     useEffect(() => {
         if (!contextMenu) return;
@@ -189,7 +190,15 @@ export default function SpecList({ specs, loading, canWrite, canView, onOpen, on
             {importOpen && (
                 <ImportExcelModal
                     onClose={() => setImportOpen(false)}
-                    onImported={() => { setImportOpen(false); onRefresh(); }}
+                    onImported={(spec, wasSplit) => {
+                        setImportOpen(false);
+                        onRefresh();
+                        if (wasSplit) {
+                            // Показываем сообщение и открываем первую
+                            showAlert('Создано 2 спецификации по типу материала. Открыта первая.');
+                        }
+                        onOpen(spec.id);
+                    }}
                 />
             )}
 

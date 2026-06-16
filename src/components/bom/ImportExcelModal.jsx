@@ -10,12 +10,19 @@ export default function ImportExcelModal({ onClose, onImported }) {
         async (f) => {
             const { ok, data } = await bomApi.importFromExcel(f);
             if (ok && data.success) {
-                if (data.meta?.warnings?.length) {
-                    setTimeout(() => onImported(data.data), 2000);
+                const warnings = data.meta?.warnings || [];
+    
+                if (data.split) {
+                    // Две спецификации — открываем первую, вторая появится в списке
+                    setTimeout(() => onImported(data.data[0], true), warnings.length ? 2000 : 0);
                 } else {
-                    onImported(data.data);
+                    if (warnings.length) {
+                        setTimeout(() => onImported(data.data), 2000);
+                    } else {
+                        onImported(data.data);
+                    }
                 }
-                return { ok: true, warnings: data.meta?.warnings || [] };
+                return { ok: true, warnings };
             }
             return { ok: false, error: data.error, warnings: data.data?.errors || [] };
         }
