@@ -12,6 +12,14 @@ const INSTALL_TYPES = [
     { value: 'BD', label: 'Боковая двустор.' },
 ];
 
+const EMPTY_MANUAL = {
+    series: '',
+    design: '',
+    lengths: [],   // выбранные lbody мм
+    angles: [30],  // по умолчанию
+    angleInput: '', // ввод нового угла
+};
+
 const TSM_OPTIONS = [0, 5, 12, 18];
 const TPR_OPTIONS = [60, 80, 95, 105, 130, 150];
 
@@ -35,18 +43,25 @@ function useFormData() {
     const [heatingValues, setHeatingValues] = useState([]);
     const [ipValues, setIpValues] = useState([]);
     const [standardOpenings, setStandardOpenings] = useState([]);
+    const [allOptions, setAllOptions] = useState({ all_designs: [], all_series: [] });
 
     useEffect(() => {
-        selectionApi.formData().then(({ ok, data }) => {
-            if (ok && data.success) {
-                setHeatingValues(data.data.heating_values || []);
-                setIpValues(data.data.ip_values || []);
-                setStandardOpenings(data.data.standard_openings || []);
+        Promise.all([
+            selectionApi.formData(),
+            selectionApi.allOptions(),
+        ]).then(([formRes, optsRes]) => {
+            if (formRes.ok && formRes.data.success) {
+                setHeatingValues(formRes.data.data.heating_values || []);
+                setIpValues(formRes.data.data.ip_values || []);
+                setStandardOpenings(formRes.data.data.standard_openings || []);
+            }
+            if (optsRes.ok && optsRes.data.success) {
+                setAllOptions(optsRes.data.data);
             }
         });
     }, []);
 
-    return { heatingValues, ipValues, standardOpenings };
+    return { heatingValues, ipValues, standardOpenings, allOptions };
 }
 
 // ── Компонент поля числа ─────────────────────────────────────────────────────
@@ -194,7 +209,7 @@ function SeriaCard({ seria, selectedKey, onSelect,
 // ── Главная страница ──────────────────────────────────────────────────────────
 
 export default function SelectionPage() {
-    const { heatingValues, ipValues, standardOpenings } = useFormData();
+    const { heatingValues, ipValues, standardOpenings, allOptions } = useFormData();
     const [form, setForm] = useState(EMPTY_FORM);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -216,6 +231,14 @@ export default function SelectionPage() {
     const [proposalsPanelOpen, setProposalsPanelOpen] = useState(false);
     const [currentProposalId, setCurrentProposalId] = useState(null);
     const [currentProposalNumber, setCurrentProposalNumber] = useState('');
+    const [mode, setMode] = useState('auto');
+    const [manual, setManual] = useState(EMPTY_MANUAL);
+    const [manualOptions, setManualOptions] = useState({
+        all_designs: [],
+        all_series: [],
+        lengths: [],
+    });
+    const [manualLoading, setManualLoading] = useState(false);
 
     const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -224,6 +247,32 @@ export default function SelectionPage() {
     const tempWarning = !isNaN(tn) && !isNaN(tv) && tv - tn < 5 && tv - tn >= 0;
     const tempError = !isNaN(tn) && !isNaN(tv) && tn >= tv;
 
+    const setM = (field, value) => setManual(prev => ({ ...prev, [field]: value }));
+
+    const [config, setConfig] = useState({ excluded_designs: [], excluded_series: [] });
+
+    // Загрузить при монтировании — добавить в useFormData или отдельный useEffect:
+    useEffect(() => {
+        selectionApi.getConfig().then(({ ok, data }) => {
+            if (ok && data.success) setConfig(data.data);
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!manual.series || !manual.design) {
+            setManualOptions(prev => ({ ...prev, lengths: [] }));
+            return;
+        }
+        setManualLoading(true);
+        selectionApi.availableOptions(manual.series, manual.design, form.heat_type, form.ip)
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    setManualOptions(prev => ({ ...prev, lengths: data.data.lengths }));
+                }
+                setManualLoading(false);
+            });
+    }, [manual.series, manual.design, form.heat_type, form.ip]);
+
     const handleSubmit = useCallback(async e => {
         e.preventDefault();
         setLoading(true);
@@ -231,22 +280,39 @@ export default function SelectionPage() {
         setResults(null);
         setSelectedKey(null);
         setSelectedCombo(null);
+
         try {
-            const payload = {
-                ...form,
+            const base = {
+                heat_type: form.heat_type,
+                install_type: form.install_type,
+                ip: parseInt(form.ip),
                 h: parseFloat(form.h),
                 b: parseFloat(form.b),
                 tn: parseFloat(form.tn),
                 tv: parseFloat(form.tv),
                 V: parseFloat(form.V),
                 tsm: parseInt(form.tsm),
-                ip: parseInt(form.ip),
                 Tpr: form.heat_type === 'W' ? parseInt(form.Tpr) : undefined,
+                optimize: form.optimize,
             };
+
+            const payload = mode === 'manual'
+                ? {
+                    ...base,
+                    mode: 'manual',
+                    manual: {
+                        series: manual.series,
+                        design: manual.design,
+                        lbodies: manual.lengths,
+                        angles: manual.angles,
+                    },
+                }
+                : { ...base, mode: 'auto' };
+
             const { ok, data } = await selectionApi.calculate(payload);
             if (ok && data.success) {
-                setResults(data.data);    
-                setLastParams(payload);
+                setResults(data.data);
+                setLastParams(base);
                 setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
             } else {
                 setError(data.error?.message || data.error?.details || 'Ошибка расчёта');
@@ -256,7 +322,7 @@ export default function SelectionPage() {
         } finally {
             setLoading(false);
         }
-    }, [form]);
+    }, [form, mode, manual]);
 
     const handleNearestByCoords = useCallback(async () => {
         setCoordError('');
@@ -308,7 +374,7 @@ export default function SelectionPage() {
     const handleGenerateProposal = async (openInBrowser) => {
         const proposalParams = buildProposalParams();
         let proposalNumber = currentProposalNumber;
-    
+
         if (!openInBrowser) {
             // Сохраняем только при скачивании
             if (!currentProposalId) {
@@ -336,21 +402,20 @@ export default function SelectionPage() {
                 });
             }
         }
-    
+
         const res = await selectionApi.proposal(
             { ...proposalParams, proposal_no: proposalNumber },
             selectedCombo,
         );
         if (!res.ok) { setError('Ошибка формирования предложения'); return; }
-    
+
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-    
+
         if (openInBrowser) {
             const newTab = window.open('', '_blank');
-            newTab.document.write(`<html><head><title>${
-                customer ? `Предложение для ${customer}` : 'Предложение'
-            }</title></head><body style="margin:0">
+            newTab.document.write(`<html><head><title>${customer ? `Предложение для ${customer}` : 'Предложение'
+                }</title></head><body style="margin:0">
             <embed src="${url}" type="application/pdf" width="100%" height="100%"/>
             </body></html>`);
             newTab.document.close();
@@ -369,6 +434,13 @@ export default function SelectionPage() {
         ${active
             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
             : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'}`;
+
+    const manualInvalid = mode === 'manual' && (
+        !manual.series ||
+        !manual.design ||
+        manual.lengths.length === 0 ||
+        manual.angles.length === 0
+    );
 
     return (
         <div className="space-y-4">
@@ -395,6 +467,25 @@ export default function SelectionPage() {
 
             <form onSubmit={handleSubmit}
                 className="bg-white dark:bg-neutral-900 rounded-lg shadow px-5 py-5 space-y-5">
+
+                {/* Вкладки режима */}
+                <div className="flex gap-1 bg-gray-100 dark:bg-neutral-800 p-1 rounded-lg">
+                    {[
+                        { id: 'auto', label: 'Автоматический' },
+                        { id: 'manual', label: 'Ручной' },
+                    ].map(t => (
+                        <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setMode(t.id)}
+                            className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors
+                    ${mode === t.id
+                                    ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
 
                 {/* 1. Организация (заказчик) */}
                 <label className="flex flex-col gap-1">
@@ -560,6 +651,168 @@ export default function SelectionPage() {
                     </div>
                 </div>
 
+                {/* Ручной режим */}
+                {mode === 'manual' && (
+                    <div className="space-y-4 p-4 rounded-lg border border-blue-200
+        dark:border-blue-800 bg-blue-50/30 dark:bg-blue-900/10">
+                        <p className="text-xs font-medium text-blue-700 dark:text-blue-300
+            uppercase tracking-wide">
+                            Ручной подбор
+                        </p>
+
+                        {/* Серия */}
+                        <div className="space-y-1.5">
+                            <p className="text-xs text-gray-400 dark:text-gray-500">Серия</p>
+                            <div className="flex flex-wrap gap-2">
+                                {allOptions.all_series
+                                    .filter(s => !config.excluded_series?.includes(s))
+                                    .map(s => (
+                                        <button key={s} type="button"
+                                            onClick={() => { setM('series', s); setM('design', ''); setM('lengths', []); }}
+                                            className={`px-3 py-1.5 rounded-lg border text-xs transition-colors
+                                ${manual.series === s
+                                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'}`}>
+                                            {s}
+                                        </button>
+                                    ))}
+                            </div>
+                        </div>
+
+                        {/* Дизайн */}
+                        {manual.series && (
+                            <div className="space-y-1.5">
+                                <p className="text-xs text-gray-400 dark:text-gray-500">Дизайн</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {allOptions.all_designs
+                                        .filter(d => !config.excluded_designs?.includes(d))
+                                        .map(d => (
+                                            <button key={d} type="button"
+                                                onClick={() => { setM('design', d); setM('lengths', []); }}
+                                                className={`px-3 py-1.5 rounded-lg border text-xs transition-colors
+                                    ${manual.design === d
+                                                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                                        : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'}`}>
+                                                {d}
+                                            </button>
+                                        ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Длины */}
+                        {manual.design && (
+                            <div className="space-y-1.5">
+                                <p className="text-xs text-gray-400 dark:text-gray-500">
+                                    Длины корпуса
+                                    {manual.lengths.length > 0 && (
+                                        <span className="ml-2 text-blue-500">
+                                            {manual.lengths.map(l => `${l} мм`).join(' + ')}
+                                        </span>
+                                    )}
+                                </p>
+                                {manualLoading ? (
+                                    <p className="text-xs text-gray-400 animate-pulse">Загрузка...</p>
+                                ) : manualOptions.lengths.length === 0 ? (
+                                    <p className="text-xs text-gray-400">Нет доступных длин</p>
+                                ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                        {manualOptions.lengths.map(l => {
+                                            const count = manual.lengths.filter(x => x === l).length;
+                                            return (
+                                                <button key={l} type="button"
+                                                    onClick={() => setM('lengths', [...manual.lengths, l])}
+                                                    className={`relative px-3 py-1.5 rounded-lg border text-xs transition-colors
+                ${count > 0
+                                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'}`}>
+                                                    {l} мм
+                                                    {count > 0 && (
+                                                        <span className="ml-1.5 inline-flex items-center justify-center
+                    w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold">
+                                                            {count}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+
+                                        {/* Убрать последнюю добавленную длину */}
+                                        {manual.lengths.length > 0 && (
+                                            <button type="button"
+                                                onClick={() => setM('lengths', manual.lengths.slice(0, -1))}
+                                                className="px-3 py-1.5 rounded-lg border border-gray-200
+            dark:border-gray-700 text-xs text-gray-400
+            hover:border-red-400 hover:text-red-500 transition-colors">
+                                                ← Убрать
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {manual.lengths.length === 0 && manualOptions.lengths.length > 0 && (
+                                    <p className="text-xs text-amber-500 dark:text-amber-400">
+                                        Выберите хотя бы одну длину
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Углы */}
+                        {manual.design && (
+                            <div className="space-y-1.5">
+                                <p className="text-xs text-gray-400 dark:text-gray-500">Углы расчёта</p>
+                                <div className="flex flex-wrap gap-2 items-center">
+                                    {manual.angles.map(a => (
+                                        <span key={a}
+                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg
+                                border border-blue-500 bg-blue-50 dark:bg-blue-900/30
+                                text-blue-700 dark:text-blue-300 text-xs">
+                                            {a}°
+                                            <button type="button"
+                                                onClick={() => setM('angles', manual.angles.filter(x => x !== a))}
+                                                className="hover:text-red-500 transition-colors leading-none">
+                                                ×
+                                            </button>
+                                        </span>
+                                    ))}
+                                    <div className="flex gap-1">
+                                        <input
+                                            type="number"
+                                            min={0} max={90}
+                                            value={manual.angleInput}
+                                            onChange={e => setM('angleInput', e.target.value)}
+                                            placeholder="°"
+                                            className="w-16 border border-gray-300 dark:border-gray-600
+                                rounded-lg px-2 py-1.5 text-xs
+                                bg-white dark:bg-neutral-800
+                                text-gray-900 dark:text-white
+                                focus:outline-none focus:ring-1 focus:ring-blue-500
+                                [appearance:textfield]
+                                [&::-webkit-outer-spin-button]:appearance-none
+                                [&::-webkit-inner-spin-button]:appearance-none"
+                                        />
+                                        <button type="button"
+                                            onClick={() => {
+                                                const v = parseInt(manual.angleInput);
+                                                if (!isNaN(v) && v >= 0 && v <= 90 && !manual.angles.includes(v)) {
+                                                    setM('angles', [...manual.angles, v]);
+                                                }
+                                                setM('angleInput', '');
+                                            }}
+                                            className="px-3 py-1.5 rounded-lg border border-gray-200
+                                dark:border-gray-700 text-xs text-gray-600
+                                dark:text-gray-400 hover:border-blue-400
+                                hover:text-blue-500 transition-colors">
+                                            + Добавить
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* 9. Параметры воды */}
                 {form.heat_type === 'W' && (
                     <div className="grid grid-cols-2 gap-4 p-4 rounded-lg
@@ -607,7 +860,7 @@ export default function SelectionPage() {
                     </div>
                 )}
 
-                <button type="submit" disabled={loading || tempError}
+                <button type="submit" disabled={loading || tempError || manualInvalid}
                     className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700
                         disabled:opacity-50 text-white text-sm font-semibold transition-colors">
                     {loading ? 'Выполняется расчёт...' : 'Подобрать завесы'}

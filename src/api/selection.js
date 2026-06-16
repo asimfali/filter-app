@@ -213,4 +213,35 @@ export const selectionApi = {
         const res = await apiFetch(`${BASE}/fan-chart-import/${taskId}/status/`);
         return { ok: res.ok, data: await res.json() };
     },
+
+    // Персональный конфиг подбора
+    async getConfig() {
+        const res = await apiFetch(`${BASE}/config/me/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async updateConfig(payload) {
+        const res = await apiFetch(`${BASE}/config/me/`, {
+            method: 'PUT',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    // Доступные опции для ручного режима
+    async availableOptions(series, design, heatType, ip) {
+        const params = new URLSearchParams({
+            series,
+            design,
+            heat_type: heatType,
+            ip: String(ip),
+        });
+        const res = await apiFetch(`${BASE}/available-options/me/?${params}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async allOptions() {
+        const res = await apiFetch(`${BASE}/available-options/me/?all_options=1`);
+        return { ok: res.ok, data: await res.json() };
+    },
 };

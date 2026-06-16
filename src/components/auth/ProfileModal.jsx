@@ -5,6 +5,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { externalApi } from '../../api/external';
 import { can } from '../../utils/permissions';
 import SyncModal from '../sync/SyncModal';
+import SelectionConfigModal from '../selection/SelectionConfigModal';
 import { IconLink, IconFolder } from '../common/Icons';
 
 export default function ProfileModal({ user, onClose, onUpdated }) {
@@ -25,6 +26,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     const [syncingCatalog, setSyncingCatalog] = useState(false);
     const [syncCatalogResult, setSyncCatalogResult] = useState(null);
     const [syncModal, setSyncModal] = useState(null);
+    const [selectionConfigOpen, setSelectionConfigOpen] = useState(false);
 
     useEffect(() => {
         if (!pushTaskId) return;
@@ -373,6 +375,20 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         </button>
                     )}
 
+                    {/* Настройки подбора */}
+                    <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400
+                            uppercase tracking-wide mb-2">
+                            Подбор завес
+                        </p>
+                        <button
+                            onClick={() => setSelectionConfigOpen(true)}
+                            className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                                bg-blue-600 hover:bg-blue-700
+                                text-white transition-colors">
+                            Настройки исключений
+                        </button>
+                    </div>
 
                     {/* Тема */}
                     <div>
@@ -515,6 +531,11 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         Закрыть
                     </button>
                 </div>
+                <SelectionConfigModal
+                    open={selectionConfigOpen}
+                    onClose={() => setSelectionConfigOpen(false)}
+                    onSaved={() => showSuccess('Настройки подбора сохранены')}
+                />
             </div>
         </div>
     );
