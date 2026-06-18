@@ -38,7 +38,8 @@ const CURVE_TYPE_LABELS = {
 }
 
 function NetworkCurvePanel({ xDomain, onNetworkCurve, onOperatingPoint,
-  productFilter, onSelection, onCalc, scaleType = 'log', chartId = null }) {
+  productFilter, onSelection, onCalc, scaleType = 'log', chartId = null,
+  xLabel = 'Q, тыс.м³/ч', yLabel = 'Pv, Па', xScaleFactor = 1.0, yScaleFactor = 1.0 }) {
   const [qRef, setQRef] = useState('')
   const [pvRef, setPvRef] = useState('')
   const [nAbove, setNAbove] = useState(3)
@@ -49,7 +50,7 @@ function NetworkCurvePanel({ xDomain, onNetworkCurve, onOperatingPoint,
     const pv = parseFloat(pvRef.replace(',', '.'))
     if (!qRaw || !pv) return
 
-    const q = scaleType === 'linear' ? qRaw * 1000 : qRaw
+    const q = qRaw
     onCalc?.({ q, pv })
 
     const R = pv / (q * q)
@@ -110,8 +111,8 @@ function NetworkCurvePanel({ xDomain, onNetworkCurve, onOperatingPoint,
       <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
         Характеристика сети:
       </span>
-      <Field label="Q, тыс.м³/ч" value={qRef} onChange={setQRef} placeholder="1.5" />
-      <Field label="Pv, Па" value={pvRef} onChange={setPvRef} placeholder="200" />
+      <Field label={xLabel} value={qRef} onChange={setQRef} placeholder="1.5" />
+      <Field label={yLabel} value={pvRef} onChange={setPvRef} placeholder="200" />
       {/* Разделитель */}
       <span className="text-xs text-gray-400 shrink-0">Подобрать:</span>
       <div className="flex items-center gap-1">
@@ -151,7 +152,7 @@ function NetworkCurvePanel({ xDomain, onNetworkCurve, onOperatingPoint,
   )
 }
 
-function AxisSettingsPanel({ chart, onApply }) {
+function AxisSettingsPanel({ chart, onApply, onApplyAll }) {
   const [form, setForm] = useState({
     xMin: String(chart.x_min ?? chart.xDomain?.[0] ?? 0.3),
     xMax: String(chart.x_max ?? chart.xDomain?.[1] ?? 2),
@@ -159,8 +160,12 @@ function AxisSettingsPanel({ chart, onApply }) {
     yMax: String(chart.y_max ?? chart.yDomain?.[1] ?? 1000),
     scaleType: chart.scale_type ?? chart.scaleType ?? 'log',
     scaleRatio: String(chart.scale_ratio ?? ''),
+    xLabel: chart.x_label ?? 'Q, тыс.м³/ч',
+    yLabel: chart.y_label ?? 'Pv, Па',
     xScaleFactor: chart.x_scale_factor ?? 1.0,
     yScaleFactor: chart.y_scale_factor ?? 1.0,
+    displayFactorX: chart.display_factor_x ?? 1.0,
+    displayFactorY: chart.display_factor_y ?? 1.0,
   })
 
   // Синхронизируем если снаружи поменяли chart
@@ -172,10 +177,16 @@ function AxisSettingsPanel({ chart, onApply }) {
       yMax: String(chart.y_max ?? chart.yDomain?.[1] ?? 1000),
       scaleType: chart.scale_type ?? chart.scaleType ?? 'log',
       scaleRatio: String(chart.scale_ratio ?? ''),
+      xLabel: chart.x_label ?? 'Q, тыс.м³/ч',
+      yLabel: chart.y_label ?? 'Pv, Па',
       xScaleFactor: chart.x_scale_factor ?? 1.0,
       yScaleFactor: chart.y_scale_factor ?? 1.0,
+      displayFactorX: chart.display_factor_x ?? 1.0,   // ← добавить
+      displayFactorY: chart.display_factor_y ?? 1.0,   // ← добавить
     })
-  }, [chart.id])
+  }, [chart.id, chart.x_scale_factor, chart.y_scale_factor,
+  chart.x_label, chart.y_label,
+  chart.display_factor_x, chart.display_factor_y])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -185,19 +196,49 @@ function AxisSettingsPanel({ chart, onApply }) {
     const yMin = parseFloat(form.yMin)
     const yMax = parseFloat(form.yMax)
     const scaleRatio = form.scaleRatio !== '' ? parseFloat(form.scaleRatio) : null
+    const xSF = parseFloat(form.xScaleFactor)
+    const ySF = parseFloat(form.yScaleFactor)
+    const dFX = parseFloat(form.displayFactorX)
+    const dFY = parseFloat(form.displayFactorY)
 
     if ([xMin, xMax, yMin, yMax].some(isNaN) || xMin >= xMax || yMin >= yMax) return
 
     onApply({
-      x_min: xMin, x_max: xMax,
-      y_min: yMin, y_max: yMax,
+      x_min: xMin,
+      x_max: xMax,
+      y_min: yMin,
+      y_max: yMax,
       scale_type: form.scaleType,
       scale_ratio: scaleRatio,
       x_label: form.xLabel,
-    y_label: form.yLabel,
-    x_scale_factor: parseFloat(form.xScaleFactor),  // ← добавить
-    y_scale_factor: parseFloat(form.yScaleFactor),  // ← добавить
-      // для совместимости с xDomain/yDomain которые читает FanChartPage
+      y_label: form.yLabel,
+      x_scale_factor: xSF,
+      y_scale_factor: ySF,
+      display_factor_x: dFX,
+      display_factor_y: dFY,
+      xDomain: [xMin, xMax],  // домены = границы в единицах БД
+      yDomain: [yMin, yMax],
+      scaleType: form.scaleType,
+    })
+  }
+
+  const handleApplyAll = () => {
+    // та же валидация что в handleApply
+    const xMin = parseFloat(form.xMin)
+    const xMax = parseFloat(form.xMax)
+    const yMin = parseFloat(form.yMin)
+    const yMax = parseFloat(form.yMax)
+    if ([xMin, xMax, yMin, yMax].some(isNaN) || xMin >= xMax || yMin >= yMax) return
+
+    onApplyAll?.({
+      x_min: xMin, x_max: xMax, y_min: yMin, y_max: yMax,
+      scale_type: form.scaleType,
+      scale_ratio: form.scaleRatio !== '' ? parseFloat(form.scaleRatio) : null,
+      x_label: form.xLabel, y_label: form.yLabel,
+      x_scale_factor: parseFloat(form.xScaleFactor),
+      y_scale_factor: parseFloat(form.yScaleFactor),
+      display_factor_x: parseFloat(form.displayFactorX),
+      display_factor_y: parseFloat(form.displayFactorY),
       xDomain: [xMin, xMax],
       yDomain: [yMin, yMax],
       scaleType: form.scaleType,
@@ -210,43 +251,119 @@ function AxisSettingsPanel({ chart, onApply }) {
       <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
         Границы осей
       </div>
+
+      {/* Строка 1: границы */}
       <div className="flex flex-wrap items-end gap-3">
-        <Field label="Q min, тыс.м³/ч" value={form.xMin} onChange={v => set('xMin', v)} />
-        <Field label="Q max, тыс.м³/ч" value={form.xMax} onChange={v => set('xMax', v)} />
-        <Field label="Pv min, Па" value={form.yMin} onChange={v => set('yMin', v)} />
-        <Field label="Pv max, Па" value={form.yMax} onChange={v => set('yMax', v)} />
-        <Field
-          label="Соотношение масштабов"
-          value={form.scaleRatio}
-          onChange={v => set('scaleRatio', v)}
-          placeholder="напр. 1.5"
-        />
-        {/* Шкала */}
+        <Field label={`Q min, ${X_UNITS.find(u => u.factor === form.xScaleFactor)?.label ?? 'тыс.м³/ч'}`} value={form.xMin} onChange={v => set('xMin', v)} />
+        <Field label={`Q max, ${X_UNITS.find(u => u.factor === form.xScaleFactor)?.label ?? 'тыс.м³/ч'}`} value={form.xMax} onChange={v => set('xMax', v)} />
+        <Field label={`Pv min, ${Y_UNITS.find(u => u.factor === form.yScaleFactor)?.label ?? 'Па'}`} value={form.yMin} onChange={v => set('yMin', v)} />
+        <Field label={`Pv max, ${Y_UNITS.find(u => u.factor === form.yScaleFactor)?.label ?? 'Па'}`} value={form.yMax} onChange={v => set('yMax', v)} />
+        <Field label="Соотношение масштабов" value={form.scaleRatio} onChange={v => set('scaleRatio', v)} placeholder="напр. 1.5" />
+      </div>
+
+      {/* Строка 2: единицы данных */}
+      <div className="flex flex-wrap items-end gap-6">
+        <div className="space-y-1">
+          <label className="text-xs text-gray-500 dark:text-gray-400">Данные хранятся X</label>
+          <div className="flex gap-1">
+            {X_UNITS.map(u => (
+              <button key={u.label}
+                onClick={() => { set('xScaleFactor', u.factor); set('xLabel', `Q, ${u.label}`) }}
+                className={`text-xs px-3 py-2 rounded-lg border transition-colors
+                                ${form.xScaleFactor === u.factor
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                  }`}>
+                {u.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-gray-500 dark:text-gray-400">Данные хранятся Y</label>
+          <div className="flex gap-1">
+            {Y_UNITS.map(u => (
+              <button key={u.label}
+                onClick={() => { set('yScaleFactor', u.factor); set('yLabel', `Pv, ${u.label}`) }}
+                className={`text-xs px-3 py-2 rounded-lg border transition-colors
+                                ${form.yScaleFactor === u.factor
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                  }`}>
+                {u.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Строка 3: единицы отображения */}
+      <div className="flex flex-wrap items-end gap-6">
+        <div className="space-y-1">
+          <label className="text-xs text-gray-500 dark:text-gray-400">Показывать X в</label>
+          <div className="flex gap-1">
+            {X_UNITS.map(u => (
+              <button key={u.label}
+                onClick={() => { set('displayFactorX', u.factor); set('xLabel', `Q, ${u.label}`) }}
+                className={`text-xs px-3 py-2 rounded-lg border transition-colors
+                                ${form.displayFactorX === u.factor
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
+                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                  }`}>
+                {u.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-gray-500 dark:text-gray-400">Показывать Y в</label>
+          <div className="flex gap-1">
+            {Y_UNITS.map(u => (
+              <button key={u.label}
+                onClick={() => { set('displayFactorY', u.factor); set('yLabel', `Pv, ${u.label}`) }}
+                className={`text-xs px-3 py-2 rounded-lg border transition-colors
+                                ${form.displayFactorY === u.factor
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
+                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                  }`}>
+                {u.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Field label="Подпись оси X" value={form.xLabel} onChange={v => set('xLabel', v)} placeholder="Q, тыс.м³/ч" />
+        <Field label="Подпись оси Y" value={form.yLabel} onChange={v => set('yLabel', v)} placeholder="Pv, Па" />
+      </div>
+
+      {/* Строка 4: шкала + кнопка */}
+      <div className="flex items-end gap-3">
         <div className="space-y-1">
           <label className="text-xs text-gray-500 dark:text-gray-400">Шкала</label>
           <div className="flex gap-1">
             {[['log', 'Лог'], ['linear', 'Линейная']].map(([val, label]) => (
-              <button
-                key={val}
-                onClick={() => set('scaleType', val)}
+              <button key={val} onClick={() => set('scaleType', val)}
                 className={`text-xs px-3 py-2 rounded-lg border transition-colors
-                  ${form.scaleType === val
+                                ${form.scaleType === val
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
                     : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                  }`}
-              >
+                  }`}>
                 {label}
               </button>
             ))}
           </div>
         </div>
-        <button
-          onClick={handleApply}
+        <button onClick={handleApply}
           className="text-xs bg-blue-600 hover:bg-blue-700 text-white
-                     px-4 py-2 rounded-lg transition-colors self-end"
-        >
+                           px-4 py-2 rounded-lg transition-colors self-end">
           Применить
         </button>
+        {onApplyAll && (
+          <button onClick={handleApplyAll}
+            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white
+                 px-4 py-2 rounded-lg transition-colors self-end">
+            Применить ко всем
+          </button>
+        )}
       </div>
     </div>
   )
@@ -533,17 +650,22 @@ export default function FanChartPage() {
   const [lastSelection, setLastSelection] = useState(null)
   const [showSaveConfirm, setShowSaveConfirm] = useState(false)
   const [showAxisSettings, setShowAxisSettings] = useState(false)
+  const combinedWidth = window.innerWidth - 80
+  const combinedHeight = window.innerHeight - 280
 
   useEffect(() => {
-    const update = () => {
-      const height = window.innerHeight - 250
-      const width = window.innerWidth - 80
-      setChartSize({ width, height })
-    }
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [])
+    if (!containerRef.current) return
+    const ro = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect
+      const sideW = charts.length > 0 ? 256 : 0  // w-56 = 224px + gap
+      setChartSize({
+        width: Math.floor(width - sideW - 24),
+        height: Math.floor(window.innerHeight - 340),
+      })
+    })
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [charts.length])
 
   const allCurves = networkCurve
     ? [...(chartData || []), networkCurve]
@@ -569,10 +691,26 @@ export default function FanChartPage() {
   const handleSelectChart = async (chart) => {
     setActiveCurveId(null)
 
-    // Если кривые уже встроены (напр. после создания) — берём как есть
     if (chart.curves !== undefined) {
-      setSelectedChart(chart)
-      setChartData(chart.curves)
+      const xSF = chart.x_scale_factor ?? 1.0
+      const ySF = chart.y_scale_factor ?? 1.0
+      const dFX = chart.display_factor_x ?? 1.0
+      const dFY = chart.display_factor_y ?? 1.0
+      const ratio = { x: xSF / dFX, y: ySF / dFY }
+
+      setSelectedChart({
+        ...chart,
+        xDomain: [chart.x_min * ratio.x, chart.x_max * ratio.x],
+        yDomain: [chart.y_min * ratio.y, chart.y_max * ratio.y],
+        scaleType: chart.scale_type ?? chart.scaleType,
+      })
+      setChartData(chart.curves.map(c => ({
+        ...c,
+        points: c.points.map(p => ({
+          x: p.x * ratio.x,
+          y: p.y * ratio.y,
+        })),
+      })))
       setMode('view')
       return
     }
@@ -580,15 +718,29 @@ export default function FanChartPage() {
     setLoading(true)
     const { ok, data } = await selectionApi.fanChartDetail(chart.id)
     if (ok) {
-      // Обновляем selectedChart свежими данными с бэка (x_min, x_max, scale_ratio и т.д.)
-      setSelectedChart(data)
+      console.log('scale_type:', data.scale_type)
+      console.log('x_min:', data.x_min, 'x_max:', data.x_max)
+      console.log('first curve first points:', data.curves?.[0]?.points?.slice(0, 3))
+      const xSF = data.x_scale_factor ?? 1.0
+      const ySF = data.y_scale_factor ?? 1.0
+      const dFX = data.display_factor_x ?? 1.0
+      const dFY = data.display_factor_y ?? 1.0
+      const ratio = { x: xSF / dFX, y: ySF / dFY }
+
+      const chartWithDomains = {
+        ...data,
+        xDomain: [data.x_min * ratio.x, data.x_max * ratio.x],
+        yDomain: [data.y_min * ratio.y, data.y_max * ratio.y],
+        scaleType: data.scale_type,
+      }
+
+      setSelectedChart(chartWithDomains)
       setChartData(data.curves.map(c => ({
-        id: c.id,
-        curve_type: c.curve_type,
-        label: c.label,
-        color: c.color || null,
-        interpolation: c.interpolation || 'spline',
-        points: c.points.map(p => ({ x: p.x, y: p.y })),
+        ...c,
+        points: c.points.map(p => ({
+          x: p.x * ratio.x,
+          y: p.y * ratio.y,
+        })),
       })))
     }
     setLoading(false)
@@ -658,12 +810,23 @@ export default function FanChartPage() {
 
   const doSaveCurves = async (chartId, chart) => {
     setSaving(true)
+    const xSF = chart.x_scale_factor ?? 1.0
+    const ySF = chart.y_scale_factor ?? 1.0
+    const dFX = chart.display_factor_x ?? 1.0
+    const dFY = chart.display_factor_y ?? 1.0
+
     const { ok, data } = await selectionApi.fanChartSave(chartId, {
-      x_min: chart.xDomain?.[0] ?? 0.3,
-      x_max: chart.xDomain?.[1] ?? 2.0,
-      y_min: chart.yDomain?.[0] ?? 60,
-      y_max: chart.yDomain?.[1] ?? 1000,
-      scale_type: chart.scaleType ?? 'log',
+      x_min: chart.x_min ?? 0.3,          // ← хранятся как есть
+      x_max: chart.x_max ?? 2.0,
+      y_min: chart.y_min ?? 60,
+      y_max: chart.y_max ?? 1000,
+      scale_type: chart.scaleType ?? chart.scale_type ?? 'log',
+      x_label: chart.x_label ?? 'Q, тыс.м³/ч',
+      y_label: chart.y_label ?? 'Pv, Па',
+      x_scale_factor: xSF,
+      y_scale_factor: ySF,
+      display_factor_x: dFX,              // ← добавить
+      display_factor_y: dFY,              // ← добавить
       curves: chartData.map(c => ({
         id: String(c.id).startsWith('curve_') ? null : c.id,
         curve_type: c.curve_type,
@@ -672,7 +835,7 @@ export default function FanChartPage() {
         param_unit: c.param_unit ?? '',
         color: c.color ?? '',
         interpolation: c.interpolation ?? 'spline',
-        points: c.points,
+        points: c.points.map(p => ({ x: p.x, y: p.y })),
       })),
     })
     setSaving(false)
@@ -735,9 +898,18 @@ export default function FanChartPage() {
     }
   }
 
+  const xScaleFactor = selectedChart?.x_scale_factor ?? 1.0
+  const yScaleFactor = selectedChart?.y_scale_factor ?? 1.0
+
   // Домены из выбранного графика или дефолт
-  const xDomain = selectedChart?.xDomain ?? [selectedChart?.x_min ?? 0.3, selectedChart?.x_max ?? 2]
-  const yDomain = selectedChart?.yDomain ?? [selectedChart?.y_min ?? 60, selectedChart?.y_max ?? 1000]
+  const xDomain = selectedChart?.xDomain ?? [
+    (selectedChart?.x_min ?? 0.3) * xScaleFactor,
+    (selectedChart?.x_max ?? 2) * xScaleFactor,
+  ]
+  const yDomain = selectedChart?.yDomain ?? [
+    (selectedChart?.y_min ?? 60) * yScaleFactor,
+    (selectedChart?.y_max ?? 1000) * yScaleFactor,
+  ]
   const scaleType = selectedChart?.scaleType ?? selectedChart?.scale_type ?? 'log'
   const scaleRatio = selectedChart?.scale_ratio ?? null
 
@@ -776,6 +948,10 @@ export default function FanChartPage() {
         y: data.data.y_domain,
         colorMap,
         scaleType: data.data.scale_type ?? 'log',
+        xLabel: data.data.x_label ?? 'Q, тыс.м³/ч',
+        yLabel: data.data.y_label ?? 'Pv, Па',
+        xScaleFactor: data.data.x_scale_factor ?? 1.0,
+        yScaleFactor: data.data.y_scale_factor ?? 1.0,
       })
     }
     setCombinedLoading(false)
@@ -895,21 +1071,23 @@ export default function FanChartPage() {
                   </div>
                 ))}
               </div>
-              <FanChartEditor
-                width={chartSize.width}
-                height={chartSize.height}
-                curves={displayCurves}
-                xDomain={combinedDomain.x}
-                yDomain={combinedDomain.y}
-                scaleType="log"
-                editable={false}
-                activeCurveId={null}
-                editTool="move"
-                operatingPoint={selectionPoints}
-                onCurveClick={selectedCurves ? handleCurveClick : null}
-                xLabel={selectedChart?.x_label ?? 'Q, тыс.м³/ч'}
-                yLabel={selectedChart?.y_label ?? 'Pv, Па'}
-              />
+              <div style={{ height: combinedHeight, minHeight: 400 }} className="w-full">
+                <FanChartEditor
+                  width={combinedWidth}
+                  height={combinedHeight}
+                  curves={displayCurves}
+                  xDomain={combinedDomain.x}
+                  yDomain={combinedDomain.y}
+                  scaleType="log"
+                  editable={false}
+                  activeCurveId={null}
+                  editTool="move"
+                  operatingPoint={selectionPoints}
+                  onCurveClick={selectedCurves ? handleCurveClick : null}
+                  xLabel={selectedChart?.x_label ?? 'Q, тыс.м³/ч'}
+                  yLabel={selectedChart?.y_label ?? 'Pv, Па'}
+                />
+              </div>
               <NetworkCurvePanel
                 xDomain={combinedDomain.x}
                 chartId={null}
@@ -919,6 +1097,10 @@ export default function FanChartPage() {
                 onSelection={handleSelection}
                 onCalc={({ q, pv }) => { setLastQRef(q); setLastPvRef(pv) }}
                 scaleType={combinedDomain.scaleType ?? 'log'}
+                xLabel={combinedDomain.xLabel ?? 'Q, тыс.м³/ч'}
+                yLabel={combinedDomain.yLabel ?? 'Pv, Па'}
+                xScaleFactor={combinedDomain.xScaleFactor ?? 1.0}
+                yScaleFactor={combinedDomain.yScaleFactor ?? 1.0}
               />
             </div>
           )}
@@ -950,7 +1132,7 @@ export default function FanChartPage() {
             </button>
           </div>
 
-          <div className="flex gap-6 items-start">
+          <div ref={containerRef} className="flex gap-6 items-start">
             {/* Список графиков */}
             {charts.length > 0 && (
               <div className="w-56 shrink-0 flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>
@@ -1118,9 +1300,7 @@ export default function FanChartPage() {
                   <AxisSettingsPanel
                     chart={selectedChart}
                     onApply={(updates) => {
-                      // Обновляем локально — график перерисуется сразу
                       setSelectedChart(prev => ({ ...prev, ...updates }))
-                      // Сохраняем на бэк (метаданные без кривых)
                       if (!String(selectedChart.id).startsWith('new_')) {
                         selectionApi.fanChartSave(selectedChart.id, {
                           x_min: updates.x_min,
@@ -1128,38 +1308,59 @@ export default function FanChartPage() {
                           y_min: updates.y_min,
                           y_max: updates.y_max,
                           scale_type: updates.scale_type,
-                          curves: chartData.map(c => ({
-                            id: String(c.id).startsWith('curve_') ? null : c.id,
-                            curve_type: c.curve_type,
-                            label: c.label,
-                            param_value: c.param_value ?? null,
-                            param_unit: c.param_unit ?? '',
-                            color: c.color ?? '',
-                            interpolation: c.interpolation ?? 'spline',
-                            points: c.points,
-                          })),
+                          x_label: updates.x_label,
+                          y_label: updates.y_label,
+                          x_scale_factor: updates.x_scale_factor ?? 1.0,
+                          y_scale_factor: updates.y_scale_factor ?? 1.0,
+                          display_factor_x: updates.display_factor_x ?? 1.0,
+                          display_factor_y: updates.display_factor_y ?? 1.0,
+                          // curves не передаём — бэкенд не трогает кривые
                         })
                       }
+                    }}
+                    onApplyAll={(updates) => {
+                      // Применяем метаданные ко всем графикам в списке
+                      charts.forEach(chart => {
+                        if (String(chart.id).startsWith('new_')) return
+                        selectionApi.fanChartSave(chart.id, {
+                          x_min: updates.x_min,
+                          x_max: updates.x_max,
+                          y_min: updates.y_min,
+                          y_max: updates.y_max,
+                          scale_type: updates.scale_type,
+                          x_label: updates.x_label,
+                          y_label: updates.y_label,
+                          x_scale_factor: updates.x_scale_factor ?? 1.0,
+                          y_scale_factor: updates.y_scale_factor ?? 1.0,
+                          display_factor_x: updates.display_factor_x ?? 1.0,
+                          display_factor_y: updates.display_factor_y ?? 1.0,
+                          // curves не передаём
+                        })
+                      })
+                      // Текущий чарт тоже обновляем локально
+                      setSelectedChart(prev => ({ ...prev, ...updates }))
                     }}
                   />
                 )}
 
-                <FanChartEditor
-                  width={chartWidth}
-                  height={chartHeight}
-                  curves={allCurves}
-                  editable={mode === 'edit'}
-                  xDomain={xDomain}
-                  yDomain={yDomain}
-                  scaleType={scaleType}
-                  onChange={handleCurvesChange}
-                  activeCurveId={mode === 'edit' ? activeCurveId : null}
-                  editTool={mode === 'edit' ? editTool : 'move'}
-                  onAddPoint={handleAddPoint}
-                  operatingPoint={operatingPoint}
-                  xLabel={selectedChart?.x_label ?? 'Q, тыс.м³/ч'}
-                  yLabel={selectedChart?.y_label ?? 'Pv, Па'}
-                />
+                <div ref={containerRef} style={{ height: 'calc(100vh - 340px)', minHeight: 400 }} className="w-full">
+                  <FanChartEditor
+                    width={chartSize.width}
+                    height={chartSize.height}
+                    curves={allCurves}
+                    editable={mode === 'edit'}
+                    xDomain={xDomain}
+                    yDomain={yDomain}
+                    scaleType={scaleType}
+                    onChange={handleCurvesChange}
+                    activeCurveId={mode === 'edit' ? activeCurveId : null}
+                    editTool={mode === 'edit' ? editTool : 'move'}
+                    onAddPoint={handleAddPoint}
+                    operatingPoint={operatingPoint}
+                    xLabel={selectedChart?.x_label ?? 'Q, тыс.м³/ч'}
+                    yLabel={selectedChart?.y_label ?? 'Pv, Па'}
+                  />
+                </div>
 
                 {chartData !== null && (
                   <NetworkCurvePanel
@@ -1168,6 +1369,10 @@ export default function FanChartPage() {
                     onNetworkCurve={setNetworkCurve}
                     onOperatingPoint={setOperatingPoint}
                     scaleType={scaleType}
+                    xLabel={selectedChart?.x_label ?? 'Q, тыс.м³/ч'}
+                    yLabel={selectedChart?.y_label ?? 'Pv, Па'}
+                    xScaleFactor={selectedChart?.x_scale_factor ?? 1.0}
+                    yScaleFactor={selectedChart?.y_scale_factor ?? 1.0}
                   />
                 )}
 

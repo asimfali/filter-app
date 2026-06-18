@@ -98,6 +98,8 @@ export default function FanChartEditor({
   const [tooltip, setTooltip] = useState(null)
   const svgRef = useRef(null)
 
+  const bgColor = document.documentElement.classList.contains('dark') ? '#171717' : '#ffffff'
+
   const xScale = useMemo(() => {
     const fn = scaleType === 'log' ? scaleLog : scaleLinear
     return fn({ domain: xDomain, range: [0, innerW], ...(scaleType === 'log' ? { base: 10 } : {}) })
@@ -142,8 +144,20 @@ export default function FanChartEditor({
     onChange?.(next)
   }
 
-  const xTicks = useMemo(() => {
-    if (scaleType !== 'log') return undefined
+  const xTicksAll = useMemo(() => {
+    if (scaleType !== 'log') {
+      // Для линейной — равномерные тики (5-10 штук)
+      const [xMin, xMax] = xDomain
+      const step = (xMax - xMin) / 8
+      const magnitude = Math.pow(10, Math.floor(Math.log10(step)))
+      const niceStep = Math.ceil(step / magnitude) * magnitude
+      const ticks = []
+      const start = Math.ceil(xMin / niceStep) * niceStep
+      for (let v = start; v <= xMax + niceStep * 0.01; v += niceStep) {
+        ticks.push(parseFloat(v.toPrecision(10)))
+      }
+      return ticks
+    }
     const [xMin, xMax] = xDomain
     const ticks = []
     const minExp = Math.floor(Math.log10(xMin))
@@ -155,10 +169,21 @@ export default function FanChartEditor({
       }
     }
     return ticks
-  }, [xDomain, scaleType])
+  }, [xDomain, innerW, scaleType])
 
-  const yTicks = useMemo(() => {
-    if (scaleType !== 'log') return undefined
+  const yTicksAll = useMemo(() => {
+    if (scaleType !== 'log') {
+      const [yMin, yMax] = yDomain
+      const step = (yMax - yMin) / 8
+      const magnitude = Math.pow(10, Math.floor(Math.log10(step)))
+      const niceStep = Math.ceil(step / magnitude) * magnitude
+      const ticks = []
+      const start = Math.ceil(yMin / niceStep) * niceStep
+      for (let v = start; v <= yMax + niceStep * 0.01; v += niceStep) {
+        ticks.push(parseFloat(v.toPrecision(10)))
+      }
+      return ticks
+    }
     const [yMin, yMax] = yDomain
     const ticks = []
     const minExp = Math.floor(Math.log10(yMin))
@@ -170,7 +195,70 @@ export default function FanChartEditor({
       }
     }
     return ticks
-  }, [yDomain, scaleType])
+  }, [yDomain, innerH, scaleType])
+
+  // ← добавить сразу после:
+  const xTicksLabels = useMemo(
+    () => filterTicks(xTicksAll ?? [], xScale, 28),
+    [xTicksAll, xScale]
+  )
+  const yTicksLabels = useMemo(
+    () => filterTicks(yTicksAll ?? [], yScale, 18),
+    [yTicksAll, yScale]
+  )
+
+  function filterTicks(ticks, scale, minPx) {
+    if (!ticks.length) return ticks
+    const result = [ticks[0]]
+    for (let i = 1; i < ticks.length; i++) {
+      const prev = result[result.length - 1]
+      const dist = Math.abs(scale(ticks[i]) - scale(prev))
+      if (dist >= minPx) result.push(ticks[i])
+    }
+    return result
+  }
+
+  const labelPositions = useMemo(() => {
+    const MIN_PX = 14
+
+    // Для каждой кривой пробуем конец, потом начало — берём где больше места
+    const positions = curves
+      .filter(c => c.points?.length > 0 && c.label)
+      .map(curve => {
+        const sorted = [...curve.points].sort((a, b) => a.x - b.x)
+        // Берём точку на 85% длины кривой по X
+        const targetX = sorted[0].x + (sorted.at(-1).x - sorted[0].x) * 0.85
+        const pt = sorted.reduce((best, p) =>
+          Math.abs(p.x - targetX) < Math.abs(best.x - targetX) ? p : best
+        )
+        return { id: curve.id, x: pt.x, y: pt.y, labelY: pt.y, label: curve.label }
+      })
+      .sort((a, b) => yScale(a.y) - yScale(b.y))
+
+    // Разнос: сначала вниз
+    for (let i = 1; i < positions.length; i++) {
+      const prevPx = yScale(positions[i - 1].labelY)
+      const currPx = yScale(positions[i].labelY)
+      if (currPx - prevPx < MIN_PX)
+        positions[i].labelY = yScale.invert(prevPx + MIN_PX)
+    }
+
+    // Если вышли за нижнюю границу — разносим обратно вверх
+    const [yMin] = yScale.domain()
+    for (let i = positions.length - 1; i >= 0; i--) {
+      if (positions[i].labelY < yMin) {
+        positions[i].labelY = yMin
+        if (i > 0) {
+          const currPx = yScale(positions[i].labelY)
+          const prevPx = yScale(positions[i - 1].labelY)
+          if (prevPx - currPx < MIN_PX)
+            positions[i - 1].labelY = yScale.invert(currPx - MIN_PX)
+        }
+      }
+    }
+
+    return positions
+  }, [curves, yScale])
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-2 w-full">
@@ -196,13 +284,16 @@ export default function FanChartEditor({
           {/* Невидимая область для перехвата кликов */}
           <rect width={innerW} height={innerH} fill="transparent" />
           <GridRows scale={yScale} width={innerW}
-            stroke="#e5e7eb" strokeDasharray="3,3" tickValues={yTicks} />
+            stroke="#e5e7eb" strokeDasharray="3,3" tickValues={yTicksAll} />
           <GridColumns scale={xScale} height={innerH}
-            stroke="#e5e7eb" strokeDasharray="3,3" tickValues={xTicks} />
+            stroke="#e5e7eb" strokeDasharray="3,3" tickValues={xTicksAll} />
 
-          <AxisBottom top={innerH} scale={xScale} tickValues={xTicks}
-            tickFormat={v => v >= 1 ? String(v) : String(parseFloat(v.toPrecision(2)))}
-            label="Q, тыс.м³/ч"
+          <AxisBottom top={innerH} scale={xScale} tickValues={xTicksLabels}
+            tickFormat={v => {
+              if (v >= 1000) return `${Math.round(v)}`
+              if (v >= 1) return String(v)
+              return String(parseFloat(v.toPrecision(2)))
+            }}
             labelProps={{ fontSize: 12, fill: '#6b7280', textAnchor: 'middle', dy: 38 }}
             tickLabelProps={{ fontSize: 10, fill: '#6b7280', textAnchor: 'middle' }}
             stroke="#9ca3af" tickStroke="#9ca3af" />
@@ -212,8 +303,12 @@ export default function FanChartEditor({
             {xLabel}
           </text>
 
-          <AxisLeft scale={yScale} tickValues={yTicks}
-            tickFormat={v => v} label="Pv, Па"
+          <AxisLeft scale={yScale} tickValues={yTicksLabels}
+            tickFormat={v => {
+              if (v >= 1) return String(v)
+              if (v >= 0.01) return String(parseFloat(v.toPrecision(2)))
+              return String(parseFloat(v.toPrecision(1)))
+            }}
             labelProps={{ fontSize: 12, fill: '#6b7280', textAnchor: 'middle', dx: -42 }}
             tickLabelProps={{ fontSize: 10, fill: '#6b7280', textAnchor: 'end', dy: 3 }}
             stroke="#9ca3af" tickStroke="#9ca3af" />
@@ -264,17 +359,6 @@ export default function FanChartEditor({
                     }}
                   />
                 )}
-                {sorted.length > 0 && (
-                  <text
-                    x={xScale(sorted.at(-1).x) + 6}
-                    y={yScale(sorted.at(-1).y)}
-                    fontSize={10} fill={color}
-                    dominantBaseline="middle"
-                    opacity={activeCurveId && !isActive ? 0.35 : 1}
-                  >
-                    {curve.label}
-                  </text>
-                )}
                 {editable && curve.points.map((pt, pi) => (
                   <DraggablePoint
                     key={pi}
@@ -288,6 +372,45 @@ export default function FanChartEditor({
               </g>
             )
           })}
+          {/* Подписи кривых с разносом по Y */}
+          {labelPositions.map(pos => {
+            const curve = curves.find(c => c.id === pos.id)
+            const color = curve?.color ||
+              (curve?.curve_type === 'PRESSURE' ? '#111827' : (CURVE_COLORS[curve?.curve_type] ?? '#374151'))
+            const isActive = activeCurveId != null && pos.id == activeCurveId
+            const labelW = pos.label.length * 6 + 8
+            const labelH = 14
+
+            return (
+              <g key={`label-${pos.id}`}
+                opacity={activeCurveId && !isActive ? 0.35 : 1}>
+                <line
+                  x1={xScale(pos.x)} y1={yScale(pos.y)}
+                  x2={xScale(pos.x) + 4} y2={yScale(pos.labelY)}
+                  stroke={color} strokeWidth={0.5} opacity={0.6}
+                />
+                {/* Фоновый прямоугольник */}
+                <rect
+                  x={xScale(pos.x) + 6}
+                  y={yScale(pos.labelY) - labelH / 2 - 1}
+                  width={labelW}
+                  height={labelH + 2}
+                  rx={2}
+                  fill="white"
+                  opacity={0.85}
+                />
+                <text
+                  x={xScale(pos.x) + 10}
+                  y={yScale(pos.labelY)}
+                  fontSize={10} fill={bgColor}
+                  dominantBaseline="middle"
+                >
+                  {pos.label}
+                </text>
+              </g>
+            )
+          })}
+
           {/* Рабочие точки */}
           {operatingPoint && operatingPoint.map((op, i) => {
             const cx = xScale(op.q)
