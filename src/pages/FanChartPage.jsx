@@ -656,16 +656,22 @@ export default function FanChartPage() {
   useEffect(() => {
     if (!containerRef.current) return
     const ro = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect
-      const sideW = charts.length > 0 ? 256 : 0  // w-56 = 224px + gap
-      setChartSize({
-        width: Math.floor(width - sideW - 24),
-        height: Math.floor(window.innerHeight - 340),
-      })
+      const { width } = entries[0].contentRect  // только ширина
+      setChartSize(prev => ({ ...prev, width: Math.floor(width) }))
     })
     ro.observe(containerRef.current)
     return () => ro.disconnect()
   }, [charts.length])
+
+  useEffect(() => {
+    const update = () => setChartSize(prev => ({
+      ...prev,
+      height: window.innerHeight - 340,
+    }))
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
 
   const allCurves = networkCurve
     ? [...(chartData || []), networkCurve]
@@ -913,13 +919,10 @@ export default function FanChartPage() {
   const scaleType = selectedChart?.scaleType ?? selectedChart?.scale_type ?? 'log'
   const scaleRatio = selectedChart?.scale_ratio ?? null
 
-  const BASE_SIZE = 500
-  const chartWidth = scaleRatio && scaleRatio > 1
-    ? BASE_SIZE
-    : Math.round(BASE_SIZE * Math.abs(scaleRatio))
-  const chartHeight = scaleRatio && scaleRatio > 1
-    ? Math.round(BASE_SIZE * Math.abs(scaleRatio))
-    : BASE_SIZE
+  const chartWidth = chartSize.width
+  const chartHeight = scaleRatio
+  ? Math.min(Math.round(chartSize.width * scaleRatio), chartSize.height)
+  : chartSize.height
 
   const handleCombinedSearch = async () => {
     if (!combinedProduct.trim()) return
@@ -1343,10 +1346,10 @@ export default function FanChartPage() {
                   />
                 )}
 
-                <div ref={containerRef} style={{ height: 'calc(100vh - 340px)', minHeight: 400 }} className="w-full">
+<div ref={containerRef} style={{ minHeight: 400 }} className="w-full">
                   <FanChartEditor
                     width={chartSize.width}
-                    height={chartSize.height}
+                    height={chartHeight}
                     curves={allCurves}
                     editable={mode === 'edit'}
                     xDomain={xDomain}
