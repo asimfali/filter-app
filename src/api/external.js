@@ -94,4 +94,17 @@ export const externalApi = {
         const data = await res.json();
         return { ok: res.ok, data };
     },
+
+    pushFanCharts: async () => {
+        const res = await fetch(`${API_BASE}/push-fan-charts/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${tokenStorage.getAccess()}`,
+            },
+            body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        return { ok: res.ok, data };
+    },
 };

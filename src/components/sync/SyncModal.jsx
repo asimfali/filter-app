@@ -80,6 +80,23 @@ const MODE_CONFIG = {
             return `✗ ${errs || 'Ошибка'}`;
         },
     },
+    fan_charts: {
+        title: 'Синхронизировать графики',
+        btnColor: 'bg-indigo-600 hover:bg-indigo-700',
+        permission: 'external.push_to_site',
+        loadItems: async () => ({
+            ok: true,
+            data: {
+                success: true,
+                data: [{ id: 'fan_charts', name: 'Аэродинамические графики' }],
+            },
+        }),
+        runItem: () => externalApi.pushFanCharts(),
+        isAsync: true,
+        formatResult: (result) => result.success
+            ? `✓ Отправлено графиков: ${result.total}`
+            : `✗ ${result.error}`,
+    },
     dxf_import: {
         title: 'Импорт DXF (аэродинамика)',
         btnColor: 'bg-violet-600 hover:bg-violet-700',

@@ -289,6 +289,15 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                        disabled:opacity-40 text-white transition-colors">
                                 {pushing ? 'Отправка...' : 'Синхронизировать сайт'}
                             </button>
+                            {can(user, 'external.push_to_site') && (
+                                <button
+                                    onClick={() => setSyncModal('fan_charts')}
+                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                   bg-indigo-600 hover:bg-indigo-700
+                   text-white transition-colors">
+                                    Синхронизировать графики
+                                </button>
+                            )}
                             {can(user, 'external.manage_variants') && (
                                 <button
                                     onClick={() => setSyncModal('variants')}

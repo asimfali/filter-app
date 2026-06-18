@@ -6,6 +6,17 @@ import ConfirmModal from '../components/common/ConfirmModal'
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
+const X_UNITS = [
+  { label: 'тыс.м³/ч', factor: 1.0 },
+  { label: 'м³/ч', factor: 1000.0 },
+  { label: 'л/с', factor: 277.78 },
+]
+
+const Y_UNITS = [
+  { label: 'Па', factor: 1.0 },
+  { label: 'кПа', factor: 0.001 },
+]
+
 const CURVE_COLORS = {
   PRESSURE: '#1d4ed8',
   EFFICIENCY: '#16a34a',
@@ -148,6 +159,8 @@ function AxisSettingsPanel({ chart, onApply }) {
     yMax: String(chart.y_max ?? chart.yDomain?.[1] ?? 1000),
     scaleType: chart.scale_type ?? chart.scaleType ?? 'log',
     scaleRatio: String(chart.scale_ratio ?? ''),
+    xScaleFactor: chart.x_scale_factor ?? 1.0,
+    yScaleFactor: chart.y_scale_factor ?? 1.0,
   })
 
   // Синхронизируем если снаружи поменяли chart
@@ -159,6 +172,8 @@ function AxisSettingsPanel({ chart, onApply }) {
       yMax: String(chart.y_max ?? chart.yDomain?.[1] ?? 1000),
       scaleType: chart.scale_type ?? chart.scaleType ?? 'log',
       scaleRatio: String(chart.scale_ratio ?? ''),
+      xScaleFactor: chart.x_scale_factor ?? 1.0,
+      yScaleFactor: chart.y_scale_factor ?? 1.0,
     })
   }, [chart.id])
 
@@ -178,6 +193,10 @@ function AxisSettingsPanel({ chart, onApply }) {
       y_min: yMin, y_max: yMax,
       scale_type: form.scaleType,
       scale_ratio: scaleRatio,
+      x_label: form.xLabel,
+    y_label: form.yLabel,
+    x_scale_factor: parseFloat(form.xScaleFactor),  // ← добавить
+    y_scale_factor: parseFloat(form.yScaleFactor),  // ← добавить
       // для совместимости с xDomain/yDomain которые читает FanChartPage
       xDomain: [xMin, xMax],
       yDomain: [yMin, yMax],

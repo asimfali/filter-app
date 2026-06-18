@@ -71,7 +71,8 @@
 │   │   │   ├── ProductStages.jsx
 │   │   │   └── StageTransferPanel.jsx
 │   │   ├── selection
-│   │   │   └── ProposalsPanel.jsx
+│   │   │   ├── ProposalsPanel.jsx
+│   │   │   └── SelectionConfigModal.jsx
 │   │   └── sync
 │   │       └── SyncModal.jsx
 │   ├── contexts
@@ -145,4 +146,4 @@
 ├── tailwind.config.js
 └── vite.config.js
 
-22 directories, 124 files
+22 directories, 125 files

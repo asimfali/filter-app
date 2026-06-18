@@ -172,9 +172,13 @@ function SeriaCard({ seria, selectedKey, onSelect,
                 className="w-full flex items-center justify-between px-5 py-4 text-left"
             >
                 <div className="flex items-center gap-3">
-                    <span className="text-base font-semibold
-                        text-gray-900 dark:text-white">
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">
                         Серия {seria.seria}
+                        {seria.design && (
+                            <span className="ml-2 text-sm font-normal text-gray-400 dark:text-gray-500">
+                                {seria.design}
+                            </span>
+                        )}
                     </span>
                     <span className="text-sm text-gray-400 dark:text-gray-500">
                         {seria.combinations.length} вар.
