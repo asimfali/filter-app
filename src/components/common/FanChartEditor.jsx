@@ -5,8 +5,6 @@ import { AxisBottom, AxisLeft } from '@visx/axis'
 import { GridRows, GridColumns } from '@visx/grid'
 import { curveMonotoneX, curveLinear } from 'd3-shape'
 
-const MARGIN = { top: 20, right: 40, bottom: 60, left: 65 }
-
 const CURVE_COLORS = {
   PRESSURE: '#1d4ed8',  // синий
   EFFICIENCY: '#16a34a',  // зелёный  
@@ -79,8 +77,19 @@ export default function FanChartEditor({
   xLabel = 'Q, тыс.м³/ч',
   yLabel = 'Pv, Па',
 }) {
-  const innerW = width - MARGIN.left - MARGIN.right
-  const innerH = height - MARGIN.top - MARGIN.bottom
+  const rightMargin = useMemo(() => {
+    const maxLabelLen = curves
+      .filter(c => c.label)
+      .reduce((max, c) => Math.max(max, c.label.length), 0)
+    return Math.max(40, maxLabelLen * 6 + 16)
+  }, [curves])
+
+  const margin = useMemo(() => (
+    { top: 20, right: rightMargin, bottom: 60, left: 65 }
+  ), [rightMargin])
+
+  const innerW = width - margin.left - margin.right
+  const innerH = height - margin.top - margin.bottom
 
   const xDomain = useMemo(() => {
     const [a, b] = xDomainProp
@@ -117,8 +126,8 @@ export default function FanChartEditor({
     if (screenX === null) { setTooltip(null); return }
     const rect = svgRef.current?.getBoundingClientRect()
     if (!rect) return
-    const svgX = screenX - rect.left - MARGIN.left
-    const svgY = screenY - rect.top - MARGIN.top
+    const svgX = screenX - rect.left - margin.left
+    const svgY = screenY - rect.top - margin.top
     setTooltip({
       x: +xScale.invert(svgX).toFixed(3),
       y: +yScale.invert(svgY).toFixed(1),
@@ -264,13 +273,13 @@ export default function FanChartEditor({
     <div className="bg-white rounded-xl border border-gray-200 p-2 w-full">
       <svg ref={svgRef} width={width} height={height}>
         <g
-          transform={`translate(${MARGIN.left},${MARGIN.top})`}
+          transform={`translate(${margin.left},${margin.top})`}
           onClick={editable && activeCurveId && editTool === 'add' ? (e) => {
             if (e.target.tagName === 'circle') return
             const rect = svgRef.current?.getBoundingClientRect()
             if (!rect) return
-            const svgX = e.clientX - rect.left - MARGIN.left
-            const svgY = e.clientY - rect.top - MARGIN.top
+            const svgX = e.clientX - rect.left - margin.left
+            const svgY = e.clientY - rect.top - margin.top
             const x = +xScale.invert(svgX).toFixed(3)
             const y = +yScale.invert(svgY).toFixed(1)
             if (x > 0 && y > 0) onAddPoint?.(activeCurveId, { x, y })
@@ -314,7 +323,7 @@ export default function FanChartEditor({
             stroke="#9ca3af" tickStroke="#9ca3af" />
 
           {/* Подпись оси Y */}
-          <text x={-MARGIN.left + 4} y={-8} textAnchor="start" fontSize={12} fill="#6b7280">
+          <text x={-margin.left + 4} y={-8} textAnchor="start" fontSize={12} fill="#6b7280">
             {yLabel}
           </text>
 
@@ -462,11 +471,11 @@ export default function FanChartEditor({
 
         {tooltip && (
           <g>
-            <line x1={tooltip.screenX} y1={MARGIN.top}
-              x2={tooltip.screenX} y2={MARGIN.top + innerH}
+            <line x1={tooltip.screenX} y1={margin.top}
+              x2={tooltip.screenX} y2={margin.top + innerH}
               stroke="#6b7280" strokeWidth={1} strokeDasharray="4,3" />
-            <line x1={MARGIN.left} y1={tooltip.screenY}
-              x2={MARGIN.left + innerW} y2={tooltip.screenY}
+            <line x1={margin.left} y1={tooltip.screenY}
+              x2={margin.left + innerW} y2={tooltip.screenY}
               stroke="#6b7280" strokeWidth={1} strokeDasharray="4,3" />
             <g transform={`translate(${tooltip.screenX}, ${tooltip.screenY})`}>
               <rect x={8} y={-28} width={120} height={22} rx={4} fill="rgba(0,0,0,0.75)" />

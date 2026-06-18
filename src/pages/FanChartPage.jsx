@@ -654,24 +654,17 @@ export default function FanChartPage() {
   const combinedHeight = window.innerHeight - 280
 
   useEffect(() => {
-    if (!containerRef.current) return
-    const ro = new ResizeObserver(entries => {
-      const { width } = entries[0].contentRect  // только ширина
-      setChartSize(prev => ({ ...prev, width: Math.floor(width) }))
-    })
-    ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [charts.length])
-
-  useEffect(() => {
-    const update = () => setChartSize(prev => ({
-      ...prev,
-      height: window.innerHeight - 340,
-    }))
+    const update = () => {
+      const sideW = charts.length > 0 ? 272 : 0
+      setChartSize({
+        width: window.innerWidth - sideW - 128,
+        height: window.innerHeight - 340,
+      })
+    }
     update()
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
-  }, [])
+  }, [charts.length])
 
   const allCurves = networkCurve
     ? [...(chartData || []), networkCurve]
@@ -919,10 +912,10 @@ export default function FanChartPage() {
   const scaleType = selectedChart?.scaleType ?? selectedChart?.scale_type ?? 'log'
   const scaleRatio = selectedChart?.scale_ratio ?? null
 
-  const chartWidth = chartSize.width
-  const chartHeight = scaleRatio
-  ? Math.min(Math.round(chartSize.width * scaleRatio), chartSize.height)
-  : chartSize.height
+  const chartHeight = window.innerHeight - 340
+  const chartWidth = scaleRatio
+    ? Math.round(chartHeight / scaleRatio)
+    : chartSize.width
 
   const handleCombinedSearch = async () => {
     if (!combinedProduct.trim()) return
@@ -1346,9 +1339,9 @@ export default function FanChartPage() {
                   />
                 )}
 
-<div ref={containerRef} style={{ minHeight: 400 }} className="w-full">
+                <div style={{ height: chartHeight, minHeight: 400, overflow: 'hidden' }}>
                   <FanChartEditor
-                    width={chartSize.width}
+                    width={chartWidth}
                     height={chartHeight}
                     curves={allCurves}
                     editable={mode === 'edit'}

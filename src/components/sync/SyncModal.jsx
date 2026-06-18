@@ -144,6 +144,7 @@ export default function SyncModal({ user, onClose, mode }) {
     const [dxfMerge, setDxfMerge] = useState(false);
     const [dxfExistsWarning, setDxfExistsWarning] = useState(false);
     const [pendingDxfItem, setPendingDxfItem] = useState(null);
+    const [dxfConfig, setDxfConfig] = useState({})
 
     useEffect(() => {
         config.loadItems().then(({ ok, data }) => {
@@ -235,6 +236,7 @@ export default function SyncModal({ user, onClose, mode }) {
 
     const runDxfImport = async (itemId, merge) => {
         const fileList = files[itemId];
+        const configFile = dxfConfig[itemId]
         setResults(prev => ({
             ...prev,
             [itemId]: { loading: true, ok: null, message: 'Запуск...' },
@@ -246,6 +248,7 @@ export default function SyncModal({ user, onClose, mode }) {
             20.0,
             true,
             merge,
+            configFile,
         );
 
         if (!ok || !data.success) {
@@ -299,6 +302,7 @@ export default function SyncModal({ user, onClose, mode }) {
                 20.0,
                 true,
                 dxfMerge,
+                dxfConfig[itemId],
             ));
 
         } else {
@@ -483,7 +487,7 @@ export default function SyncModal({ user, onClose, mode }) {
                                     <>
                                         <input
                                             id={`dxf-file-${item.id}`}
-                                            type="file" accept=".dxf" multiple className="hidden"
+                                            type="file" accept=".dxf,.json" multiple className="hidden"
                                             onChange={e => {
                                                 if (e.target.files?.length)
                                                     setFiles(prev => ({ ...prev, [item.id]: e.target.files }));
@@ -501,6 +505,36 @@ export default function SyncModal({ user, onClose, mode }) {
                        text-gray-900 dark:text-white
                        focus:outline-none focus:border-blue-500"
                                         />
+
+                                        {/* config.json — опционально */}
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                id={`dxf-config-${item.id}`}
+                                                type="file"
+                                                accept=".json"
+                                                className="hidden"
+                                                onChange={e => {
+                                                    const f = e.target.files[0]
+                                                    if (f) setDxfConfig(prev => ({ ...prev, [item.id]: f }))
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => document.getElementById(`dxf-config-${item.id}`)?.click()}
+                                                className={`px-2 py-1 text-xs rounded border transition-colors
+            ${dxfConfig[item.id]
+                                                        ? 'border-emerald-400 text-emerald-500'
+                                                        : 'border-gray-200 dark:border-gray-700 text-gray-400 hover:border-blue-400'
+                                                    }`}>
+                                                {dxfConfig[item.id] ? '✓ config.json' : '+ config.json'}
+                                            </button>
+                                            {dxfConfig[item.id] && (
+                                                <button
+                                                    onClick={() => setDxfConfig(prev => { const n = { ...prev }; delete n[item.id]; return n })}
+                                                    className="text-xs text-gray-400 hover:text-red-400">
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
 
                                         {/* Диалог при существующем графике */}
                                         {dxfExistsWarning && pendingDxfItem === item.id && (

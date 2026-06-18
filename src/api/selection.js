@@ -187,18 +187,19 @@ export const selectionApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    async dxfImportUpload(files, product = '', temperature = 20.0, autoDetect = true, merge = false) {
-        const formData = new FormData();
-        files.forEach(f => formData.append('files', f));
-        if (product) formData.append('product', product);
-        formData.append('temperature', String(temperature));
-        formData.append('auto_detect_d_ratio', String(autoDetect));
-        formData.append('merge', String(merge));
+    async dxfImportUpload(files, product = '', temperature = 20.0, autoDetect = true, merge = false, configFile = null) {
+        const formData = new FormData()
+        files.forEach(f => formData.append('files', f))
+        if (configFile) formData.append('files', configFile)  // config.json идёт как обычный файл
+        if (product) formData.append('product', product)
+        formData.append('temperature', String(temperature))
+        formData.append('auto_detect_d_ratio', String(autoDetect))
+        formData.append('merge', String(merge))
         const res = await apiFetch(`${BASE}/fan-chart-import/upload/`, {
             method: 'POST',
             body: formData,
-        });
-        return { ok: res.ok, data: await res.json() };
+        })
+        return { ok: res.ok, data: await res.json() }
     },
     
     // Проверка существования графика перед загрузкой
