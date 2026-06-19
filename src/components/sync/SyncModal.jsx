@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { externalApi } from '../../api/external';
+import { mediaApi } from '../../api/media'; 
 import { can } from '../../utils/permissions';
 import { selectionApi } from '../../api/selection';
 import { IconLink, IconClock } from '../common/Icons';
@@ -55,7 +56,6 @@ const MODE_CONFIG = {
         title: 'Rsync медиафайлов',
         btnColor: 'bg-teal-600 hover:bg-teal-700',
         permission: 'external.rsync_media',
-        // Статические пункты — типы медиа
         loadItems: async () => ({
             ok: true,
             data: {
@@ -69,15 +69,19 @@ const MODE_CONFIG = {
                 ],
             },
         }),
-        runItem: (id) => externalApi.rsyncMedia(id),
+        runItem: (id, opts) => externalApi.rsyncMedia(id, opts?.syncDocuments ?? true),
         isAsync: true,
         formatResult: (result) => {
             if (result.success) {
                 const count = result.folders?.length ?? 0;
-                return `✓ Синхронизировано папок: ${count}`;
+                const docsMsg = result.documents_synced
+                    ? `, документов: ${result.documents_synced}`
+                    : '';
+                return `✓ Синхронизировано папок: ${count}${docsMsg}`;
             }
             const errs = result.errors?.map(e => `${e.folder}: ${e.error}`).join('; ');
-            return `✗ ${errs || 'Ошибка'}`;
+            const docsErr = result.documents_error ? ` | Документы: ${result.documents_error}` : '';
+            return `✗ ${errs || 'Ошибка'}${docsErr}`;
         },
     },
     fan_charts: {
@@ -125,6 +129,26 @@ const MODE_CONFIG = {
         }),
         isAsync: true,
         formatResult: (result) => `✓ Найдено: ${result.items_found} моделей`,
+    },
+    s3_media: {
+        title: 'Медиа → S3',
+        btnColor: 'bg-sky-600 hover:bg-sky-700',
+        permission: 'portal.s3.upload',  // ← гейт на вход в модалку
+        loadItems: async () => ({
+            ok: true,
+            data: {
+                success: true,
+                data: [
+                    { id: 'gallery', name: 'Галерея (полная синхронизация)', permission: 'portal.gallery.upload' },
+                    { id: 'hero_video', name: 'Hero-видео (полная синхронизация)', permission: 'portal.video.upload' },
+                ],
+            },
+        }),
+        runItem: (itemId) => mediaApi.syncMediaToS3(itemId),
+        isAsync: true,
+        formatResult: (result) => result.success
+            ? `✓ Папок: ${result.folders}, загружено: ${result.uploaded}, без изменений: ${result.skipped}${result.errors?.length ? `, ошибок: ${result.errors.length}` : ''}`
+            : `✗ ${result.error}`,
     },
 };
 
@@ -266,7 +290,7 @@ export default function SyncModal({ user, onClose, mode }) {
         }));
     };
 
-    const runItem = async (itemId) => {
+    const runItem = async (itemId, overrideOpts) => {
         setResults(prev => ({
             ...prev,
             [itemId]: { loading: true, ok: null, message: 'Запуск...' },
@@ -306,7 +330,7 @@ export default function SyncModal({ user, onClose, mode }) {
             ));
 
         } else {
-            ({ ok, data } = await config.runItem(itemId, opts));
+            ({ ok, data } = await config.runItem(itemId, overrideOpts ?? opts));
         }
 
         if (!ok || !data.success) {
@@ -333,8 +357,10 @@ export default function SyncModal({ user, onClose, mode }) {
 
     const runAll = async () => {
         setRunningAll(true);
-        for (const item of items) {
-            await runItem(item.id);
+        for (let i = 0; i < items.length; i++) {
+            const isLast = i === items.length - 1;
+            // Документы синхронизируем только на последнем шаге батча
+            await runItem(items[i].id, mode === 'rsync' ? { syncDocuments: isLast } : undefined);
         }
         setRunningAll(false);
     };

@@ -316,6 +316,15 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                     Rsync медиафайлов
                                 </button>
                             )}
+                            {can(user, 'portal.s3.upload') && (
+                                <button
+                                    onClick={() => setSyncModal('s3_media')}
+                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                   bg-sky-600 hover:bg-sky-700
+                   text-white transition-colors">
+                                    Медиа → S3
+                                </button>
+                            )}
                             {pushResult && (
                                 <p className={`text-xs mt-1.5 ${pushResult.ok
                                     ? 'text-emerald-600 dark:text-emerald-400'

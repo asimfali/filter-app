@@ -7,7 +7,7 @@ import { canPreview3D } from '../utils/fileUtils';
 import { useCommonDocUpload } from '../hooks/useDocUpload';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
 import FiltersPanel from '../components/media/FiltersPanel';
-import { IconFolder, IconImage } from '../components/common/Icons';
+import { IconFolder, IconImage, IconFile, IconVideo } from '../components/common/Icons';
 
 const MEDIA = '/media';
 
@@ -224,6 +224,7 @@ function FileRow({ file, siblings = [], dimmed = false, canDelete = false,
             const name = file.name.toLowerCase();
             if (canPreview3D(name)) return <span className="text-violet-400 shrink-0">◈</span>;
             if (/\.(jpg|jpeg|png|webp)$/.test(name)) return <IconImage className="text-green-400 shrink-0 w-4 h-4" />;
+            if (/\.(webm|mp4)$/.test(name)) return <IconVideo className="text-sky-400 shrink-0 w-4 h-4" />;  // ← добавить
             if (name.endsWith('.pdf')) return <PdfIcon className={`w-5 h-5 shrink-0 ${dimmed ? 'text-gray-300 dark:text-gray-600' : 'text-red-400'}`} />;
             return <IconFile className="text-gray-400 shrink-0 w-4 h-4" />;
           })()}
@@ -291,6 +292,7 @@ function FileRow({ file, siblings = [], dimmed = false, canDelete = false,
 // ── Карточка документа ────────────────────────────────────────────────────
 
 function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOpenViewer }) {
+  const isStandalone = item.doc_type?.upload_mode === 'standalone';
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState(item.filters || []);
@@ -323,7 +325,6 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
     <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm
                       border border-gray-200 dark:border-gray-700 overflow-hidden">
 
-      {/* Название документа */}
       {item.name && (
         <div className="px-5 pt-3 pb-1 text-sm font-medium
                         text-gray-900 dark:text-white">
@@ -331,19 +332,23 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
         </div>
       )}
 
-      <FiltersPanel
-        entityId={item.id}
-        entityType="document"
-        initialFilters={item.filters || []}
-        axes={axes}
-        canWrite={canManageFilters}
-      />
+      {!isStandalone && (
+        <>
+          <FiltersPanel
+            entityId={item.id}
+            entityType="document"
+            initialFilters={item.filters || []}
+            axes={axes}
+            canWrite={canManageFilters}
+          />
 
-      <DirectProductsPanel
-        entityId={item.id}
-        entityType="document"
-        canWrite={canManageFilters}
-      />
+          <DirectProductsPanel
+            entityId={item.id}
+            entityType="document"
+            canWrite={canManageFilters}
+          />
+        </>
+      )}
 
       {/* Файлы */}
       <div className="px-5 py-3 space-y-1">
@@ -575,6 +580,8 @@ function UploadForm({ docTypes, onUploaded }) {
   const [suggestions, setSuggestions] = useState([]);
   const [searching, setSearching] = useState(false);
   const [isNew, setIsNew] = useState(false);
+  const selectedDocType = docTypes.find(dt => String(dt.id) === String(form.doc_type_id));
+  const isStandalone = selectedDocType?.upload_mode === 'standalone';
 
   useEffect(() => {
     if (!form.doc_type_id || query.length < 2) {
@@ -614,6 +621,7 @@ function UploadForm({ docTypes, onUploaded }) {
     const ALLOWED_TYPES = [
       'application/pdf',
       'image/jpeg', 'image/png', 'image/webp',
+      'video/webm', 'video/mp4',
       'model/stl', 'application/octet-stream',
       'model/gltf+json', 'model/gltf-binary',
       'text/plain',
@@ -701,52 +709,66 @@ function UploadForm({ docTypes, onUploaded }) {
 
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-          Документ
+          {isStandalone ? 'Слаг (произвольный идентификатор)' : 'Документ'}
         </label>
-        <div className="relative">
+
+        {isStandalone ? (
           <input
             value={query}
             onChange={e => {
               setQuery(e.target.value);
-              setForm(f => ({ ...f, external_id: '' }));
-              setIsNew(false);
+              setForm(f => ({ ...f, external_id: e.target.value.trim() }));
+              setIsNew(true);
             }}
-            placeholder={form.doc_type_id ? 'Введите название...' : 'Сначала выберите тип'}
+            placeholder="hero-1, hero-2..."
             disabled={!form.doc_type_id}
             className={sel}
           />
-          {searching && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">···</span>
-          )}
-
-          {(suggestions.length > 0 || (query.length >= 2 && !isNew && !form.external_id)) && (
-            <div className="absolute top-full left-0 right-0 mt-1 z-20
-                            bg-white dark:bg-neutral-900
-                            border border-gray-200 dark:border-gray-700
-                            rounded-lg shadow-lg overflow-hidden">
-              {suggestions.map(doc => (
-                <button key={doc.id} type="button"
-                  onClick={() => handleSelect(doc)}
-                  className="w-full text-left px-3 py-2 text-sm
-                             hover:bg-neutral-50 dark:hover:bg-neutral-800
-                             border-b border-gray-100 dark:border-gray-800
-                             last:border-0 text-gray-800 dark:text-gray-200">
-                  {doc.external_id}
-                  <span className="ml-2 text-xs text-blue-500">обновить</span>
-                </button>
-              ))}
-              {query.length >= 2 && (
-                <button type="button"
-                  onClick={handleCreateNew}
-                  className="w-full text-left px-3 py-2 text-sm
-                             hover:bg-neutral-50 dark:hover:bg-neutral-800
-                             text-green-600 dark:text-green-400">
-                  + Создать «{query}»
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="relative">
+            <input
+              value={query}
+              onChange={e => {
+                setQuery(e.target.value);
+                setForm(f => ({ ...f, external_id: '' }));
+                setIsNew(false);
+              }}
+              placeholder={form.doc_type_id ? 'Введите название...' : 'Сначала выберите тип'}
+              disabled={!form.doc_type_id}
+              className={sel}
+            />
+            {searching && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">···</span>
+            )}
+            {(suggestions.length > 0 || (query.length >= 2 && !isNew && !form.external_id)) && (
+              <div className="absolute top-full left-0 right-0 mt-1 z-20
+                        bg-white dark:bg-neutral-900
+                        border border-gray-200 dark:border-gray-700
+                        rounded-lg shadow-lg overflow-hidden">
+                {suggestions.map(doc => (
+                  <button key={doc.id} type="button"
+                    onClick={() => handleSelect(doc)}
+                    className="w-full text-left px-3 py-2 text-sm
+                         hover:bg-neutral-50 dark:hover:bg-neutral-800
+                         border-b border-gray-100 dark:border-gray-800
+                         last:border-0 text-gray-800 dark:text-gray-200">
+                    {doc.external_id}
+                    <span className="ml-2 text-xs text-blue-500">обновить</span>
+                  </button>
+                ))}
+                {query.length >= 2 && (
+                  <button type="button"
+                    onClick={handleCreateNew}
+                    className="w-full text-left px-3 py-2 text-sm
+                         hover:bg-neutral-50 dark:hover:bg-neutral-800
+                         text-green-600 dark:text-green-400">
+                    + Создать «{query}»
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {form.external_id && (
           <div className={`mt-1.5 text-xs px-2 py-1 rounded ${isNew
@@ -773,7 +795,7 @@ function UploadForm({ docTypes, onUploaded }) {
               : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
             }`}>
           <input id="fileInput" type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.webp,.stl,.obj,.mtl,.gltf,.glb,.step,.stp,.rvt,.rfa"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,.webm,.mp4,.stl,.obj,.mtl,.gltf,.glb,.step,.stp,.rvt,.rfa"
             className="hidden"
             onChange={e => handleFile(e.target.files[0])} />
           {file ? (
@@ -789,7 +811,9 @@ function UploadForm({ docTypes, onUploaded }) {
             <>
               <PdfIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-500 dark:text-gray-400">Перетащите файл сюда</p>
-              <p className="text-xs text-gray-400 mt-1">PDF, изображение, 3D модель (stl, glb, obj), STEP (конвертируется в GLB) или BIM модель (rvt, rfa)</p>
+              <p className="text-xs text-gray-400 mt-1">
+                PDF, изображение, видео (webm, mp4), 3D модель (stl, glb, obj), STEP (конвертируется в GLB) или BIM модель (rvt, rfa)
+              </p>
             </>
           )}
         </div>

@@ -463,4 +463,16 @@ export const mediaApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
+
+    async syncMediaToS3(docTypeCode, externalId = null, force = false) {
+        const res = await apiFetch(`${BASE}/sync-to-s3/`, {
+            method: 'POST',
+            body: JSON.stringify({
+                doc_type_code: docTypeCode,
+                ...(externalId ? { external_id: externalId } : {}),
+                ...(force ? { force: true } : {}),
+            }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
 };

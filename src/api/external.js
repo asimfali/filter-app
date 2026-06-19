@@ -51,14 +51,14 @@ export const externalApi = {
         return { ok: res.ok, data };
     },
 
-    rsyncMedia: async (mediaType = 'all') => {
+    rsyncMedia: async (mediaType = 'all', syncDocuments = true) => {
         const res = await fetch(`${API_BASE}/rsync-media/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${tokenStorage.getAccess()}`,
             },
-            body: JSON.stringify({ media_type: mediaType }),
+            body: JSON.stringify({ media_type: mediaType, sync_documents: syncDocuments }),
         });
         const data = await res.json();
         return { ok: res.ok, data };
