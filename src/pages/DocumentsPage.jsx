@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { mediaApi } from '../api/media';
 import { can } from '../utils/permissions';
@@ -116,6 +116,58 @@ function DropZone({ docTypeId, externalId, onUploaded }) {
         <span className="text-xs text-gray-300 dark:text-gray-600">
           Файлов нет — перетащите для загрузки
         </span>
+      )}
+    </div>
+  );
+}
+
+function AddFileRow({ docTypeId, externalId, onUploaded }) {
+  const [draggingOver, setDraggingOver] = useState(false);
+  const { upload, uploading, uploadResult } = useCommonDocUpload({ onUploaded });
+  const inputRef = useRef(null);
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingOver(false);
+    await upload(e.dataTransfer.files[0], docTypeId, externalId);
+  };
+
+  const handleFileSelect = async (e) => {
+    const f = e.target.files?.[0];
+    if (f) await upload(f, docTypeId, externalId);
+    e.target.value = '';
+  };
+
+  return (
+    <div
+      onClick={() => inputRef.current?.click()}
+      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDraggingOver(true); }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDraggingOver(false); }}
+      onDrop={handleDrop}
+      className={`flex items-center gap-2 py-2 px-3 rounded-lg cursor-pointer
+                  border border-dashed transition-colors
+                  ${draggingOver
+          ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+          : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+        }`}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+      {uploading ? (
+        <span className="text-xs text-gray-400">Загрузка...</span>
+      ) : uploadResult ? (
+        <span className={`text-xs ${uploadResult.ok ? 'text-green-600' : 'text-red-500'}`}>
+          {uploadResult.message}
+        </span>
+      ) : draggingOver ? (
+        <span className="text-xs text-blue-500">Отпустите для добавления</span>
+      ) : (
+        <span className="text-xs text-blue-500">+ Добавить файл (или перетащите)</span>
       )}
     </div>
   );
@@ -325,12 +377,33 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
     <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm
                       border border-gray-200 dark:border-gray-700 overflow-hidden">
 
-      {item.name && (
-        <div className="px-5 pt-3 pb-1 text-sm font-medium
-                        text-gray-900 dark:text-white">
-          {item.name}
-        </div>
-      )}
+      <div className="flex items-center justify-between px-5 pt-3 pb-1">
+        {item.name ? (
+          <div className="text-sm font-medium text-gray-900 dark:text-white">
+            {item.name}
+          </div>
+        ) : <div />}
+
+        {canDelete && item.current.length === 0 && (
+          confirming ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={handleDeleteDocument} disabled={deleting}
+                className="text-xs text-red-600 hover:text-red-800 font-medium transition-colors">
+                {deleting ? '···' : 'Удалить документ?'}
+              </button>
+              <button onClick={() => setConfirming(false)}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                Отмена
+              </button>
+            </div>
+          ) : (
+            <button onClick={handleDeleteDocument}
+              className="text-xs text-gray-300 hover:text-red-500 transition-colors shrink-0">
+              ✕ Удалить документ
+            </button>
+          )
+        )}
+      </div>
 
       {!isStandalone && (
         <>
@@ -359,18 +432,26 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
             onUploaded={onDeleted}
           />
         ) : (
-          item.current.map(f =>
-            <FileRow
-              key={f.rel_path}
-              file={f}
-              siblings={item.current}
+          <>
+            {item.current.map(f =>
+              <FileRow
+                key={f.rel_path}
+                file={f}
+                siblings={item.current}
+                docTypeId={item.doc_type.id}
+                externalId={item.external_id}
+                canDelete={canDelete}
+                onDeleted={onDeleted}
+                onOpenViewer={onOpenViewer}
+              />
+            )}
+            {/* Кнопка/dropzone для добавления ещё одного файла */}
+            <AddFileRow
               docTypeId={item.doc_type.id}
               externalId={item.external_id}
-              canDelete={canDelete}
-              onDeleted={onDeleted}
-              onOpenViewer={onOpenViewer}
+              onUploaded={onDeleted}
             />
-          )
+          </>
         )}
 
         {item.archive_visible && Object.keys(item.archive).length > 0 && (
@@ -582,6 +663,9 @@ function UploadForm({ docTypes, onUploaded }) {
   const [isNew, setIsNew] = useState(false);
   const selectedDocType = docTypes.find(dt => String(dt.id) === String(form.doc_type_id));
   const isStandalone = selectedDocType?.upload_mode === 'standalone';
+  const [multiFiles, setMultiFiles] = useState([]);
+  const [multiUploading, setMultiUploading] = useState(false);
+  const [multiResults, setMultiResults] = useState([]);
 
   useEffect(() => {
     if (!form.doc_type_id || query.length < 2) {
@@ -625,11 +709,11 @@ function UploadForm({ docTypes, onUploaded }) {
       'model/stl', 'application/octet-stream',
       'model/gltf+json', 'model/gltf-binary',
       'text/plain',
-      'application/step', 'application/stp', // STEP MIME (редко)
+      'application/step', 'application/stp',
     ];
 
     const name = f?.name?.toLowerCase() || '';
-    const isStl = name.endsWith('.stl');  // ← S заглавная
+    const isStl = name.endsWith('.stl');
     const isObj = name.endsWith('.obj');
     const isMtl = name.endsWith('.mtl');
     const isGltf = name.endsWith('.gltf');
@@ -644,12 +728,70 @@ function UploadForm({ docTypes, onUploaded }) {
     }
     setFile(f);
     setResult(null);
+
+    // Автозаполнение поля "Документ" именем файла без расширения —
+    // только если поле ещё пустое (не перетираем уже выбранный документ)
+    if (!query && f?.name) {
+      const nameWithoutExt = f.name.replace(/\.[^/.]+$/, '');
+      setQuery(nameWithoutExt);
+      setForm(prev => ({ ...prev, external_id: nameWithoutExt }));
+      setIsNew(true);
+    }
+  };
+
+  const handleMultipleFiles = (files) => {
+    setMultiFiles(files);
+    setFile(null);  // сбрасываем одиночный режим
+    setResult(null);
+
+    // Автозаполнение по первому файлу, как и для одиночного
+    if (!query && files[0]?.name) {
+      const nameWithoutExt = files[0].name.replace(/\.[^/.]+$/, '');
+      setQuery(nameWithoutExt);
+      setForm(prev => ({ ...prev, external_id: nameWithoutExt }));
+      setIsNew(true);
+    }
+  };
+
+  const handleSubmitMultiple = async (e) => {
+    e.preventDefault();
+    if (!multiFiles.length) return;
+    if (!form.external_id) {
+      setResult({ success: false, message: 'Укажите документ' });
+      return;
+    }
+
+    setMultiUploading(true);
+    const results = [];
+
+    for (const f of multiFiles) {
+      const { ok, data } = await mediaApi.uploadDocument(
+        form.doc_type_id, form.external_id, f,
+      );
+      results.push({ name: f.name, ok: ok && data.success, message: data.error });
+    }
+
+    setMultiResults(results);
+    setMultiUploading(false);
+
+    if (results.every(r => r.ok)) {
+      setMultiFiles([]);
+      setForm({ doc_type_id: '', external_id: '' });
+      setQuery('');
+      setIsNew(false);
+      onUploaded();
+    }
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     setDragging(false);
-    handleFile(e.dataTransfer.files[0]);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 1) {
+      handleMultipleFiles(files);
+    } else {
+      handleFile(files[0]);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -692,7 +834,7 @@ function UploadForm({ docTypes, onUploaded }) {
     "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={multiFiles.length > 0 ? handleSubmitMultiple : handleSubmit} className="space-y-4">
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
           Тип документа
@@ -790,17 +932,48 @@ function UploadForm({ docTypes, onUploaded }) {
           onDragLeave={() => setDragging(false)}
           onClick={() => document.getElementById('fileInput').click()}
           className={`relative border-2 border-dashed rounded-lg p-6 text-center
-                      cursor-pointer transition-colors ${dragging
+                cursor-pointer transition-colors ${dragging
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
               : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
             }`}>
           <input id="fileInput" type="file"
             accept=".pdf,.jpg,.jpeg,.png,.webp,.webm,.mp4,.stl,.obj,.mtl,.gltf,.glb,.step,.stp,.rvt,.rfa"
+            multiple
             className="hidden"
-            onChange={e => handleFile(e.target.files[0])} />
-          {file ? (
+            onChange={e => {
+              const files = Array.from(e.target.files);
+              if (files.length > 1) {
+                handleMultipleFiles(files);
+              } else {
+                handleFile(files[0]);
+              }
+            }} />
+
+          {multiFiles.length > 0 ? (
+            <div className="space-y-1.5 text-left">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-2">
+                {multiFiles.length} файлов выбрано
+              </p>
+              {multiFiles.map((f, i) => (
+                <div key={i} className="flex items-center justify-between text-sm
+                                    text-green-700 dark:text-green-400">
+                  <span className="truncate max-w-[200px]">{f.name}</span>
+                  {multiResults[i] && (
+                    <span className={multiResults[i].ok ? 'text-green-500' : 'text-red-500 text-xs'}>
+                      {multiResults[i].ok ? '✓' : `✗ ${multiResults[i].message}`}
+                    </span>
+                  )}
+                </div>
+              ))}
+              <button type="button"
+                onClick={(e) => { e.stopPropagation(); setMultiFiles([]); setMultiResults([]); }}
+                className="text-xs text-gray-400 hover:text-red-500 mt-1">
+                ✕ Очистить
+              </button>
+            </div>
+          ) : file ? (
             <div className="flex items-center justify-center gap-2 text-sm
-                            text-green-700 dark:text-green-400">
+                      text-green-700 dark:text-green-400">
               <span>✓</span>
               <span className="truncate max-w-xs">{file.name}</span>
               <button type="button"
@@ -811,9 +984,7 @@ function UploadForm({ docTypes, onUploaded }) {
             <>
               <PdfIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-500 dark:text-gray-400">Перетащите файл сюда</p>
-              <p className="text-xs text-gray-400 mt-1">
-                PDF, изображение, видео (webm, mp4), 3D модель (stl, glb, obj), STEP (конвертируется в GLB) или BIM модель (rvt, rfa)
-              </p>
+              <p className="text-xs text-gray-400 mt-1">PDF, изображение, видео (webm, mp4), 3D модель (stl, glb, obj), STEP (конвертируется в GLB) или BIM модель (rvt, rfa)</p>
             </>
           )}
         </div>
@@ -828,10 +999,12 @@ function UploadForm({ docTypes, onUploaded }) {
         </div>
       )}
 
-      <button type="submit" disabled={loading}
+      <button type="submit" disabled={loading || multiUploading}
         className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50
-                   text-white text-sm font-medium py-2 rounded-lg transition-colors">
-        {loading ? 'Загрузка...' : 'Загрузить'}
+               text-white text-sm font-medium py-2 rounded-lg transition-colors">
+        {multiFiles.length > 0
+          ? (multiUploading ? `Загрузка... (${multiResults.length}/${multiFiles.length})` : `Загрузить ${multiFiles.length} файлов`)
+          : (loading ? 'Загрузка...' : 'Загрузить')}
       </button>
     </form>
   );
