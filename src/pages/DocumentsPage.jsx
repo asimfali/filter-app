@@ -701,7 +701,7 @@ function UploadForm({ docTypes, onUploaded }) {
     setIsNew(true);
   };
 
-  const handleFile = (f) => {
+  function isFileAllowed(f) {
     const ALLOWED_TYPES = [
       'application/pdf',
       'image/jpeg', 'image/png', 'image/webp',
@@ -711,7 +711,7 @@ function UploadForm({ docTypes, onUploaded }) {
       'text/plain',
       'application/step', 'application/stp',
     ];
-
+  
     const name = f?.name?.toLowerCase() || '';
     const isStl = name.endsWith('.stl');
     const isObj = name.endsWith('.obj');
@@ -720,17 +720,19 @@ function UploadForm({ docTypes, onUploaded }) {
     const isGlb = name.endsWith('.glb');
     const isStep = name.endsWith('.step') || name.endsWith('.stp');
     const isRvt = name.endsWith('.rvt') || name.endsWith('.rfa');
+  
+    return ALLOWED_TYPES.includes(f?.type) || isStl || isObj || isMtl
+        || isGltf || isGlb || isStep || isRvt;
+  }
 
-    if (!ALLOWED_TYPES.includes(f?.type) && !isStl && !isObj && !isMtl
-      && !isGltf && !isGlb && !isStep && !isRvt) {
+  const handleFile = (f) => {
+    if (!isFileAllowed(f)) {
       setResult({ success: false, message: 'Допустимы PDF, изображения, STL, OBJ, GLTF, GLB, STEP и RVT/RFA' });
       return;
     }
     setFile(f);
     setResult(null);
-
-    // Автозаполнение поля "Документ" именем файла без расширения —
-    // только если поле ещё пустое (не перетираем уже выбранный документ)
+  
     if (!query && f?.name) {
       const nameWithoutExt = f.name.replace(/\.[^/.]+$/, '');
       setQuery(nameWithoutExt);
@@ -740,13 +742,27 @@ function UploadForm({ docTypes, onUploaded }) {
   };
 
   const handleMultipleFiles = (files) => {
-    setMultiFiles(files);
-    setFile(null);  // сбрасываем одиночный режим
-    setResult(null);
-
-    // Автозаполнение по первому файлу, как и для одиночного
-    if (!query && files[0]?.name) {
-      const nameWithoutExt = files[0].name.replace(/\.[^/.]+$/, '');
+    const allowed = files.filter(isFileAllowed);
+    const rejected = files.filter(f => !isFileAllowed(f));
+  
+    if (rejected.length > 0) {
+      setResult({
+        success: false,
+        message: `Отклонены файлы (недопустимый тип): ${rejected.map(f => f.name).join(', ')}`,
+      });
+    }
+  
+    if (allowed.length === 0) {
+      setMultiFiles([]);
+      return;
+    }
+  
+    setMultiFiles(allowed);
+    setFile(null);
+    if (rejected.length === 0) setResult(null);
+  
+    if (!query && allowed[0]?.name) {
+      const nameWithoutExt = allowed[0].name.replace(/\.[^/.]+$/, '');
       setQuery(nameWithoutExt);
       setForm(prev => ({ ...prev, external_id: nameWithoutExt }));
       setIsNew(true);
