@@ -135,7 +135,7 @@ const MODE_CONFIG = {
         runItem: (itemId) => mediaApi.syncMediaToS3(itemId),
         isAsync: true,
         formatResult: (result) => result.success
-            ? `✓ Папок: ${result.folders}, загружено: ${result.uploaded}, без изменений: ${result.skipped}${result.errors?.length ? `, ошибок: ${result.errors.length}` : ''}`
+            ? `✓ Папок: ${result.folders}, загружено: ${result.uploaded}, удалено: ${result.deleted ?? 0}, без изменений: ${result.skipped}${result.errors?.length ? `, ошибок: ${result.errors.length}` : ''}`
             : `✗ ${result.error}`,
     },
 };
