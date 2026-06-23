@@ -154,10 +154,14 @@ export const catalogApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    async connectValues(fromValueId, toValueId) {
+    async connectValues(fromValueId, toValueId, productTypeId = null) {
         const res = await apiFetch(`${BASE}/parameter-connections/connect-values/`, {
             method: 'POST',
-            body: JSON.stringify({ from_value_id: fromValueId, to_value_id: toValueId }),
+            body: JSON.stringify({
+                from_value_id: fromValueId,
+                to_value_id: toValueId,
+                ...(productTypeId && { product_type_id: productTypeId }),
+            }),
         });
         return { ok: res.ok, data: await res.json() };
     },
@@ -177,10 +181,13 @@ export const catalogApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
-    async bulkConnect(connections) {
+    async bulkConnect(connections, productTypeId = null) {
         const res = await apiFetch(`${BASE}/parameter-connections/bulk-connect/`, {
             method: 'POST',
-            body: JSON.stringify({ connections }),
+            body: JSON.stringify({
+                connections,
+                ...(productTypeId && { product_type_id: productTypeId }),
+            }),
         });
         return { ok: res.ok, data: await res.json() };
     },

@@ -1172,18 +1172,18 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                 }}
                 onBulkConnect={async (sourceId, targetIds, addEdges) => {
                   const connections = targetIds.map(tid => ({
-                    from_value_id: sourceId,
-                    to_value_id: tid,
+                      from_value_id: sourceId,
+                      to_value_id: tid,
                   }));
-                  const { ok, data } = await catalogApi.bulkConnect(connections);
+                  const { ok, data } = await catalogApi.bulkConnect(connections, selectedTypeId);  // ← добавили selectedTypeId
                   setDropResult(
-                    ok && data.success
-                      ? { ok: true, message: `✓ Создано ${data.data.created} связей` }
-                      : { ok: false, message: data.error || 'Ошибка' }
+                      ok && data.success
+                          ? { ok: true, message: `✓ Создано ${data.data.created} связей` }
+                          : { ok: false, message: data.error || 'Ошибка' }
                   );
                   if (ok && data.success) addEdges();
                   setTimeout(() => setDropResult(null), 3000);
-                }}
+              }}
                 onReferenceAxesLoaded={setBindingReferenceAxes}
                 onReferenceSelect={handleSelectionForOrphans}
               />
