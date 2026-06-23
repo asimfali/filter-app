@@ -64,6 +64,14 @@ export const externalApi = {
         return { ok: res.ok, data };
     },
 
+    getRsyncFolders: async () => {
+        const res = await fetch(`${API_BASE}/rsync-folders/`, {
+            headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` },
+        });
+        const data = await res.json();
+        return { ok: res.ok, data };
+    },
+
     getSyncConfigs: async () => {
         const res = await fetch(`${API_BASE}/sync-configs/`, {
             headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` },

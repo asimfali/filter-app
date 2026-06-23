@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { externalApi } from '../../api/external';
-import { mediaApi } from '../../api/media'; 
+import { mediaApi } from '../../api/media';
 import { can } from '../../utils/permissions';
 import { selectionApi } from '../../api/selection';
 import { IconLink, IconClock } from '../common/Icons';
@@ -56,19 +56,7 @@ const MODE_CONFIG = {
         title: 'Rsync медиафайлов',
         btnColor: 'bg-teal-600 hover:bg-teal-700',
         permission: 'external.rsync_media',
-        loadItems: async () => ({
-            ok: true,
-            data: {
-                success: true,
-                data: [
-                    { id: 'all', name: 'Все файлы' },
-                    { id: 'passport', name: 'Паспорта' },
-                    { id: 'certificate', name: 'Сертификаты' },
-                    { id: 'gallery', name: 'Галерея' },
-                    { id: 'declaration', name: 'Декларации' },
-                ],
-            },
-        }),
+        loadItems: () => externalApi.getRsyncFolders(),
         runItem: (id, opts) => externalApi.rsyncMedia(id, opts?.syncDocuments ?? true),
         isAsync: true,
         formatResult: (result) => {
