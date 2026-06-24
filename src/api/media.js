@@ -475,4 +475,12 @@ export const mediaApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
+
+    async renameDocument(docId, name) {
+        const res = await apiFetch(`${BASE}/documents/${docId}/rename/`, {
+            method: 'PATCH',
+            body: JSON.stringify({ name }),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
 };
