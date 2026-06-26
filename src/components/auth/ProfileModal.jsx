@@ -5,6 +5,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { externalApi } from '../../api/external';
 import { can } from '../../utils/permissions';
 import SyncModal from '../sync/SyncModal';
+import PassportSyncModal from '../sync/PassportSyncModal';
 import SelectionConfigModal from '../selection/SelectionConfigModal';
 import { IconLink, IconFolder } from '../common/Icons';
 
@@ -27,6 +28,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     const [syncCatalogResult, setSyncCatalogResult] = useState(null);
     const [syncModal, setSyncModal] = useState(null);
     const [selectionConfigOpen, setSelectionConfigOpen] = useState(false);
+    const [passportSyncOpen, setPassportSyncOpen] = useState(false);
 
     useEffect(() => {
         if (!pushTaskId) return;
@@ -383,6 +385,16 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         </button>
                     )}
 
+                    {(can(user, 'passport.documents.upload') || can(user, 'passport.documents.update')) && (
+                        <button
+                            onClick={() => setPassportSyncOpen(true)}
+                            className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                bg-cyan-600 hover:bg-cyan-700
+                text-white transition-colors">
+                            Синхронизация паспортов
+                        </button>
+                    )}
+
                     {can(user, 'portal.chart.write') && (
                         <button
                             onClick={() => setSyncModal('dxf_import')}
@@ -554,6 +566,13 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                     onClose={() => setSelectionConfigOpen(false)}
                     onSaved={() => showSuccess('Настройки подбора сохранены')}
                 />
+
+                {passportSyncOpen && (
+                    <PassportSyncModal
+                        user={user}
+                        onClose={() => setPassportSyncOpen(false)}
+                    />
+                )}
             </div>
         </div>
     );

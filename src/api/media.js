@@ -483,4 +483,69 @@ export const mediaApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
+
+    // ── Синхронизация паспортов ─────────────────────────────────────────────
+
+    async passportImportPreview(documentId, file) {
+        const fd = new FormData();
+        fd.append('file', file);
+
+        const res = await fetch(`${BASE}/passport-sync/${documentId}/import/preview/`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${tokenStorage.getAccess()}` },
+            body: fd,
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async passportImportApply(documentId, file) {
+        const fd = new FormData();
+        fd.append('file', file);
+
+        const res = await fetch(`${BASE}/passport-sync/${documentId}/import/apply/`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${tokenStorage.getAccess()}` },
+            body: fd,
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async passportExportUpdate(documentId, file) {
+        const fd = new FormData();
+        fd.append('file', file);
+
+        const res = await fetch(`${BASE}/passport-sync/${documentId}/export/`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${tokenStorage.getAccess()}` },
+            body: fd,
+        });
+
+        if (!res.ok) {
+            let error = 'Ошибка обновления паспорта';
+            try {
+                const data = await res.json();
+                error = data?.error || error;
+            } catch { /* тело не JSON — оставляем дефолтное сообщение */ }
+            return { ok: false, error };
+        }
+
+        const blob = await res.blob();
+
+        // Django отдаёт не-ASCII имена в формате RFC 5987:
+        // filename*=utf-8''%D0%9F%D0%B0...  (percent-encoded UTF-8),
+        // а не filename="...". Сначала пробуем filename*=, затем
+        // обычный filename="..." как запасной вариант.
+        const disposition = res.headers.get('Content-Disposition') || '';
+        const starMatch = disposition.match(/filename\*=utf-8''([^;]+)/i);
+        const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+
+        let filename = 'passport_updated.json';
+        if (starMatch) {
+            filename = decodeURIComponent(starMatch[1]);
+        } else if (plainMatch) {
+            filename = plainMatch[1];
+        }
+
+        return { ok: true, blob, filename };
+    },
 };
