@@ -692,20 +692,28 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
 
   const tagsByAxis = tagValues.reduce((acc, tag) => {
     if (!acc[tag.axis_id]) {
-      acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [] };
+      acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [], order: tag.axis_order ?? 0 };
     }
     acc[tag.axis_id].tags.push(tag);
     return acc;
   }, {});
 
+  const sortedTagAxisEntries = Object.entries(tagsByAxis)
+    .sort((a, b) => a[1].order - b[1].order);
+
   // Группируем теги по оси для отображения
   const bindingTagsByAxis = bindingTagValues.reduce((acc, tag) => {
     if (!acc[tag.axis_id]) {
-      acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [] };
+      acc[tag.axis_id] = { axis_name: tag.axis_name, tags: [], order: tag.axis_order ?? 0 };
     }
     acc[tag.axis_id].tags.push(tag);
     return acc;
   }, {});
+
+  // entries из объекта с числовыми ключами не сохраняют порядок вставки —
+  // сортируем явно по order оси перед рендером
+  const sortedBindingTagAxisEntries = Object.entries(bindingTagsByAxis)
+    .sort((a, b) => a[1].order - b[1].order);
 
   // ── Остальные handlers (без изменений) ────────────────────────────────────
 
@@ -828,7 +836,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
 
           {/* Группы тегов по осям */}
           <div className="space-y-3">
-            {Object.entries(tagsByAxis).map(([axisId, { axis_name, tags }]) => (
+            {sortedTagAxisEntries.map(([axisId, { axis_name, tags }]) => (
               <div key={axisId}>
                 <div className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">
                   {axis_name}
@@ -1039,7 +1047,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
               )}
             </div>
             <div className="space-y-3">
-              {Object.entries(bindingTagsByAxis).map(([axisId, { axis_name, tags }]) => (
+              {sortedBindingTagAxisEntries.map(([axisId, { axis_name, tags }]) => (
                 <div key={axisId}>
                   <div className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">
                     {axis_name}
@@ -1172,18 +1180,18 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                 }}
                 onBulkConnect={async (sourceId, targetIds, addEdges) => {
                   const connections = targetIds.map(tid => ({
-                      from_value_id: sourceId,
-                      to_value_id: tid,
+                    from_value_id: sourceId,
+                    to_value_id: tid,
                   }));
                   const { ok, data } = await catalogApi.bulkConnect(connections, selectedTypeId);  // ← добавили selectedTypeId
                   setDropResult(
-                      ok && data.success
-                          ? { ok: true, message: `✓ Создано ${data.data.created} связей` }
-                          : { ok: false, message: data.error || 'Ошибка' }
+                    ok && data.success
+                      ? { ok: true, message: `✓ Создано ${data.data.created} связей` }
+                      : { ok: false, message: data.error || 'Ошибка' }
                   );
                   if (ok && data.success) addEdges();
                   setTimeout(() => setDropResult(null), 3000);
-              }}
+                }}
                 onReferenceAxesLoaded={setBindingReferenceAxes}
                 onReferenceSelect={handleSelectionForOrphans}
               />
