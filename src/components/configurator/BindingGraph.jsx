@@ -62,7 +62,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
                 data.data.product_paths || [],
             );
         };
-
+    
         load();
     }, [productTypeId, selectedTagIds]);
 
