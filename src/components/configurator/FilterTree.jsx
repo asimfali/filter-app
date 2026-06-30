@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import CreateThreadModal from '../issues/CreateThreadModal.jsx';
 import cytoscape from 'cytoscape';
 import ProductBindingPanel, { ChainProductsPanel } from './ProductBindingPanel.jsx';
@@ -36,6 +36,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
   const restoredNodes = useRef(savedState?.selectedNodes || []);
   const restoredIntersectionIds = useRef(savedState?.intersectionIds || []);
   const isRestoringRef = useRef(!!savedState);
+  const selectedTagsTypeIdRef = useRef(selectedTypeId);
   // ── Редактор привязок ──────────────────────────────────────────────────────
   const [mode, setMode] = useState('filter');
   const [pendingAssignments, setPendingAssignments] = useState({});
@@ -66,7 +67,19 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
 
   // ── Теги ──────────────────────────────────────────────────────────────────
   const [tagValues, setTagValues] = useState([]);        // все доступные теги
-  const [selectedTags, setSelectedTags] = useState(savedState?.selectedTags || []);  // выбранные tag value_ids
+  const [tagsState, setTagsState] = useState({
+    typeId: savedState?.selectedTypeId || '',
+    tags: savedState?.selectedTags || [],
+  });
+  const selectedTags = tagsState.typeId === selectedTypeId ? tagsState.tags : [];
+  const setSelectedTags = (updater) => {
+    setTagsState(prev => {
+      const base = prev.typeId === selectedTypeId ? prev.tags : [];
+      const next = typeof updater === 'function' ? updater(base) : updater;
+      return { typeId: selectedTypeId, tags: next };
+    });
+  };
+
   const [bindingTags, setBindingTags] = useState([]);
   const [bindingMode, setBindingMode] = useState('attach');
   const [bindingTagValues, setBindingTagValues] = useState([]);
@@ -121,11 +134,14 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
       setSelectedTags([]);
       setTagValues([]);
       setIntersectionIds([]);
+      setBindingTags([]);
+      setBindingTagValues([]);
+      selectedTagsTypeIdRef.current = selectedTypeId;  // ← теги (пустые) теперь принадлежат новому типу
       if (cyInstanceRef.current) {
         cyInstanceRef.current.destroy();
         cyInstanceRef.current = null;
       }
-      isRestoringRef.current = false;  // больше не восстанавливаем — тип не совпал
+      isRestoringRef.current = false;
     }
 
 
@@ -175,9 +191,21 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
 
   // ── Загрузка отфильтрованного графа при изменении тегов ───────────────────
 
+  const prevTypeIdRef = useRef(selectedTypeId);
+  useLayoutEffect(() => {
+    if (prevTypeIdRef.current === selectedTypeId) return;
+    prevTypeIdRef.current = selectedTypeId;
+
+    // При восстановлении из savedState теги принадлежат этому же типу — не трогаем
+    if (isRestoringRef.current && savedState?.selectedTypeId === selectedTypeId) return;
+
+    setSelectedTags([]);
+    setIntersectionIds([]);
+    selectedTagsTypeIdRef.current = selectedTypeId;
+  }, [selectedTypeId]);
+
   useEffect(() => {
     if (!selectedTypeId || selectedTags.length === 0) {
-      // Теги сброшены — уничтожаем граф
       if (cyInstanceRef.current) {
         cyInstanceRef.current.destroy();
         cyInstanceRef.current = null;
@@ -187,6 +215,16 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
       setFilterResult(null);
       return;
     }
+
+    // Теги ещё могут принадлежать предыдущему типу продукции (гонка эффектов
+    // после F5 с восстановлением savedState). Сверяем выбранные теги с актуальным
+    // справочником tagValues текущего типа — если хоть один чужой, ждём пересчёта.
+    const validTagIds = new Set(tagValues.map(t => String(t.id)));
+    const tagsAreStale = tagValues.length === 0
+      || !selectedTags.every(id => validTagIds.has(String(id)));
+
+    if (tagsAreStale) return;                              // ← вот этого не хватало
+    if (selectedTagsTypeIdRef.current !== selectedTypeId) return;
 
     setGraphLoading(true);
 
@@ -682,11 +720,12 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
   // ── Обработка тегов ───────────────────────────────────────────────────────
 
   const handleTagClick = (valueId) => {
+    selectedTagsTypeIdRef.current = selectedTypeId;  // теги принадлежат текущему типу
     setSelectedTags(prev => {
       if (prev.includes(valueId)) {
         return prev.filter(id => id !== valueId);
       }
-      return [...prev, valueId];  // ← просто добавляем
+      return [...prev, valueId];
     });
   };
 
@@ -1137,7 +1176,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                   {dropResult.message}
                 </div>
               )}
-
               <BindingGraph
                 ref={bindingGraphRef}
                 productTypeId={selectedTypeId}
