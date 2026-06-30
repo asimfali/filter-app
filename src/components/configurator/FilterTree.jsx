@@ -112,7 +112,10 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
     setLoading(true);
     setError(null);
 
-    if (!isRestoringRef.current) {
+    const isRestoringThisType = isRestoringRef.current
+      && savedState?.selectedTypeId === selectedTypeId;
+
+    if (!isRestoringThisType) {
       setSelectedNodes([]);
       setFilterResult(null);
       setSelectedTags([]);
@@ -122,6 +125,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
         cyInstanceRef.current.destroy();
         cyInstanceRef.current = null;
       }
+      isRestoringRef.current = false;  // больше не восстанавливаем — тип не совпал
     }
 
 
