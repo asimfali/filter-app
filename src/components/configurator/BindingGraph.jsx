@@ -319,7 +319,7 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             ],
             userZoomingEnabled: true,
             userPanningEnabled: true,
-            boxSelectionEnabled: false,
+            boxSelectionEnabled: true,
             selectionType: 'none',
         });
 
@@ -426,6 +426,19 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
 
                 highlightIntersection(cy, selectedNodesRef.current);
             }
+        });
+
+        cy.on('boxselect', 'node[type="value"]', (e) => {
+            if (modeRef.current !== 'connect' || readOnly) return;
+            const node = e.target;
+            // источник должен быть выбран; сам источник в цели не добавляем
+            if (!bulkSourceRef.current) return;
+            if (node.id() === bulkSourceRef.current.id()) return;
+        
+            const nodeId = node.id().replace('value-', '');
+            if (bulkTargetsRef.current.indexOf(nodeId) !== -1) return;  // уже в целях
+            bulkTargetsRef.current.push(nodeId);
+            node.addClass('bulk-target');
         });
 
         cy.on('mousedown', 'node[type="value"]', (e) => {
