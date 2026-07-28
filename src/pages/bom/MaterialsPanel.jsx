@@ -69,7 +69,7 @@ export default function MaterialsPanel({ materials, presets, sheetMappings, onSa
         update(idx, 'part', part.id);
         update(idx, 'part_name', part.onec_name);
         update(idx, 'unit', part.unit);
-        setPartSearch(s => ({ ...s, [idx]: '' }));
+        setPartSearch(s => ({ ...s, [idx]: undefined }));
         setPartResults(r => ({ ...r, [idx]: [] }));
     };
 
