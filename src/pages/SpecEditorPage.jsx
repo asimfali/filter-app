@@ -124,60 +124,52 @@ export default function SpecEditorPage({
 
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (!selection.length || !data) return;
+            if (!selection.length || !data || !anchorCell.current) return;
             // Не перехватываем если фокус в input
             if (document.activeElement?.tagName === 'INPUT') return;
 
-            const { defId, startRow, endRow } = selection;
-            const defIdx = definitions.indexOf(definitions.find(d => d.id === defId));
-            const currentEnd = endRow;
+            const anchor = anchorCell.current;
+            const defIdx = definitions.findIndex(d => d.id === anchor.defId);
             const rowCount = data.products.length;
             const defCount = definitions.length;
 
-            if (e.key === 'ArrowDown') {
+            // "Дальний" конец текущего диапазона в колонке anchor — точка отсчёта для
+            // Shift-расширения и для перемещения курсора без Shift (как в handleCellClick).
+            const colRows = selection.filter(s => s.defId === anchor.defId).map(s => s.rowIdx);
+            const maxRow = Math.max(anchor.rowIdx, ...colRows);
+            const minRow = Math.min(anchor.rowIdx, ...colRows);
+            const farRow = maxRow !== anchor.rowIdx ? maxRow : minRow;
+
+            const rangeTo = (from, to) => {
+                const [lo, hi] = from <= to ? [from, to] : [to, from];
+                const cells = [];
+                for (let i = lo; i <= hi; i++) cells.push({ defId: anchor.defId, rowIdx: i });
+                return cells;
+            };
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
+                const next = e.key === 'ArrowDown'
+                    ? Math.min(farRow + 1, rowCount - 1)
+                    : Math.max(farRow - 1, 0);
                 if (e.shiftKey) {
-                    // Shift+↓ — расширяем вниз
-                    setSelection(prev => ({
-                        ...prev,
-                        endRow: Math.min(currentEnd + 1, rowCount - 1),
-                    }));
+                    // Shift+↑/↓ — расширяем диапазон от anchor до новой границы
+                    setSelection(rangeTo(anchor.rowIdx, next));
                 } else {
-                    // ↓ — перемещаем курсор
-                    const next = Math.min(currentEnd + 1, rowCount - 1);
-                    anchorCell.current = { defId, rowIdx: next };
-                    setSelection({ defId, startRow: next, endRow: next });
+                    // ↑/↓ — перемещаем курсор, схлопывая диапазон в одну ячейку
+                    anchorCell.current = { defId: anchor.defId, rowIdx: next };
+                    setSelection([{ defId: anchor.defId, rowIdx: next }]);
                 }
-            } else if (e.key === 'ArrowUp') {
+            } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
                 e.preventDefault();
-                if (e.shiftKey) {
-                    setSelection(prev => ({
-                        ...prev,
-                        endRow: Math.max(currentEnd - 1, 0),
-                    }));
-                } else {
-                    const next = Math.max(currentEnd - 1, 0);
-                    anchorCell.current = { defId, rowIdx: next };
-                    setSelection({ defId, startRow: next, endRow: next });
-                }
-            } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                if (defIdx < defCount - 1) {
-                    const nextDef = definitions[defIdx + 1];
-                    const row = e.shiftKey ? endRow : Math.min(startRow, endRow);
-                    anchorCell.current = { defId: nextDef.id, rowIdx: row };
-                    setSelection({ defId: nextDef.id, startRow: row, endRow: row });
-                }
-            } else if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                if (defIdx > 0) {
-                    const nextDef = definitions[defIdx - 1];
-                    const row = Math.min(startRow, endRow);
-                    anchorCell.current = { defId: nextDef.id, rowIdx: row };
-                    setSelection({ defId: nextDef.id, startRow: row, endRow: row });
-                }
+                const nextIdx = e.key === 'ArrowRight' ? defIdx + 1 : defIdx - 1;
+                if (nextIdx < 0 || nextIdx >= defCount) return;
+                const nextDef = definitions[nextIdx];
+                const row = e.shiftKey ? farRow : Math.min(anchor.rowIdx, farRow);
+                anchorCell.current = { defId: nextDef.id, rowIdx: row };
+                setSelection([{ defId: nextDef.id, rowIdx: row }]);
             } else if (e.key === 'Escape') {
-                setSelection(null);
+                setSelection([]);
                 anchorCell.current = null;
             }
         };
