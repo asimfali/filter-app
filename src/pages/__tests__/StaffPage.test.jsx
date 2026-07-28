@@ -208,6 +208,164 @@ describe('StaffPage — снятие роли', () => {
   });
 });
 
+const reqPending1 = {
+  id: 1, user_name: 'Петров Пётр', user_email: 'petrov@tm.ru',
+  dept_name: 'Бюро автоматики', role_name: 'Инженер', status: 'pending',
+  created_at: '2026-07-01T00:00:00Z',
+};
+const reqPending2 = {
+  id: 2, user_name: 'Сидоров Сидор', user_email: 'sidorov@tm.ru',
+  dept_name: 'Бюро B', role_name: 'Начальник', status: 'pending',
+  created_at: '2026-07-02T00:00:00Z',
+};
+const reqRejected = {
+  id: 3, user_name: 'Кузнецов Кузьма', user_email: 'kuznecov@tm.ru',
+  dept_name: 'Бюро C', role_name: 'Инженер', status: 'rejected',
+  created_at: '2026-06-01T00:00:00Z', comment: 'Не хватает данных',
+};
+
+// staff-requests с учётом текущего фильтра статуса (реализация всегда шлёт status=<filter>)
+const staffRequestsByStatus = (byStatus) => (url) => {
+  const m = url.match(/status=(\w+)/);
+  const status = m ? m[1] : 'pending';
+  return Promise.resolve(resp(byStatus[status] || []));
+};
+
+describe('StaffPage — вкладка «Заявки»', () => {
+  const gotoRequests = async () => {
+    const user = userEvent.setup();
+    render(<StaffPage />);
+    await user.click(await screen.findByText('Заявки'));
+    return user;
+  };
+
+  it('бейдж pending-счётчика на вкладке: не показывается при 0, число при >0, "9+" при >9', async () => {
+    apiFetch.mockImplementation((url) => {
+      if (url.includes('/staff-requests/')) return staffRequestsByStatus({ pending: [reqPending1, reqPending2] })(url);
+      if (url.includes('/departments/')) return Promise.resolve(resp([dept1]));
+      if (url.includes('/roles/')) return Promise.resolve(resp([role1, role2]));
+      if (url.includes('/users-list/')) return Promise.resolve(resp([]));
+      return Promise.resolve(resp({}));
+    });
+    render(<StaffPage />);
+    expect(await screen.findByText('2')).toBeInTheDocument();
+  });
+
+  it('бейдж показывает "9+" при более чем 9 заявках', async () => {
+    const many = Array.from({ length: 10 }, (_, i) => ({ ...reqPending1, id: i + 1 }));
+    apiFetch.mockImplementation((url) => {
+      if (url.includes('/staff-requests/')) return staffRequestsByStatus({ pending: many })(url);
+      if (url.includes('/departments/')) return Promise.resolve(resp([dept1]));
+      if (url.includes('/roles/')) return Promise.resolve(resp([role1, role2]));
+      if (url.includes('/users-list/')) return Promise.resolve(resp([]));
+      return Promise.resolve(resp({}));
+    });
+    render(<StaffPage />);
+    expect(await screen.findByText('9+')).toBeInTheDocument();
+  });
+
+  it('пустой список при фильтре pending и другой текст для остальных фильтров', async () => {
+    apiFetch.mockImplementation((url) => {
+      if (url.includes('/staff-requests/')) return staffRequestsByStatus({})(url);
+      if (url.includes('/departments/')) return Promise.resolve(resp([dept1]));
+      if (url.includes('/roles/')) return Promise.resolve(resp([role1, role2]));
+      if (url.includes('/users-list/')) return Promise.resolve(resp([]));
+      return Promise.resolve(resp({}));
+    });
+    const user = await gotoRequests();
+    expect(await screen.findByText('Нет новых заявок')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Одобренные'));
+    expect(await screen.findByText('Нет заявок')).toBeInTheDocument();
+  });
+
+  it('переключение фильтра статуса перезапрашивает список с этим статусом', async () => {
+    apiFetch.mockImplementation((url) => {
+      if (url.includes('/staff-requests/')) {
+        return staffRequestsByStatus({ pending: [reqPending1], rejected: [reqRejected] })(url);
+      }
+      if (url.includes('/departments/')) return Promise.resolve(resp([dept1]));
+      if (url.includes('/roles/')) return Promise.resolve(resp([role1, role2]));
+      if (url.includes('/users-list/')) return Promise.resolve(resp([]));
+      return Promise.resolve(resp({}));
+    });
+    const user = await gotoRequests();
+    expect(await screen.findByText('Петров Пётр')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Отклонённые'));
+    expect(await screen.findByText('Кузнецов Кузьма')).toBeInTheDocument();
+    expect(screen.getByText('Не хватает данных')).toBeInTheDocument();
+    expect(screen.queryByText('Петров Пётр')).not.toBeInTheDocument();
+  });
+
+  it('одобрение отправляет POST approve/ и перезапрашивает текущий фильтр', async () => {
+    apiFetch.mockImplementation((url, opts = {}) => {
+      const method = opts.method || 'GET';
+      if (url.includes('/approve/') && method === 'POST') return Promise.resolve(resp({}));
+      if (url.includes('/staff-requests/')) return staffRequestsByStatus({ pending: [reqPending1] })(url);
+      if (url.includes('/departments/')) return Promise.resolve(resp([dept1]));
+      if (url.includes('/roles/')) return Promise.resolve(resp([role1, role2]));
+      if (url.includes('/users-list/')) return Promise.resolve(resp([]));
+      return Promise.resolve(resp({}));
+    });
+    const user = await gotoRequests();
+    await screen.findByText('Петров Пётр');
+    apiFetch.mockClear();
+    await user.click(screen.getByText('Принять'));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
+      '/api/v1/auth/staff-requests/1/approve/', expect.objectContaining({ method: 'POST' })
+    ));
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/staff-requests/?status=pending')
+    ));
+  });
+
+  it('отклонение открывает модалку, отправляет комментарий и перезапрашивает список', async () => {
+    apiFetch.mockImplementation((url, opts = {}) => {
+      const method = opts.method || 'GET';
+      if (url.includes('/reject/') && method === 'POST') return Promise.resolve(resp({}));
+      if (url.includes('/staff-requests/')) return staffRequestsByStatus({ pending: [reqPending1] })(url);
+      if (url.includes('/departments/')) return Promise.resolve(resp([dept1]));
+      if (url.includes('/roles/')) return Promise.resolve(resp([role1, role2]));
+      if (url.includes('/users-list/')) return Promise.resolve(resp([]));
+      return Promise.resolve(resp({}));
+    });
+    const user = await gotoRequests();
+    await screen.findByText('Петров Пётр');
+    await user.click(screen.getByText('Отклонить'));
+    expect(screen.getByText(/Отклонить заявку/)).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText('Причина...'), 'Недостаточно оснований');
+    apiFetch.mockClear();
+    await user.click(screen.getAllByText('Отклонить').at(-1));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
+      '/api/v1/auth/staff-requests/1/reject/',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ comment: 'Недостаточно оснований' }) })
+    ));
+    await waitFor(() => expect(screen.queryByText(/Отклонить заявку/)).not.toBeInTheDocument());
+  });
+
+  it('"Отмена" в модалке отклонения не отправляет запрос', async () => {
+    apiFetch.mockImplementation((url) => {
+      if (url.includes('/staff-requests/')) return staffRequestsByStatus({ pending: [reqPending1] })(url);
+      if (url.includes('/departments/')) return Promise.resolve(resp([dept1]));
+      if (url.includes('/roles/')) return Promise.resolve(resp([role1, role2]));
+      if (url.includes('/users-list/')) return Promise.resolve(resp([]));
+      return Promise.resolve(resp({}));
+    });
+    const user = await gotoRequests();
+    await screen.findByText('Петров Пётр');
+    await user.click(screen.getByText('Отклонить'));
+    apiFetch.mockClear();
+    await user.click(screen.getByText('Отмена'));
+
+    expect(screen.queryByText(/Отклонить заявку/)).not.toBeInTheDocument();
+    expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/reject/'), expect.anything());
+  });
+});
+
 describe('StaffPage — назначение роли', () => {
   const setupOpenModal = async () => {
     apiFetch.mockImplementation((url) => {
