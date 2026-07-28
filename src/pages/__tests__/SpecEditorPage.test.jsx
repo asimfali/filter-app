@@ -329,3 +329,201 @@ describe('SpecEditorPage — выгрузка в 1С', () => {
     expect(catalogApi.taskStatus).not.toHaveBeenCalled();
   });
 });
+
+// ── Модуль 20 / шаг 2: выделение/клавиатура/paste ─────────────────────────
+
+// Плоский набор без родитель/исполнение-связей (все _isParent без вариантов) — избегаем
+// нюанса, что data.products.length используется для клэмпа rowCount, а не visibleRows.length.
+const flatA = { id: 200, name: 'П1', parent_id: null, specs: { 1: { spec_id: 20, value: '', is_manual: false }, 2: {} } };
+const flatB = { id: 201, name: 'П2', parent_id: null, specs: { 1: {}, 2: {} } };
+const flatC = { id: 202, name: 'П3', parent_id: null, specs: { 1: {}, 2: {} } };
+const flatData = { product_type_id: 9, definitions: [def1, def2], products: [flatA, flatB, flatC] };
+
+const getCell = (container, rowIdx, colIdx) =>
+  container.querySelectorAll('tbody tr')[rowIdx].querySelectorAll('td')[colIdx + 1];
+const isCellSelected = (cell) => cell.className.includes('bg-violet-100');
+
+describe('SpecEditorPage — выделение мышью', () => {
+  const gotoFlat = async () => {
+    vi.stubGlobal('fetch', vi.fn(routeFetch({ load: { success: true, data: flatData } })));
+    const utils = render(<SpecEditorPage productIds={[200, 201, 202]} onBack={vi.fn()} />);
+    await screen.findByText('П1');
+    return utils;
+  };
+
+  it('mouseDown выделяет одну ячейку', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(true);
+    expect(await screen.findByText('Выделено: 1 ячеек — скопируйте значение и нажмите Ctrl+V')).toBeInTheDocument();
+  });
+
+  it('drag (mouseDown+mouseEnter) в одной колонке выделяет диапазон строк', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseEnter(getCell(container, 2, 0));
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(true);
+    expect(isCellSelected(getCell(container, 1, 0))).toBe(true);
+    expect(isCellSelected(getCell(container, 2, 0))).toBe(true);
+    expect(isCellSelected(getCell(container, 2, 1))).toBe(false);
+    fireEvent.mouseUp(document);
+  });
+
+  it('mouseEnter в другой колонке во время drag игнорируется', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseEnter(getCell(container, 1, 1));
+    expect(isCellSelected(getCell(container, 1, 1))).toBe(false);
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(true);
+  });
+
+  it('Shift-клик расширяет диапазон от anchor в той же колонке', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseUp(document);
+    fireEvent.click(getCell(container, 2, 0), { shiftKey: true });
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(true);
+    expect(isCellSelected(getCell(container, 1, 0))).toBe(true);
+    expect(isCellSelected(getCell(container, 2, 0))).toBe(true);
+  });
+
+  it('Ctrl-клик добавляет/снимает произвольную ячейку (в т.ч. в другой колонке)', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseUp(document);
+    fireEvent.click(getCell(container, 1, 1), { ctrlKey: true });
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(true);
+    expect(isCellSelected(getCell(container, 1, 1))).toBe(true);
+
+    // повторный ctrl-клик по той же ячейке снимает её
+    fireEvent.click(getCell(container, 1, 1), { ctrlKey: true });
+    expect(isCellSelected(getCell(container, 1, 1))).toBe(false);
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(true);
+  });
+
+  it('клик вне таблицы сбрасывает выделение', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseUp(document);
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(true);
+
+    fireEvent.mouseDown(document.body);
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(false);
+  });
+});
+
+describe('SpecEditorPage — выделение с клавиатуры (регрессия бывшего краша)', () => {
+  const gotoFlat = async () => {
+    vi.stubGlobal('fetch', vi.fn(routeFetch({ load: { success: true, data: flatData } })));
+    const utils = render(<SpecEditorPage productIds={[200, 201, 202]} onBack={vi.fn()} />);
+    await screen.findByText('П1');
+    return utils;
+  };
+
+  it('регрессия: клик по ячейке, затем ArrowDown/Up/Escape не крашат таблицу', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseUp(document);
+
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    expect(await screen.findByText('П3')).toBeInTheDocument(); // рендер не упал
+    fireEvent.keyDown(document, { key: 'ArrowUp' });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByText('Выделено: 0 ячеек — скопируйте значение и нажмите Ctrl+V')).toBeInTheDocument();
+  });
+
+  it('ArrowDown без Shift двигает курсор на одну ячейку вниз (клэмп на границе)', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseUp(document);
+
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(false);
+    expect(isCellSelected(getCell(container, 1, 0))).toBe(true);
+
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'ArrowDown' }); // за границей (rowIdx=2 — последняя)
+    expect(isCellSelected(getCell(container, 2, 0))).toBe(true);
+  });
+
+  it('Shift+ArrowDown расширяет диапазон от anchor', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseUp(document);
+
+    fireEvent.keyDown(document, { key: 'ArrowDown', shiftKey: true });
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(true);
+    expect(isCellSelected(getCell(container, 1, 0))).toBe(true);
+    expect(isCellSelected(getCell(container, 2, 0))).toBe(false);
+
+    fireEvent.keyDown(document, { key: 'ArrowDown', shiftKey: true });
+    expect(isCellSelected(getCell(container, 2, 0))).toBe(true);
+  });
+
+  it('ArrowRight/Left переходят в соседнюю колонку, схлопывая в одну ячейку', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 1, 0));
+    fireEvent.mouseUp(document);
+
+    fireEvent.keyDown(document, { key: 'ArrowRight' });
+    expect(isCellSelected(getCell(container, 1, 1))).toBe(true);
+    expect(isCellSelected(getCell(container, 1, 0))).toBe(false);
+
+    fireEvent.keyDown(document, { key: 'ArrowLeft' });
+    expect(isCellSelected(getCell(container, 1, 0))).toBe(true);
+
+    // за левой границей (только 2 колонки, defIdx=0) — no-op
+    fireEvent.keyDown(document, { key: 'ArrowLeft' });
+    expect(isCellSelected(getCell(container, 1, 0))).toBe(true);
+  });
+
+  it('клавиатура игнорируется при фокусе в input', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseUp(document);
+
+    const input = getCell(container, 1, 0).querySelector('input');
+    input.focus();
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    // выделение не изменилось (клавиатура проигнорирована — фокус в input)
+    expect(isCellSelected(getCell(container, 0, 0))).toBe(true);
+  });
+});
+
+describe('SpecEditorPage — paste в выделенные ячейки', () => {
+  const gotoFlat = async () => {
+    vi.stubGlobal('fetch', vi.fn(routeFetch({ load: { success: true, data: flatData } })));
+    const utils = render(<SpecEditorPage productIds={[200, 201, 202]} onBack={vi.fn()} />);
+    await screen.findByText('П1');
+    return utils;
+  };
+
+  it('вставка применяет буфер обмена ко всем выделенным ячейкам', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseEnter(getCell(container, 1, 0));
+    fireEvent.mouseUp(document);
+
+    fireEvent.paste(document, { clipboardData: { getData: () => '123' } });
+
+    const row0Input = getCell(container, 0, 0).querySelector('input');
+    const row1Input = getCell(container, 1, 0).querySelector('input');
+    expect(row0Input).toHaveValue('123');
+    expect(row1Input).toHaveValue('123');
+    expect(await screen.findByText('Сохранить всё (2)')).toBeInTheDocument();
+  });
+
+  it('пустой буфер обмена — no-op', async () => {
+    const { container } = await gotoFlat();
+    fireEvent.mouseDown(getCell(container, 0, 0));
+    fireEvent.mouseUp(document);
+    fireEvent.paste(document, { clipboardData: { getData: () => '   ' } });
+    expect(screen.getByText('Сохранить всё')).toBeDisabled();
+  });
+
+  it('без выделения — paste ничего не делает', async () => {
+    await gotoFlat();
+    fireEvent.paste(document, { clipboardData: { getData: () => '999' } });
+    expect(screen.getByText('Сохранить всё')).toBeDisabled();
+  });
+});
