@@ -360,7 +360,7 @@ function RuleItem({ kitId, ruleId, item, canWrite, onDeleted, onUpdated }) {
                     onSave={async (qty) => {
                         const { ok, data } = await mediaApi.updateAccessoryKitItem(kitId, item.id, { quantity: qty });
                         if (ok && data.success) {
-                            setItems(prev => prev.map(i => i.id === item.id ? data.item : i));
+                            onUpdated(item.id, data.item.quantity);
                         }
                     }}
                 />

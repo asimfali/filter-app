@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AccessoryKitsPage from '../AccessoryKitsPage';
 import { mediaApi } from '../../api/media';
+import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
 
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
@@ -246,5 +247,228 @@ describe('AccessoryKitsPage — AccessoryKitCard', () => {
     await gotoCard();
     expect(screen.queryByText('✎')).not.toBeInTheDocument();
     expect(screen.queryByText('✕')).not.toBeInTheDocument();
+  });
+});
+
+// ── Модуль 17 / шаг 2: QuantityEditor + KitItemsPanel + Rules ─────────────
+
+const product1 = { id: 500, name: 'Термостат комнатный', sku: 'TH-01' };
+
+const makeKitWithItem = (overrides = {}) => ({
+  id: 10, name: 'Автоматика базовая', description: '', filters: [],
+  items: [{ id: 100, name: 'Термостат', sku: 'TH-1', quantity: 2, is_required: true, notes: '' }],
+  rules: [],
+  ...overrides,
+});
+
+describe('AccessoryKitsPage — KitItemsPanel', () => {
+  const gotoItems = async (kit = makeKitWithItem()) => {
+    mediaApi.getAccessoryKits.mockResolvedValue(ok({ data: [kit] }));
+    const user = userEvent.setup();
+    render(<AccessoryKitsPage />);
+    await screen.findByText('Автоматика базовая');
+    return user;
+  };
+
+  it('пустой список позиций показывает подсказку', async () => {
+    await gotoItems(makeKitWithItem({ items: [] }));
+    expect(screen.getByText('Позиций пока нет')).toBeInTheDocument();
+  });
+
+  it('без права: нет "+ Добавить изделие", удаления и редактирования количества', async () => {
+    useAuth.mockReturnValue({ user: withPerms() });
+    await gotoItems();
+    expect(screen.queryByText('+ Добавить изделие')).not.toBeInTheDocument();
+    expect(screen.getByText('×2')).toBeDisabled();
+  });
+
+  it('поиск (от 2 символов) находит изделие и добавляет его в набор', async () => {
+    catalogApi.searchProducts.mockResolvedValue(ok({ data: [product1] }));
+    mediaApi.addAccessoryKitItem.mockResolvedValue({
+      ok: true,
+      data: { success: true, item: { id: 101, name: 'Термостат комнатный', sku: 'TH-01', quantity: 1, is_required: true } },
+    });
+    const user = await gotoItems();
+    await user.click(screen.getByText('+ Добавить изделие'));
+    await user.type(screen.getByPlaceholderText('Поиск изделия...'), 'терм');
+
+    expect(await screen.findByText('Термостат комнатный')).toBeInTheDocument();
+    await user.click(screen.getByText('Термостат комнатный'));
+
+    await waitFor(() => expect(mediaApi.addAccessoryKitItem).toHaveBeenCalledWith(10, {
+      accessory_id: 500, quantity: 1, is_required: true,
+    }));
+    expect(await screen.findByText('TH-01')).toBeInTheDocument();
+  });
+
+  it('одна буква не запускает поиск', async () => {
+    const user = await gotoItems();
+    await user.click(screen.getByText('+ Добавить изделие'));
+    await user.type(screen.getByPlaceholderText('Поиск изделия...'), 'т');
+    expect(catalogApi.searchProducts).not.toHaveBeenCalled();
+  });
+
+  it('"Отмена" в форме добавления закрывает её', async () => {
+    const user = await gotoItems();
+    await user.click(screen.getByText('+ Добавить изделие'));
+    await user.click(screen.getByText('Отмена'));
+    expect(screen.queryByPlaceholderText('Поиск изделия...')).not.toBeInTheDocument();
+  });
+
+  it('удаление позиции вызывает deleteAccessoryKitItem и убирает из списка', async () => {
+    mediaApi.deleteAccessoryKitItem.mockResolvedValue({ ok: true });
+    const user = await gotoItems();
+    // "✕" неоднозначен: [0] — удаление всего набора (шапка карточки), [1] — удаление позиции
+    await user.click(screen.getAllByText('✕')[1]);
+    await waitFor(() => expect(mediaApi.deleteAccessoryKitItem).toHaveBeenCalledWith(10, 100));
+    expect(screen.queryByText('Термостат')).not.toBeInTheDocument();
+  });
+
+  it('QuantityEditor: Enter сохраняет изменённое количество', async () => {
+    mediaApi.updateAccessoryKitItem.mockResolvedValue({
+      ok: true, data: { success: true, item: { id: 100, name: 'Термостат', sku: 'TH-1', quantity: 5, is_required: true } },
+    });
+    const user = await gotoItems();
+    await user.click(screen.getByText('×2'));
+    const input = screen.getByDisplayValue('2');
+    await user.clear(input);
+    await user.type(input, '5{enter}');
+
+    await waitFor(() => expect(mediaApi.updateAccessoryKitItem).toHaveBeenCalledWith(10, 100, { quantity: 5 }));
+    expect(await screen.findByText('×5')).toBeInTheDocument();
+  });
+
+  it('QuantityEditor: Escape отменяет без вызова onSave', async () => {
+    const user = await gotoItems();
+    await user.click(screen.getByText('×2'));
+    const input = screen.getByDisplayValue('2');
+    await user.type(input, '9{escape}');
+    expect(screen.getByText('×2')).toBeInTheDocument();
+    expect(mediaApi.updateAccessoryKitItem).not.toHaveBeenCalled();
+  });
+
+  it('QuantityEditor: сохранение без изменения значения не отправляет запрос', async () => {
+    const user = await gotoItems();
+    await user.click(screen.getByText('×2'));
+    const input = screen.getByDisplayValue('2');
+    await user.type(input, '{enter}');
+    expect(mediaApi.updateAccessoryKitItem).not.toHaveBeenCalled();
+  });
+});
+
+const makeKitWithRule = (ruleOverrides = {}) => ({
+  id: 10, name: 'Автоматика базовая', description: '', filters: [], items: [],
+  rules: [{
+    id: 200, quantity_from: null, quantity_to: null, is_manual: null,
+    power_from: null, power_to: null, priority: 0,
+    rule_items: [{ id: 300, name: 'Реле давления', sku: 'RD-1', quantity: 1 }],
+    ...ruleOverrides,
+  }],
+});
+
+describe('AccessoryKitsPage — RulesPanel', () => {
+  const gotoRules = async (kit = makeKitWithRule()) => {
+    mediaApi.getAccessoryKits.mockResolvedValue(ok({ data: [kit] }));
+    const user = userEvent.setup();
+    render(<AccessoryKitsPage />);
+    await screen.findByText('Реле давления');
+    return user;
+  };
+
+  it('пустой список правил показывает подсказку', async () => {
+    mediaApi.getAccessoryKits.mockResolvedValue(ok({ data: [makeKitWithItem({ items: [], rules: [] })] }));
+    render(<AccessoryKitsPage />);
+    await screen.findByText('Правила подбора');
+    expect(screen.getByText('Правил нет')).toBeInTheDocument();
+  });
+
+  it('метка правила: "Всегда" при отсутствии условий', async () => {
+    await gotoRules();
+    expect(screen.getByText('Всегда')).toBeInTheDocument();
+  });
+
+  it('метка правила: количество/управление/мощность/приоритет собираются вместе', async () => {
+    await gotoRules(makeKitWithRule({
+      quantity_from: 2, quantity_to: 5, is_manual: false, power_from: 1, power_to: 10, priority: 3,
+    }));
+    expect(screen.getByText('Кол-во: 2–5')).toBeInTheDocument();
+    expect(screen.getByText('Авто')).toBeInTheDocument();
+    expect(screen.getByText('Мощность: 1–10 кВт')).toBeInTheDocument();
+    expect(screen.getByText('приор. 3')).toBeInTheDocument();
+  });
+
+  it('"+ Добавить правило" создаёт правило с преобразованным payload', async () => {
+    mediaApi.createAccessoryKitRule.mockResolvedValue({
+      ok: true, data: { success: true, rule: { id: 201, priority: 5, rule_items: [] } },
+    });
+    mediaApi.getAccessoryKits.mockResolvedValue(ok({ data: [makeKitWithItem({ items: [], rules: [] })] }));
+    const user = userEvent.setup();
+    render(<AccessoryKitsPage />);
+    await screen.findByText('Правила подбора');
+    await user.click(screen.getByText('+ Добавить правило'));
+
+    await user.type(screen.getAllByPlaceholderText('—')[0], '2');
+    await user.selectOptions(screen.getByDisplayValue('Любое'), 'true');
+    await user.type(screen.getAllByPlaceholderText('—')[1], '1.5');
+    const priorityInput = screen.getByDisplayValue('0');
+    await user.clear(priorityInput);
+    await user.type(priorityInput, '5');
+
+    await user.click(screen.getByText('Создать'));
+    await waitFor(() => expect(mediaApi.createAccessoryKitRule).toHaveBeenCalledWith(10, {
+      quantity_from: '2', quantity_to: null, is_manual: true, power_from: '1.5', power_to: null, priority: 5,
+    }));
+    expect(screen.queryByText('Правил нет')).not.toBeInTheDocument();
+  });
+
+  it('удаление правила вызывает deleteAccessoryKitRule и убирает карточку', async () => {
+    mediaApi.deleteAccessoryKitRule.mockResolvedValue({ ok: true });
+    const user = await gotoRules();
+    // "✕": [0] — удаление набора, [1] — удаление правила, [2] — удаление позиции правила
+    await user.click(screen.getAllByText('✕')[1]);
+    await waitFor(() => expect(mediaApi.deleteAccessoryKitRule).toHaveBeenCalledWith(10, 200));
+    expect(screen.queryByText('Реле давления')).not.toBeInTheDocument();
+  });
+
+  it('добавление изделия в правило вызывает addAccessoryKitRuleItem', async () => {
+    catalogApi.searchProducts.mockResolvedValue(ok({ data: [product1] }));
+    mediaApi.addAccessoryKitRuleItem.mockResolvedValue({
+      ok: true, data: { success: true, item: { id: 301, name: 'Термостат комнатный', sku: 'TH-01', quantity: 1 } },
+    });
+    const user = await gotoRules();
+    // "+ Добавить изделие": [0] — KitItemsPanel (набор пуст), [1] — внутри правила
+    await user.click(screen.getAllByText('+ Добавить изделие')[1]);
+    await user.type(screen.getByPlaceholderText('Поиск изделия...'), 'терм');
+    await user.click(await screen.findByText('Термостат комнатный'));
+
+    await waitFor(() => expect(mediaApi.addAccessoryKitRuleItem).toHaveBeenCalledWith(10, 200, {
+      accessory_id: 500, quantity: 1,
+    }));
+  });
+
+  describe('RuleItem — починенный баг (ReferenceError на setItems)', () => {
+    it('изменение количества позиции правила вызывает onUpdated, не падает, обновляет бейдж', async () => {
+      mediaApi.updateAccessoryKitItem.mockResolvedValue({
+        ok: true, data: { success: true, item: { id: 300, name: 'Реле давления', sku: 'RD-1', quantity: 9 } },
+      });
+      const user = await gotoRules();
+      await user.click(screen.getByText('×1'));
+      const input = screen.getByDisplayValue('1');
+      await user.clear(input);
+      await user.type(input, '9{enter}');
+
+      await waitFor(() => expect(mediaApi.updateAccessoryKitItem).toHaveBeenCalledWith(10, 300, { quantity: 9 }));
+      expect(await screen.findByText('×9')).toBeInTheDocument();
+    });
+
+    it('удаление позиции правила вызывает deleteAccessoryKitRuleItem', async () => {
+      mediaApi.deleteAccessoryKitRuleItem.mockResolvedValue({ ok: true });
+      const user = await gotoRules();
+      const removeButtons = screen.getAllByText('✕');
+      // "✕": [0] — удаление набора, [1] — удаление правила, [2] — удаление позиции правила
+      await user.click(removeButtons[2]);
+      await waitFor(() => expect(mediaApi.deleteAccessoryKitRuleItem).toHaveBeenCalledWith(10, 200, 300));
+      expect(screen.queryByText('Реле давления')).not.toBeInTheDocument();
+    });
   });
 });
