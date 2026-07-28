@@ -244,3 +244,194 @@ describe('VariantEditorPage — фильтры и выбор свободных 
     expect(screen.queryByText(/выбрано/)).not.toBeInTheDocument();
   });
 });
+
+// ── Модуль 19 / шаг 2: привязка/отвязка, external name, выбор родителя ────
+
+const variant1 = { id: 300, name: 'Исполнение 1' };
+const variant2 = { id: 301, name: 'Исполнение 2' };
+
+// variantParents обслуживает и постраничный список, и запрос вариантов конкретного родителя
+// (по наличию parentId в аргументах) — роутим единым моком.
+const routeVariantParents = (overrides = {}) => (opts) => {
+  if (opts?.parentId) {
+    return Promise.resolve(ok({ success: true, data: { variants: overrides.variants ?? [] } }));
+  }
+  return Promise.resolve(listOk(overrides.parentsItems ?? [], overrides.parentsTotal ?? 0));
+};
+
+describe('VariantEditorPage — выбор родителя', () => {
+  it('клик по строке родителя грузит его исполнения и подставляет external_name', async () => {
+    const parentWithName = { ...parent1, external_name: 'Внешнее имя' };
+    catalogApi.variantParents.mockImplementation(routeVariantParents({
+      parentsItems: [parentWithName], parentsTotal: 1, variants: [variant1, variant2],
+    }));
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    await user.click(await screen.findByText('Родитель А'));
+
+    expect(await screen.findByText('Исполнения (2)')).toBeInTheDocument();
+    expect(screen.getByText('Исполнение 1')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Внешнее имя')).toBeInTheDocument();
+  });
+
+  it('выбор родителя подставляет фильтр свободных изделий по контексту родителя', async () => {
+    catalogApi.variantParents.mockImplementation(routeVariantParents({
+      parentsItems: [parent1], parentsTotal: 1,
+    }));
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    catalogApi.variantFreeProducts.mockClear();
+    await user.click(await screen.findByText('Родитель А'));
+
+    await waitFor(() => expect(catalogApi.variantFreeProducts).toHaveBeenCalledWith(
+      expect.objectContaining({ parentName: 'Родитель А', parentId: 100 })
+    ));
+  });
+
+  it('SmartSelect (onSelect) тоже выбирает родителя', async () => {
+    catalogApi.variantParents.mockImplementation(routeVariantParents({ variants: [] }));
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    await screen.findByText('Нет родителей');
+    await user.click(screen.getByText('select-parent'));
+    await waitFor(() => expect(catalogApi.variantParents).toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: 500 })
+    ));
+  });
+
+  it('"clear-parent" (onClear) сбрасывает выбранного родителя и исполнения', async () => {
+    catalogApi.variantParents.mockImplementation(routeVariantParents({
+      parentsItems: [parent1], parentsTotal: 1, variants: [variant1],
+    }));
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    await user.click(await screen.findByText('Родитель А'));
+    await screen.findByText('Исполнения (1)');
+
+    await user.click(screen.getByText('clear-parent'));
+    expect(screen.queryByText('Исполнения (1)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Название для внешнего сайта')).not.toBeInTheDocument();
+  });
+});
+
+describe('VariantEditorPage — привязка (handleLink)', () => {
+  const gotoWithParentAndSelection = async (overrides = {}) => {
+    catalogApi.variantParents.mockImplementation(routeVariantParents({
+      parentsItems: [parent1], parentsTotal: 1, variants: overrides.variants ?? [],
+    }));
+    catalogApi.variantFreeProducts.mockResolvedValue(listOk([free1, free2], 2));
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    await user.click(await screen.findByText('Родитель А'));
+    await screen.findByText('Изделие 1');
+    await user.click(screen.getByText('Изделие 1'));
+    return user;
+  };
+
+  it('кнопка меняет текст/disabled по состоянию выбора', async () => {
+    catalogApi.variantFreeProducts.mockResolvedValue(listOk([free1], 1));
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    await screen.findByText('Изделие 1');
+    expect(screen.getByText('Выберите изделия слева')).toBeDisabled();
+
+    await user.click(screen.getByText('Изделие 1'));
+    expect(screen.getByText('Привязать (1) → родитель')).toBeDisabled();
+
+    catalogApi.variantParents.mockImplementation(routeVariantParents({ parentsItems: [parent1], parentsTotal: 1 }));
+    await user.click(screen.getByText('select-parent'));
+    expect(await screen.findByText('Привязать (1) → родитель')).toBeEnabled();
+  });
+
+  it('успех: флеш с числом, сброс выбора, релоад free+исполнений', async () => {
+    const user = await gotoWithParentAndSelection();
+    catalogApi.variantLink.mockResolvedValue(ok({ success: true, data: { linked: 1 } }));
+    catalogApi.variantFreeProducts.mockClear();
+    catalogApi.variantFreeProducts.mockResolvedValueOnce(listOk([free2], 1));
+    // повторный вызов variantFreeProducts внутри handleLink проверяет остаток свободных для родителя
+    catalogApi.variantFreeProducts.mockResolvedValue(listOk([free2], 1));
+
+    await user.click(screen.getByText('Привязать (1) → родитель'));
+
+    expect(await screen.findByText('✓ Привязано: 1')).toBeInTheDocument();
+    expect(catalogApi.variantLink).toHaveBeenCalledWith([200], 100, null);
+    expect(screen.queryByText(/выбрано/)).not.toBeInTheDocument();
+  });
+
+  it('после привязки, если у родителя не осталось свободных — родитель убирается из списка и контекст сбрасывается', async () => {
+    const user = await gotoWithParentAndSelection();
+    catalogApi.variantLink.mockResolvedValue(ok({ success: true, data: { linked: 1 } }));
+    catalogApi.variantFreeProducts.mockResolvedValue(listOk([], 0));
+
+    await user.click(screen.getByText('Привязать (1) → родитель'));
+
+    await waitFor(() => expect(screen.queryByText('Родитель А')).not.toBeInTheDocument());
+    expect(screen.queryByText('Название для внешнего сайта')).not.toBeInTheDocument();
+  });
+
+  it('ошибка привязки показывает data.error', async () => {
+    const user = await gotoWithParentAndSelection();
+    catalogApi.variantLink.mockResolvedValue({ ok: true, data: { success: false, error: 'Уже привязано' } });
+    await user.click(screen.getByText('Привязать (1) → родитель'));
+    expect(await screen.findByText('Уже привязано')).toBeInTheDocument();
+  });
+});
+
+describe('VariantEditorPage — исполнения и отвязка', () => {
+  it('пустой список исполнений показывает подсказку', async () => {
+    catalogApi.variantParents.mockImplementation(routeVariantParents({
+      parentsItems: [parent1], parentsTotal: 1, variants: [],
+    }));
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    await user.click(await screen.findByText('Родитель А'));
+    expect(await screen.findByText('Нет исполнений')).toBeInTheDocument();
+  });
+
+  it('"✕ Отвязать" вызывает variantUnlink и обновляет всё', async () => {
+    catalogApi.variantParents.mockImplementation(routeVariantParents({
+      parentsItems: [parent1], parentsTotal: 1, variants: [variant1],
+    }));
+    catalogApi.variantUnlink.mockResolvedValue(ok({ success: true }));
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    await user.click(await screen.findByText('Родитель А'));
+    await screen.findByText('Исполнение 1');
+
+    await user.click(screen.getByTitle('Отвязать'));
+    expect(await screen.findByText('✓ Отвязано')).toBeInTheDocument();
+    expect(catalogApi.variantUnlink).toHaveBeenCalledWith([300]);
+  });
+
+  it('ошибка отвязки показывает data.error', async () => {
+    catalogApi.variantParents.mockImplementation(routeVariantParents({
+      parentsItems: [parent1], parentsTotal: 1, variants: [variant1],
+    }));
+    catalogApi.variantUnlink.mockResolvedValue({ ok: true, data: { success: false, error: 'Нельзя отвязать' } });
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    await user.click(await screen.findByText('Родитель А'));
+    await screen.findByText('Исполнение 1');
+    await user.click(screen.getByTitle('Отвязать'));
+    expect(await screen.findByText('Нельзя отвязать')).toBeInTheDocument();
+  });
+});
+
+describe('VariantEditorPage — сохранение external name', () => {
+  it('успешное сохранение показывает флеш', async () => {
+    catalogApi.variantParents.mockImplementation(routeVariantParents({
+      parentsItems: [parent1], parentsTotal: 1, variants: [],
+    }));
+    catalogApi.variantSetExternalName.mockResolvedValue({ ok: true, data: { success: true } });
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    await user.click(await screen.findByText('Родитель А'));
+    await screen.findByText('Название для внешнего сайта');
+
+    await user.type(screen.getByPlaceholderText('Родитель А'), 'Новое имя');
+    await user.click(screen.getByText('Сохранить'));
+
+    await waitFor(() => expect(catalogApi.variantSetExternalName).toHaveBeenCalledWith(100, 'Новое имя'));
+    expect(await screen.findByText('✓ Название сохранено')).toBeInTheDocument();
+  });
+});
