@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HeatExchangersPage from '../HeatExchangersPage';
 import { mediaApi } from '../../api/media';
@@ -29,8 +29,8 @@ vi.mock('../../components/media/DirectProductsPanel', () => ({
   ),
 }));
 vi.mock('../../components/common/SmartSelect', () => ({
-  default: ({ placeholder, onSelect }) => (
-    <div>
+  default: ({ endpoint, placeholder, onSelect }) => (
+    <div data-testid="smart-select" data-endpoint={endpoint}>
       <input placeholder={placeholder} readOnly />
       <button onClick={() => onSelect({ id: 900, external_id: 'DOC-1', name: 'Чертёж' })}>select-doc</button>
     </div>
@@ -269,5 +269,164 @@ describe('HeatExchangersPage — BulkImportForm', () => {
     await uploadJson(user, '[{"mark":"X"}]');
     await user.click(screen.getByText('Импортировать'));
     expect(await screen.findByText('✗ Нет прав')).toBeInTheDocument();
+  });
+});
+
+// ── Модуль 18 / шаг 2: HeatExchangerCard + DrawingPanel ───────────────────
+
+describe('HeatExchangersPage — HeatExchangerCard', () => {
+  const gotoCard = async (item = he1) => {
+    mediaApi.getHeatExchangers.mockResolvedValue(ok({ data: [item] }));
+    const user = userEvent.setup();
+    render(<HeatExchangersPage />);
+    await screen.findByText(item.mark);
+    return user;
+  };
+
+  it('рендерит марку и все характеристики', async () => {
+    await gotoCard();
+    expect(screen.getByText('ТЕРМА 01')).toBeInTheDocument();
+    expect(screen.getByText('100x200x300')).toBeInTheDocument();
+    expect(screen.getByText('90x190')).toBeInTheDocument();
+    expect(screen.getByText('1.5 л')).toBeInTheDocument();
+    expect(screen.getByText('0.5 мм')).toBeInTheDocument();
+    expect(screen.getByText('2.5 мм')).toBeInTheDocument();
+    expect(screen.getByText('0.2 мм')).toBeInTheDocument();
+    expect(screen.getByText('L')).toBeInTheDocument();
+    expect(screen.getByText('S22-10')).toBeInTheDocument();
+  });
+
+  it('рендерит замоканные FiltersPanel/DirectProductsPanel с entityType="heat-exchanger"', async () => {
+    await gotoCard();
+    const filtersPanel = screen.getByTestId('filters-panel');
+    expect(filtersPanel).toHaveAttribute('data-entity-id', '10');
+    expect(filtersPanel).toHaveAttribute('data-entity-type', 'heat-exchanger');
+    expect(filtersPanel).toHaveAttribute('data-can-write', 'true');
+    expect(screen.getByTestId('direct-products-panel')).toHaveAttribute('data-entity-type', 'heat-exchanger');
+  });
+
+  it('находка: нет кнопок редактирования/удаления в DOM (editing/confirming недостижимы из UI)', async () => {
+    await gotoCard();
+    expect(screen.queryByText('✎')).not.toBeInTheDocument();
+    expect(screen.queryByText('Удалить?')).not.toBeInTheDocument();
+    // единственная "✕" на странице без чертежа — не из карточки/удаления, а её просто нет
+    expect(screen.queryByText('✕')).not.toBeInTheDocument();
+  });
+});
+
+describe('HeatExchangersPage — DrawingPanel', () => {
+  const gotoCard = async (item = he1, overrides = {}) => {
+    mediaApi.getHeatExchangers.mockResolvedValue(ok({ data: [item] }));
+    mediaApi.getFormData.mockResolvedValue(ok({ axes: [], doc_types: [{ id: 5, code: 'heart_exchanger' }], ...overrides }));
+    const user = userEvent.setup();
+    render(<HeatExchangersPage />);
+    await screen.findByText(item.mark);
+    return user;
+  };
+
+  it('пустое состояние — "Перетащите файл", при dragover — "Отпустите для загрузки"', async () => {
+    await gotoCard();
+    expect(screen.getByText('Перетащите файл')).toBeInTheDocument();
+
+    const dropzone = screen.getByText('Чертёж').closest('div');
+    fireEvent.dragOver(dropzone);
+    expect(await screen.findByText('Отпустите для загрузки')).toBeInTheDocument();
+  });
+
+  it('drag&drop загружает файл и обновляет список чертежей', async () => {
+    mediaApi.uploadHeatExchangerDrawing.mockResolvedValue({ ok: true, data: { success: true } });
+    mediaApi.getHeatExchangers.mockResolvedValueOnce(ok({ data: [he1] }));
+    await gotoCard();
+
+    mediaApi.getHeatExchangers.mockResolvedValue(ok({
+      data: [{ ...he1, drawing_files: [{ rel_path: 'a/b.pdf', name: 'b.pdf', size: '12 KB' }] }],
+    }));
+    const dropzone = screen.getByText('Чертёж').closest('div');
+    const file = new File(['x'], 'b.pdf', { type: 'application/pdf' });
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
+
+    await waitFor(() => expect(mediaApi.uploadHeatExchangerDrawing).toHaveBeenCalledWith(10, file));
+    expect(await screen.findByText('b.pdf')).toBeInTheDocument();
+    expect(screen.getByText('12 KB')).toBeInTheDocument();
+    expect(screen.getByText('✓ Загружен')).toBeInTheDocument();
+  });
+
+  it('ошибка загрузки показывает data.error', async () => {
+    mediaApi.uploadHeatExchangerDrawing.mockResolvedValue({ ok: false, data: { error: 'Слишком большой файл' } });
+    await gotoCard();
+    const dropzone = screen.getByText('Чертёж').closest('div');
+    fireEvent.drop(dropzone, { dataTransfer: { files: [new File(['x'], 'b.pdf')] } });
+    expect(await screen.findByText('Слишком большой файл')).toBeInTheDocument();
+  });
+
+  it('файл в списке: клик скачивает через blob-URL, ✕ отвязывает (только при canWrite)', async () => {
+    const withDrawing = { ...he1, drawing_files: [{ rel_path: 'a/b.pdf', name: 'b.pdf', size: '12 KB' }] };
+    const blob = new Blob(['x']);
+    mediaApi.downloadFile.mockResolvedValue({ blob: () => Promise.resolve(blob) });
+    vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+    vi.spyOn(window.URL, 'revokeObjectURL').mockImplementation(() => {});
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {});
+
+    const user = await gotoCard(withDrawing);
+    await user.click(screen.getByText('b.pdf'));
+    await waitFor(() => expect(mediaApi.downloadFile).toHaveBeenCalledWith('a/b.pdf'));
+    expect(openSpy).toHaveBeenCalledWith('blob:mock-url', '_blank');
+
+    vi.restoreAllMocks();
+  });
+
+  it('updateHeatExchanger(drawing_id: null) отвязывает чертёж', async () => {
+    const withDrawing = { ...he1, drawing_files: [{ rel_path: 'a/b.pdf', name: 'b.pdf', size: '12 KB' }] };
+    mediaApi.updateHeatExchanger.mockResolvedValue({ ok: true, data: { success: true } });
+    const user = await gotoCard(withDrawing);
+    await user.click(screen.getByText('✕'));
+    await waitFor(() => expect(mediaApi.updateHeatExchanger).toHaveBeenCalledWith(10, { drawing_id: null }));
+    expect(await screen.findByText('✓ Чертёж отвязан')).toBeInTheDocument();
+    expect(screen.getByText('Перетащите файл')).toBeInTheDocument();
+  });
+
+  it('без canWrite: нет кнопки отвязки и "Привязать существующий"', async () => {
+    useAuth.mockReturnValue({ user: withPerms() });
+    const withDrawing = { ...he1, drawing_files: [{ rel_path: 'a/b.pdf', name: 'b.pdf', size: '12 KB' }] };
+    await gotoCard(withDrawing);
+    expect(screen.queryByText('✕')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Привязать существующий/)).not.toBeInTheDocument();
+  });
+
+  it('находка: поиск SmartSelect идёт по своему endpoint, а не через mediaApi.searchDocuments/searchQuery-стейт панели', async () => {
+    // DrawingPanel объявляет searchQuery/searchResults/searching и эффект на mediaApi.searchDocuments,
+    // но ничего в разметке не вызывает setSearchQuery — реальный поиск полностью делает SmartSelect
+    // через свой endpoint (см. components/common/SmartSelect.jsx — там свой fetch по endpoint+q).
+    // Итог: этот блок стейта/эффекта в DrawingPanel — мёртвый код, mediaApi.searchDocuments никогда
+    // не вызывается из реального UI. Задокументировано в project-known-dead-code.md, не чиним.
+    const user = await gotoCard();
+    await user.click(screen.getByText(/Привязать существующий/));
+    expect(screen.getByTestId('smart-select')).toHaveAttribute(
+      'data-endpoint', '/api/v1/media/documents/search/?doc_type_id=5'
+    );
+    expect(mediaApi.searchDocuments).not.toHaveBeenCalled();
+  });
+
+  it('привязка существующего документа вызывает updateHeatExchanger с drawing_id', async () => {
+    mediaApi.updateHeatExchanger.mockResolvedValue({ ok: true, data: { success: true } });
+    mediaApi.getHeatExchangers.mockResolvedValueOnce(ok({ data: [he1] }));
+    const user = await gotoCard();
+    await user.click(screen.getByText(/Привязать существующий/));
+
+    mediaApi.getHeatExchangers.mockResolvedValue(ok({
+      data: [{ ...he1, drawing_files: [{ rel_path: 'x/doc.pdf', name: 'doc.pdf', size: '1 KB' }] }],
+    }));
+    await user.click(screen.getByText('select-doc'));
+
+    await waitFor(() => expect(mediaApi.updateHeatExchanger).toHaveBeenCalledWith(10, { drawing_id: 900 }));
+    expect(await screen.findByText(/✓ Привязан: DOC-1/)).toBeInTheDocument();
+  });
+
+  it('без doc_type "heart_exchanger" в конфиге drawingDocTypeId — endpoint SmartSelect с undefined', async () => {
+    const user = await gotoCard(he1, { doc_types: [] });
+    await user.click(screen.getByText(/Привязать существующий/));
+    expect(screen.getByTestId('smart-select')).toHaveAttribute(
+      'data-endpoint', '/api/v1/media/documents/search/?doc_type_id=undefined'
+    );
   });
 });
