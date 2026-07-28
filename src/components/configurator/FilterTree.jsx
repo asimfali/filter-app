@@ -9,6 +9,16 @@ import { can } from '../../utils/permissions';
 import { useChainSearch } from '../../hooks/useChainSearch';
 import { IconEye, IconLock } from '../common/Icons.jsx';
 
+const byNumericValue = (a, b) => {
+  const na = parseFloat(String(a.label).replace(',', '.'));
+  const nb = parseFloat(String(b.label).replace(',', '.'));
+  const aNum = !Number.isNaN(na);
+  const bNum = !Number.isNaN(nb);
+  if (aNum && bNum) return na - nb;
+  if (aNum) return -1;
+  if (bNum) return 1;
+  return String(a.label).localeCompare(b.label, 'ru');
+};
 
 const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, savedState, onSaveState }) => {
   const cyRef = useRef(null);
@@ -885,7 +895,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                   {axis_name}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {tags.map(tag => {
+                  {[...tags].sort(byNumericValue).map(tag => {
                     const isSelected = selectedTags.includes(tag.id);
                     return (
                       <button
@@ -1096,7 +1106,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                     {axis_name}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {tags.map(tag => {
+                    {[...tags].sort(byNumericValue).map(tag => {
                       const isSelected = bindingTags.includes(tag.id);
                       return (
                         <button
