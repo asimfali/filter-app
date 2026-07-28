@@ -210,7 +210,12 @@ export default function SyncModal({ user, onClose, mode }) {
 
                     setResults(prev => ({
                         ...prev,
-                        [itemId]: { loading: false, ok: !isFailed, message: msg },
+                        [itemId]: {
+                            loading: false,
+                            ok: !isFailed,
+                            message: msg,
+                            ...(mode === 'extract' && !isFailed ? { taskId } : {}),
+                        },
                     }));
                     setTaskIds(prev => { const n = { ...prev }; delete n[itemId]; return n; });
                 }
@@ -249,6 +254,7 @@ export default function SyncModal({ user, onClose, mode }) {
     const runDxfImport = async (itemId, merge) => {
         const fileList = files[itemId];
         const configFile = dxfConfig[itemId]
+        const product = dxfProduct.trim() || fileList[0].name.replace('.dxf', '');
         setResults(prev => ({
             ...prev,
             [itemId]: { loading: true, ok: null, message: 'Запуск...' },
@@ -256,7 +262,7 @@ export default function SyncModal({ user, onClose, mode }) {
 
         const { ok, data } = await selectionApi.dxfImportUpload(
             Array.from(fileList),
-            dxfProduct.trim(),
+            product,
             20.0,
             true,
             merge,
@@ -310,7 +316,7 @@ export default function SyncModal({ user, onClose, mode }) {
             const { selectionApi } = await import('../../api/selection');
             ({ ok, data } = await selectionApi.dxfImportUpload(
                 Array.from(fileList),
-                dxfProduct.trim(),
+                dxfProduct.trim() || fileList[0].name.replace('.dxf', ''),
                 20.0,
                 true,
                 dxfMerge,
