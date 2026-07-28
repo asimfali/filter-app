@@ -100,7 +100,7 @@ function AssignRoleForm({ userId, departments, roles, existingRoles, onSave, onC
 
     // Фильтруем уже назначенные комбинации
     const isAlreadyAssigned = (deptId, roleId) =>
-        existingRoles.some(r => r.department === deptId && r.role === roleId);
+        existingRoles.some(r => String(r.department) === String(deptId) && String(r.role) === String(roleId));
 
     const handleSubmit = async (e) => {
         e.preventDefault();
