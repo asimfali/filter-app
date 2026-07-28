@@ -60,18 +60,32 @@ export default function SyncModal({ onClose, onRefresh }) {
     }, []);
 
     const pollTaskStatus = (taskId, configId, label) => {
+        // 'global' — псевдо-configId для действий верхнего уровня (handleSyncAction):
+        // их статус/сообщение живут в globalStatus/globalMessage, а не в statuses/messages
+        const isGlobal = configId === 'global';
         const interval = setInterval(async () => {
             const { ok, data } = await bomApi.getTaskStatus(taskId);
             if (ok && data.success) {
                 if (data.data.ready) {
                     clearInterval(interval);
-                    setStatuses(s => ({ ...s, [configId]: 'success' }));
-                    setMessages(m => ({ ...m, [configId]: `✓ Завершено` }));
+                    if (isGlobal) {
+                        setGlobalStatus('success');
+                        setGlobalMessage(`${label} завершена`);
+                        setTimeout(() => { setGlobalStatus(''); setGlobalMessage(''); }, 2000);
+                    } else {
+                        setStatuses(s => ({ ...s, [configId]: 'success' }));
+                        setMessages(m => ({ ...m, [configId]: `✓ Завершено` }));
+                    }
                     onRefresh();
                 } else if (data.data.status === 'FAILURE') {
                     clearInterval(interval);
-                    setStatuses(s => ({ ...s, [configId]: 'error' }));
-                    setMessages(m => ({ ...m, [configId]: 'Ошибка выполнения' }));
+                    if (isGlobal) {
+                        setGlobalStatus('error');
+                        setGlobalMessage('Ошибка выполнения');
+                    } else {
+                        setStatuses(s => ({ ...s, [configId]: 'error' }));
+                        setMessages(m => ({ ...m, [configId]: 'Ошибка выполнения' }));
+                    }
                 }
             }
         }, 2000);
