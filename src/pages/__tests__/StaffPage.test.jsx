@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import StaffPage from '../StaffPage';
-import { apiFetch } from '../../api/auth';
+import { apiFetch, authApi } from '../../api/auth';
 import { useAuth } from '../../contexts/AuthContext';
 
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
@@ -462,5 +462,288 @@ describe('StaffPage — назначение роли', () => {
 
     expect(await screen.findByText('Эта комбинация подразделение + роль уже назначена')).toBeInTheDocument();
     expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/user-roles/'), expect.objectContaining({ method: 'POST' }));
+  });
+});
+
+// ── Модуль 14 / шаг 3: вкладка «Подразделения» ────────────────────────────
+
+const deptChild = {
+  id: 2, name: 'Группа ПО', code: 'po', description: '', parent: 1, members_count: 1, children: [],
+};
+const deptRoot = {
+  id: 1, name: 'Бюро автоматики', code: 'ba', description: 'Автоматика', parent: null,
+  members_count: 3, children: [deptChild],
+};
+
+const perm1 = { id: 501, code: 'catalog.product.read', name: 'Чтение товара', resource_type: 'product' };
+const perm2 = { id: 502, code: 'catalog.product.write', name: 'Запись товара', resource_type: 'product' };
+const perm3 = { id: 503, code: 'bom.spec.write', name: 'Запись характеристик', resource_type: 'spec' };
+
+const specMatrixData = {
+  roles: [role1, role2],
+  specs: [
+    { spec_id: 1, spec_name: 'Мощность', spec_unit: 'кВт', roles: { 10: 5001 } },
+    { spec_id: 2, spec_name: 'Напряжение', spec_unit: null, roles: { 10: null } },
+  ],
+};
+
+const routeDeptFetch = (overrides = {}) => (url, opts = {}) => {
+  const method = opts.method || 'GET';
+  const o = overrides;
+  if (url.match(/\/departments\/\d+\/permissions\/\d+\/$/) && method === 'DELETE') {
+    return Promise.resolve(resp({}));
+  }
+  if (url.match(/\/departments\/\d+\/permissions\/$/) && method === 'POST') {
+    return Promise.resolve((o.addPermission || (() => resp({ id: 900 })))());
+  }
+  if (url.match(/\/departments\/\d+\/permissions\/$/) && method === 'GET') {
+    return Promise.resolve(resp(o.deptPerms ?? []));
+  }
+  if (url.endsWith('/permissions/') && method === 'POST') {
+    return Promise.resolve((o.createPermission || (() => resp({ id: 504, code: 'x', name: 'x', resource_type: 'x' })))());
+  }
+  if (url.endsWith('/permissions/') && method === 'GET') {
+    return Promise.resolve(resp(o.allPermissions ?? [perm1, perm2, perm3]));
+  }
+  if (url.includes('/departments/') && (method === 'POST' || method === 'PATCH')) {
+    return Promise.resolve((o.saveDept || (() => resp({ id: 1 })))());
+  }
+  if (url.includes('/departments/') && url.includes('root_only=true')) return Promise.resolve(resp(o.departments ?? [deptRoot]));
+  if (url.includes('/roles/')) return Promise.resolve(resp([role1, role2]));
+  if (url.includes('/users-list/')) return Promise.resolve(resp([]));
+  if (url.includes('/staff-requests/')) return Promise.resolve(resp([]));
+  return Promise.resolve(resp({}));
+};
+
+describe('StaffPage — вкладка «Подразделения»', () => {
+  const gotoDepartments = async (overrides = {}) => {
+    apiFetch.mockImplementation(routeDeptFetch(overrides));
+    const user = userEvent.setup();
+    render(<StaffPage />);
+    await user.click(await screen.findByText('Подразделения'));
+    return user;
+  };
+
+  it('рендерит дерево с вложенностью и счётчиком сотрудников', async () => {
+    await gotoDepartments();
+    expect(await screen.findByText('Бюро автоматики')).toBeInTheDocument();
+    expect(screen.getByText('3 чел.')).toBeInTheDocument();
+    expect(screen.getByText('Группа ПО')).toBeInTheDocument();
+    expect(screen.getByText('1 чел.')).toBeInTheDocument();
+  });
+
+  it('пустой список подразделений показывает заглушку', async () => {
+    await gotoDepartments({ departments: [] });
+    expect(await screen.findByText('Нет подразделений')).toBeInTheDocument();
+  });
+
+  it('"+ Добавить корневое" открывает модалку создания без вкладок', async () => {
+    const user = await gotoDepartments();
+    await screen.findByText('Бюро автоматики');
+    await user.click(screen.getByText('+ Добавить корневое'));
+
+    expect(screen.getByText('Новое корневое подразделение')).toBeInTheDocument();
+    expect(screen.queryByText('Основное')).not.toBeInTheDocument();
+    expect(screen.queryByText('Права')).not.toBeInTheDocument();
+  });
+
+  it('"+ дочернее" открывает модалку с указанием родителя', async () => {
+    const user = await gotoDepartments();
+    await screen.findByText('Бюро автоматики');
+    await user.click(screen.getAllByText('+ дочернее')[0]);
+
+    expect(screen.getByText('Новое подразделение в «Бюро автоматики»')).toBeInTheDocument();
+    expect(screen.getByText('Родитель:')).toBeInTheDocument();
+  });
+
+  it('создание корневого подразделения отправляет POST и перезагружает список', async () => {
+    const user = await gotoDepartments();
+    await screen.findByText('Бюро автоматики');
+    await user.click(screen.getByText('+ Добавить корневое'));
+
+    await user.type(screen.getByPlaceholderText('Бюро автоматики'), 'Новое бюро');
+    await user.type(screen.getByPlaceholderText('ba'), 'nb');
+    apiFetch.mockClear();
+    await user.click(screen.getByText('Сохранить'));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith('/api/v1/auth/departments/', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ name: 'Новое бюро', code: 'nb', description: '', parent: null }),
+    })));
+    await waitFor(() => expect(screen.queryByText('Новое корневое подразделение')).not.toBeInTheDocument());
+  });
+
+  it('ошибка сохранения подразделения показывает parseError', async () => {
+    const user = await gotoDepartments({ saveDept: () => resp({ error: 'Код уже занят' }, false) });
+    await screen.findByText('Бюро автоматики');
+    await user.click(screen.getByText('+ Добавить корневое'));
+    await user.type(screen.getByPlaceholderText('Бюро автоматики'), 'X');
+    await user.type(screen.getByPlaceholderText('ba'), 'x');
+    await user.click(screen.getByText('Сохранить'));
+    expect(await screen.findByText('Код уже занят')).toBeInTheDocument();
+  });
+
+  it('"✎" открывает редактирование с предзаполненными полями и вкладками', async () => {
+    const user = await gotoDepartments();
+    await screen.findByText('Бюро автоматики');
+    await user.click(screen.getAllByText('✎')[0]);
+
+    expect(screen.getByText('Редактировать: Бюро автоматики')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Бюро автоматики')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('ba')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Автоматика')).toBeInTheDocument();
+    expect(screen.getByText('Основное')).toBeInTheDocument();
+    expect(screen.getByText('Права')).toBeInTheDocument();
+    expect(screen.getByText('Характеристики')).toBeInTheDocument();
+  });
+
+  it('редактирование отправляет PATCH с id подразделения', async () => {
+    const user = await gotoDepartments();
+    await screen.findByText('Бюро автоматики');
+    await user.click(screen.getAllByText('✎')[0]);
+
+    const nameInput = screen.getByDisplayValue('Бюро автоматики');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Бюро автоматики 2');
+    apiFetch.mockClear();
+    await user.click(screen.getByText('Сохранить'));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith('/api/v1/auth/departments/1/', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'Бюро автоматики 2', code: 'ba', description: 'Автоматика', parent: null }),
+    })));
+  });
+
+  describe('вкладка «Права» (DeptPermissionsTab)', () => {
+    const openPermissionsTab = async (overrides = {}) => {
+      const user = await gotoDepartments(overrides);
+      await screen.findByText('Бюро автоматики');
+      await user.click(screen.getAllByText('✎')[0]);
+      await user.click(screen.getByText('Права'));
+      return user;
+    };
+
+    it('группирует права по типу ресурса и показывает включённые галочкой', async () => {
+      await openPermissionsTab({ deptPerms: [{ id: 900, role: 10, permission: 501 }] });
+      expect(await screen.findByText('Товар')).toBeInTheDocument();
+      expect(screen.getByText('Характеристика')).toBeInTheDocument();
+      expect(screen.getByText('catalog.product.read')).toBeInTheDocument();
+    });
+
+    it('сворачивание/разворачивание группы скрывает её таблицу', async () => {
+      const user = await openPermissionsTab();
+      await screen.findByText('catalog.product.read');
+      await user.click(screen.getByText('Товар'));
+      expect(screen.queryByText('catalog.product.read')).not.toBeInTheDocument();
+      await user.click(screen.getByText('Товар'));
+      expect(await screen.findByText('catalog.product.read')).toBeInTheDocument();
+    });
+
+    it('поиск фильтрует список прав по коду/названию', async () => {
+      const user = await openPermissionsTab();
+      await screen.findByText('catalog.product.read');
+      await user.type(screen.getByPlaceholderText('Поиск по коду или названию...'), 'spec');
+      expect(screen.queryByText('catalog.product.read')).not.toBeInTheDocument();
+      expect(screen.getByText('bom.spec.write')).toBeInTheDocument();
+    });
+
+    it('переключение права отправляет POST при выключенном и DELETE при включённом', async () => {
+      const user = await openPermissionsTab({ deptPerms: [{ id: 900, role: 10, permission: 501 }] });
+      await screen.findByText('catalog.product.read');
+      const readRow = () => screen.getAllByRole('row').find(r => r.textContent.includes('catalog.product.read'));
+
+      apiFetch.mockClear();
+      // роль1 (10) уже включена для этого права -> клик должен удалить
+      await user.click(within(readRow()).getAllByRole('button')[0]);
+      await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
+        '/api/v1/auth/departments/1/permissions/900/', expect.objectContaining({ method: 'DELETE' })
+      ));
+
+      apiFetch.mockClear();
+      // роль2 (11) не включена -> клик должен создать (перечитываем строку — после DELETE таблица перерендерилась)
+      await user.click(within(readRow()).getAllByRole('button')[1]);
+      await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
+        '/api/v1/auth/departments/1/permissions/', expect.objectContaining({
+          method: 'POST', body: JSON.stringify({ role: 11, permission: 501 }),
+        })
+      ));
+    });
+
+    it('пустое состояние при отсутствии прав/ролей', async () => {
+      await openPermissionsTab({ allPermissions: [] });
+      expect(await screen.findByText('Нет данных')).toBeInTheDocument();
+    });
+
+    it('"+ Новое право" создаёт право с автогенерацией кода и добавляет его в список', async () => {
+      const user = await openPermissionsTab();
+      await screen.findByText('catalog.product.read');
+      await user.click(screen.getByText('+ Новое право'));
+      expect(screen.getByText('Новое право доступа')).toBeInTheDocument();
+
+      const selects = screen.getAllByRole('combobox');
+      await user.selectOptions(selects[0], 'document');
+      await user.selectOptions(selects[1], 'delete');
+      expect(screen.getByPlaceholderText('portal.document.delete')).toHaveValue('portal.document.delete');
+
+      await user.type(screen.getByPlaceholderText('Удаление документов'), 'Удаление документов');
+      apiFetch.mockImplementation(routeDeptFetch({
+        createPermission: () => resp({ id: 777, code: 'portal.document.delete', name: 'Удаление документов', resource_type: 'document' }),
+      }));
+      await user.click(screen.getByText('Создать'));
+
+      await waitFor(() => expect(screen.queryByText('Новое право доступа')).not.toBeInTheDocument());
+      expect(await screen.findByText('portal.document.delete')).toBeInTheDocument();
+    });
+
+    it('ручное редактирование кода отключает автогенерацию при смене типа/действия', async () => {
+      const user = await openPermissionsTab();
+      await screen.findByText('catalog.product.read');
+      await user.click(screen.getByText('+ Новое право'));
+
+      const codeInput = screen.getByPlaceholderText('portal.document.delete');
+      await user.type(codeInput, 'custom.code');
+      const selects = screen.getAllByRole('combobox');
+      await user.selectOptions(selects[0], 'document');
+      expect(codeInput).toHaveValue('custom.code');
+    });
+  });
+
+  describe('вкладка «Характеристики» (SpecPermissionsTab)', () => {
+    const openSpecsTab = async (overrides = {}) => {
+      authApi.specMatrix.mockResolvedValue({ ok: true, data: overrides.matrix ?? specMatrixData });
+      authApi.specToggle.mockResolvedValue(overrides.toggleResult ?? { ok: true, data: { action: 'created', drp_id: 6001 } });
+      const user = await gotoDepartments();
+      await screen.findByText('Бюро автоматики');
+      await user.click(screen.getAllByText('✎')[0]);
+      await user.click(screen.getByText('Характеристики'));
+      return user;
+    };
+
+    it('запрашивает матрицу для подразделения и рендерит характеристики/роли', async () => {
+      await openSpecsTab();
+      expect(await screen.findByText('Мощность')).toBeInTheDocument();
+      expect(screen.getByText('кВт')).toBeInTheDocument();
+      expect(screen.getByText('Напряжение')).toBeInTheDocument();
+      expect(authApi.specMatrix).toHaveBeenCalledWith(1);
+    });
+
+    it('пустая матрица показывает заглушку', async () => {
+      await openSpecsTab({ matrix: { roles: [role1], specs: [] } });
+      expect(await screen.findByText('Характеристики не найдены')).toBeInTheDocument();
+    });
+
+    it('клик по ячейке переключает право и оптимистично обновляет матрицу без релоада', async () => {
+      const user = await openSpecsTab();
+      await screen.findByText('Мощность');
+      authApi.specMatrix.mockClear();
+
+      const rows = screen.getAllByRole('row');
+      const powerRow = rows.find(r => r.textContent.includes('Мощность'));
+      const [, role2Cell] = within(powerRow).getAllByRole('button');
+
+      await user.click(role2Cell);
+      await waitFor(() => expect(authApi.specToggle).toHaveBeenCalledWith(1, 11, 1));
+      expect(authApi.specMatrix).not.toHaveBeenCalled();
+    });
   });
 });
