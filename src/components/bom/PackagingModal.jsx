@@ -160,6 +160,7 @@ function PackagingDetail({ item, packTypes, onUpdated, onDeleted }) {
 
     return (
         <div className="space-y-4">
+            {modals}
             {/* Заголовок */}
             <div className="flex items-center justify-between">
                 <div>
