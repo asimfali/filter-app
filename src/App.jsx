@@ -12,7 +12,7 @@ import TwoFAForm from './components/auth/TwoFAForm';
 import FilterTreeGraph from './components/configurator/FilterTree';
 import ParameterEditorPage from './pages/ParameterEditorPage';
 import StaffPage from './pages/StaffPage';
-import DocumentsPage from './pages/DocumentsPage';
+import DocumentsPage from './pages/documents/DocumentsPage';
 import ProductPage from './pages/ProductPage';
 import SpecEditorPage from './pages/SpecEditorPage';
 import IssuesPage from './pages/IssuesPage.jsx';

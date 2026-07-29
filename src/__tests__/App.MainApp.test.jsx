@@ -86,7 +86,7 @@ vi.mock('../pages/SpecPreviewPage', () => ({
   ),
 }));
 
-vi.mock('../pages/DocumentsPage', () => ({
+vi.mock('../pages/documents/DocumentsPage', () => ({
   default: ({ onOpenViewer, onFolderUpload }) => (
     <div data-testid="page-documents">
       <button onClick={() => onOpenViewer({ relPath: 'd', fname: 'e.obj' })}>documents-open-viewer</button>

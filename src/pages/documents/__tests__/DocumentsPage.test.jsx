@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DocumentsPage from '../DocumentsPage';
-import { mediaApi } from '../../api/media';
-import { useAuth } from '../../contexts/AuthContext';
+import { mediaApi } from '../../../api/media';
+import { useAuth } from '../../../contexts/AuthContext';
 
-vi.mock('../../api/media', () => ({
+vi.mock('../../../api/media', () => ({
     mediaApi: {
         getDocuments: vi.fn(),
         getFormData: vi.fn(),
@@ -18,13 +18,13 @@ vi.mock('../../api/media', () => ({
         searchDocuments: vi.fn(),
     },
 }));
-vi.mock('../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
-vi.mock('../../components/media/FiltersPanel', () => ({
+vi.mock('../../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
+vi.mock('../../../components/media/FiltersPanel', () => ({
     default: ({ entityId, entityType }) => (
         <div data-testid="filters-panel-stub" data-entity-id={entityId} data-entity-type={entityType} />
     ),
 }));
-vi.mock('../../components/media/DirectProductsPanel', () => ({
+vi.mock('../../../components/media/DirectProductsPanel', () => ({
     default: () => <div data-testid="direct-products-panel-stub" />,
 }));
 
