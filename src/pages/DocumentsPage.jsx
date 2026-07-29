@@ -897,20 +897,23 @@ function UploadForm({ docTypes, onUploaded }) {
     );
 
     if (ok && data.success) {
-      // ← заменить блок с setResult
+      setFile(null);
+      setForm({ doc_type_id: '', external_id: '' });
+      setQuery('');
+      setIsNew(false);
       if (data.converting) {
+        // Не закрываем форму сразу — пользователю нужно время прочитать
+        // инструкцию про конвертацию и обновление страницы позже.
         setResult({
           success: true,
           message: `STEP загружен — конвертация в GLB ~30 сек, обновите страницу позже`
         });
       } else {
         setResult({ success: true, message: `Загружен: ${data.path}` });
+        // onUploaded() закрывает форму (родитель делает setShowUpload(false)) —
+        // с задержкой, чтобы сообщение об успехе успело отрендериться.
+        setTimeout(onUploaded, 1500);
       }
-      setFile(null);
-      setForm({ doc_type_id: '', external_id: '' });
-      setQuery('');
-      setIsNew(false);
-      onUploaded();
     } else {
       setResult({ success: false, message: data.error });
     }
