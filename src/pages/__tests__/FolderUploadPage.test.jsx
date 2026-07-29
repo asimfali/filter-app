@@ -228,3 +228,166 @@ describe('FolderUploadPage — разбор папки (handleFolderChange)', ()
         expect(mediaApi.parseFolderPaths).not.toHaveBeenCalled();
     });
 });
+
+async function parseWithItems(user, docTypeIdValue, results) {
+    await user.selectOptions(screen.getByText('— выберите —').closest('select'), docTypeIdValue);
+    mediaApi.parseFolderPaths.mockResolvedValue(ok({ success: true, results }));
+    const input = document.querySelector('input[type="file"]');
+    const files = results.map((r, i) => makeFile(r.path, `f${i}.pdf`));
+    fireEvent.change(input, { target: { files } });
+    await waitFor(() => expect(mediaApi.parseFolderPaths).toHaveBeenCalled());
+}
+
+describe('FolderUploadPage — таблица: buildDocumentName + колонки осей', () => {
+    it('без шаблона — имя из item.article, иначе имя типа документа', async () => {
+        const user = await renderPage();
+        await user.selectOptions(screen.getByText('— выберите —').closest('select'), '1');
+        fireEvent.change(screen.getByPlaceholderText('{doc_type} {series} {heating} {design}'), { target: { value: '' } });
+        mediaApi.parseFolderPaths.mockResolvedValue(ok({
+            success: true,
+            results: [
+                { external_id: 'a', path: 'x/a.pdf', article: 'АРТ-1', filters: [] },
+                { external_id: 'b', path: 'y/b.pdf', article: '', filters: [] },
+            ],
+        }));
+        fireEvent.change(document.querySelector('input[type="file"]'), {
+            target: { files: [makeFile('x/a.pdf', 'a.pdf'), makeFile('y/b.pdf', 'b.pdf')] },
+        });
+        await waitFor(() => expect(mediaApi.parseFolderPaths).toHaveBeenCalled());
+        expect(await screen.findByText('АРТ-1')).toBeInTheDocument();
+        // фолбэк для второй строки (пустой article) — "Паспорта" неоднозначно (тоже текст опции
+        // <select>), проверяем именно в ячейке "Имя документа" (span)
+        expect(screen.getAllByText('Паспорта', { selector: 'span' })).toHaveLength(1);
+    });
+
+    it('с шаблоном подставляет {doc_type} и {axis_code} (или транслитерацию имени оси)', async () => {
+        const user = await renderPage();
+        await user.selectOptions(screen.getByText('— выберите —').closest('select'), '1');
+        fireEvent.change(screen.getByPlaceholderText('{doc_type} {series} {heating} {design}'), {
+            target: { value: '{doc_type} {series} {without_code}' },
+        });
+        await parseWithItems(user, '1', [{
+            external_id: 'a', path: 'x/a.pdf', article: 'a',
+            filters: [
+                { id: 1, axis_id: 100, axis: 'Серия', axis_code: 'series', values: ['200'] },
+                { id: 2, axis_id: 200, axis: 'Without Code', values: ['Y'] },
+            ],
+        }]);
+        // Ось без явного axis_code транслитерируется из имени ("Without Code" → "without_code")
+        // и тоже подставляется в шаблон
+        expect(await screen.findByText('Паспорта 200 Y')).toBeInTheDocument();
+        expect(screen.getByText('Without Code')).toBeInTheDocument(); // заголовок колонки оси
+    });
+
+    it('динамические переменные шаблона (availableCodes) отражают axis_code разобранных строк', async () => {
+        const user = await renderPage();
+        await parseWithItems(user, '1', [{
+            external_id: 'a', path: 'x/a.pdf', article: 'a',
+            filters: [{ id: 1, axis_id: 100, axis: 'Серия', axis_code: 'series', values: ['200'] }],
+        }]);
+        expect(await screen.findByText('Переменные: {doc_type} {series}')).toBeInTheDocument();
+    });
+});
+
+describe('FolderUploadPage — FilterCell', () => {
+    it('пустая ячейка показывает "+ добавить", открытие грузит getFilters один раз', async () => {
+        const user = await renderPage();
+        await parseWithItems(user, '1', [{
+            external_id: 'a', path: 'x/a.pdf', article: 'a',
+            filters: [{ id: 1, axis_id: 100, axis: 'Серия', axis_code: 'series', values: ['200'] }],
+        }, {
+            external_id: 'b', path: 'y/b.pdf', article: 'b', filters: [],
+        }]);
+        mediaApi.getFilters.mockResolvedValue(ok({
+            filters: [{ id: 1, axis: { id: 100, name: 'Серия' }, values: ['200'] }, { id: 2, axis: { id: 100, name: 'Серия' }, values: ['300'] }],
+        }));
+
+        const addButtons = await screen.findAllByText('+ добавить');
+        await user.click(addButtons[0]);
+        expect(mediaApi.getFilters).toHaveBeenCalledWith(100);
+        expect(await screen.findByText('300')).toBeInTheDocument();
+
+        await user.click(addButtons[0]); // закрыть
+        await user.click(addButtons[0]); // открыть снова
+        expect(mediaApi.getFilters).toHaveBeenCalledTimes(1);
+    });
+
+    it('выбор фильтра из дропдауна вызывает onAdd, повторный выбор — onRemove', async () => {
+        const user = await renderPage();
+        await parseWithItems(user, '1', [{
+            external_id: 'a', path: 'x/a.pdf', article: 'a',
+            filters: [{ id: 1, axis_id: 100, axis: 'Серия', axis_code: 'series', values: ['200'] }],
+        }]);
+        mediaApi.getFilters.mockResolvedValue(ok({
+            filters: [
+                { id: 1, axis: { id: 100, name: 'Серия' }, values: ['200'] },
+                { id: 2, axis: { id: 100, name: 'Серия' }, values: ['300'] },
+            ],
+        }));
+
+        await user.click(screen.getByText('200'));
+        await user.click(await screen.findByText('300'));
+        // Каждый выбранный фильтр — отдельный тег (а не объединённая строка значений)
+        expect(await screen.findByText('300')).toBeInTheDocument();
+        expect(screen.getByText('200')).toBeInTheDocument();
+
+        // Повторное открытие не перезапрашивает getFilters (кэш в axisFilters);
+        // выбор уже активного фильтра ("✓ 200") снимает его — тег "200" пропадает
+        await user.click(screen.getByText('200'));
+        await user.click(await screen.findByText('✓ 200'));
+        expect(mediaApi.getFilters).toHaveBeenCalledTimes(1);
+        expect(screen.queryByText('200')).not.toBeInTheDocument();
+        expect(screen.getByText('300')).toBeInTheDocument();
+    });
+
+    it('закрытие дропдауна по клику вне', async () => {
+        const user = await renderPage();
+        await parseWithItems(user, '1', [{
+            external_id: 'a', path: 'x/a.pdf', article: 'a',
+            filters: [{ id: 1, axis_id: 100, axis: 'Серия', axis_code: 'series', values: ['200'] }],
+        }]);
+        mediaApi.getFilters.mockResolvedValue(ok({ filters: [] }));
+        await user.click(screen.getByText('200'));
+        expect(await screen.findByText('Нет фильтров')).toBeInTheDocument();
+        await user.click(screen.getByText('Загрузка из папки'));
+        expect(screen.queryByText('Нет фильтров')).not.toBeInTheDocument();
+    });
+});
+
+describe('FolderUploadPage — режим products в таблице', () => {
+    it('нераспознанный артикул показывает предупреждение', async () => {
+        const user = await renderPage();
+        await parseWithItems(user, '3', [{ external_id: 'a', path: 'x/a.pdf', article: '', filters: [] }]);
+        expect(await screen.findByText('Артикул не распознан')).toBeInTheDocument();
+    });
+
+    it('чекбоксы toggle selected (зачёркивание невыбранных)', async () => {
+        const user = await renderPage();
+        mediaApi.matchProductsByArticle.mockResolvedValue(ok({
+            success: true,
+            results: { 'ART-1': [{ id: 5, name: 'Изделие А' }] },
+        }));
+        await parseWithItems(user, '3', [{ external_id: 'a', path: 'x/a.pdf', article: 'ART-1', filters: [] }]);
+
+        const checkbox = await screen.findByRole('checkbox');
+        expect(checkbox).toBeChecked();
+        expect(screen.getByText('Изделие А')).not.toHaveClass('line-through');
+
+        await user.click(checkbox);
+        expect(checkbox).not.toBeChecked();
+        expect(screen.getByText('Изделие А')).toHaveClass('line-through');
+    });
+
+    it('SmartSelect добавляет изделие вручную (исключая уже присутствующие)', async () => {
+        const user = await renderPage();
+        mediaApi.matchProductsByArticle.mockResolvedValue(ok({
+            success: true,
+            results: { 'ART-1': [{ id: 5, name: 'Изделие А' }] },
+        }));
+        await parseWithItems(user, '3', [{ external_id: 'a', path: 'x/a.pdf', article: 'ART-1', filters: [] }]);
+        await screen.findByText('Изделие А');
+
+        await user.click(screen.getByText('select-product'));
+        expect(await screen.findByText('Найденное изделие')).toBeInTheDocument();
+    });
+});
