@@ -4,6 +4,7 @@ import { catalogApi } from '../../api/catalog';
 import { useModals } from '../../hooks/useModals';
 import Dropdown from '../common/Dropdown';
 import { inputCls } from '../../utils/styles';
+import Modal from '../common/Modal';
 
 function PackagingCreateForm({ packTypes, onSaved, onCancel }) {
     const [form, setForm] = useState({
@@ -389,40 +390,23 @@ export default function PackagingModal({ onClose }) {
     const filteredPacks = packList;
 
     return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-5xl
-                            max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700">
+        <Modal title="Пак Тара" subtitle="Управление упаковкой номенклатуры 1С" onClose={onClose}
+            maxWidth="5xl" scrollBody bodyClassName="flex-1 overflow-hidden flex"
+            headerExtra={<>
+                <button onClick={handleSync} disabled={syncing}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-200
+                               dark:border-gray-700 text-gray-600 dark:text-gray-400
+                               hover:bg-neutral-50 dark:hover:bg-neutral-800
+                               disabled:opacity-50 transition-colors">
+                    {syncing ? '⟳ Синхронизация...' : '⟳ Синхронизировать'}
+                </button>
+                <button onClick={() => { setCreating(c => !c); setSelected(null); }}
+                    className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600
+                               hover:bg-emerald-700 text-white transition-colors">
+                    {creating ? '✕ Отмена' : '+ Создать тару'}
+                </button>
+            </>}>
                 {modals}
-                {/* Шапка */}
-                <div className="flex items-center justify-between px-5 py-4
-                                border-b border-gray-200 dark:border-gray-700 shrink-0">
-                    <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white">Пак Тара</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            Управление упаковкой номенклатуры 1С
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button onClick={handleSync} disabled={syncing}
-                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200
-                                       dark:border-gray-700 text-gray-600 dark:text-gray-400
-                                       hover:bg-neutral-50 dark:hover:bg-neutral-800
-                                       disabled:opacity-50 transition-colors">
-                            {syncing ? '⟳ Синхронизация...' : '⟳ Синхронизировать'}
-                        </button>
-                        <button onClick={() => { setCreating(c => !c); setSelected(null); }}
-                            className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600
-                                       hover:bg-emerald-700 text-white transition-colors">
-                            {creating ? '✕ Отмена' : '+ Создать тару'}
-                        </button>
-                        <button onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 text-xl leading-none ml-2">
-                            ✕
-                        </button>
-                    </div>
-                </div>
-
-                <div className="flex flex-1 overflow-hidden">
                     {/* Левая колонка — список тары */}
                     <div className="w-72 shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col">
                         <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
@@ -601,8 +585,6 @@ export default function PackagingModal({ onClose }) {
                             </div>
                         )}
                     </div>
-                </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

@@ -23,7 +23,7 @@ describe('Modal', () => {
 
   it('uses the narrow width by default and the wide width when wide is passed', () => {
     const { rerender } = render(<Modal title="T" onClose={vi.fn()}>c</Modal>);
-    const panel = () => screen.getByText('T').parentElement.parentElement;
+    const panel = () => screen.getByText('T').parentElement.parentElement.parentElement;
 
     expect(panel().className).toContain('max-w-md');
     expect(panel().className).not.toContain('max-w-2xl');
@@ -33,21 +33,21 @@ describe('Modal', () => {
   });
 
   it('maxWidth принимает конкретный размер и имеет приоритет над wide', () => {
-    const panel = () => screen.getByText('T').parentElement.parentElement;
+    const panel = () => screen.getByText('T').parentElement.parentElement.parentElement;
     render(<Modal title="T" onClose={vi.fn()} wide maxWidth="5xl">c</Modal>);
     expect(panel().className).toContain('max-w-5xl');
     expect(panel().className).not.toContain('max-w-2xl');
   });
 
   it('неизвестный maxWidth молча падает обратно на max-w-md', () => {
-    const panel = () => screen.getByText('T').parentElement.parentElement;
+    const panel = () => screen.getByText('T').parentElement.parentElement.parentElement;
     render(<Modal title="T" onClose={vi.fn()} maxWidth="not-a-real-size">c</Modal>);
     expect(panel().className).toContain('max-w-md');
   });
 
   it('scrollBody делает карточку max-h-[90vh]/flex-col и оборачивает контент в flex-1 overflow-y-auto', () => {
     render(<Modal title="T" onClose={vi.fn()} scrollBody><p>содержимое</p></Modal>);
-    const panel = screen.getByText('T').parentElement.parentElement;
+    const panel = screen.getByText('T').parentElement.parentElement.parentElement;
     expect(panel.className).toContain('max-h-[90vh]');
     expect(panel.className).toContain('flex');
     expect(panel.className).toContain('flex-col');
@@ -93,5 +93,43 @@ describe('Modal', () => {
 
     await user.click(container.firstChild);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('xs/sm — дополнительные размеры ширины', () => {
+    const panel = () => screen.getByText('T').parentElement.parentElement.parentElement;
+    const { rerender } = render(<Modal title="T" onClose={vi.fn()} maxWidth="xs">c</Modal>);
+    expect(panel().className).toContain('max-w-xs');
+
+    rerender(<Modal title="T" onClose={vi.fn()} maxWidth="sm">c</Modal>);
+    expect(panel().className).toContain('max-w-sm');
+  });
+
+  it('subtitle рендерится под заголовком, если передан', () => {
+    render(<Modal title="T" subtitle="Подзаголовок" onClose={vi.fn()}>c</Modal>);
+    expect(screen.getByText('Подзаголовок')).toBeInTheDocument();
+  });
+
+  it('без subtitle — подзаголовка нет', () => {
+    render(<Modal title="T" onClose={vi.fn()}>c</Modal>);
+    expect(screen.queryByText('Подзаголовок')).not.toBeInTheDocument();
+  });
+
+  it('headerExtra рендерится в шапке перед крестиком', () => {
+    render(<Modal title="T" onClose={vi.fn()} headerExtra={<button>Доп. действие</button>}>c</Modal>);
+    expect(screen.getByText('Доп. действие')).toBeInTheDocument();
+  });
+
+  it('bodyClassName переопределяет классы тела целиком', () => {
+    render(<Modal title="T" onClose={vi.fn()} scrollBody bodyClassName="custom-body-cls"><p>содержимое</p></Modal>);
+    const body = screen.getByText('содержимое').parentElement;
+    expect(body.className).toBe('custom-body-cls');
+  });
+
+  it('forceDark — карточка всегда тёмная независимо от темы', () => {
+    render(<Modal title="T" onClose={vi.fn()} forceDark>content</Modal>);
+    const panel = screen.getByText('T').parentElement.parentElement.parentElement;
+    expect(panel.className).toContain('bg-neutral-900');
+    expect(panel.className).not.toContain('dark:bg-neutral-900');
+    expect(panel.className).toContain('border-gray-700');
   });
 });

@@ -241,12 +241,12 @@ describe('SyncModal (bom) — динамические конфиги по па�
 });
 
 describe('SyncModal (bom) — закрытие', () => {
-  it('"×" вызывает onClose', async () => {
+  it('"✕" вызывает onClose', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<SyncModal onClose={onClose} onRefresh={vi.fn()} />);
     await flush();
-    await user.click(screen.getByText('×'));
+    await user.click(screen.getByText('✕'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

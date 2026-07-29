@@ -68,7 +68,7 @@ describe('ColumnSettingsModal', () => {
     await user.click(screen.getByText('Дизайн'));
     expect(onClose).not.toHaveBeenCalled();
 
-    await user.click(screen.getByText('×'));
+    await user.click(screen.getByText('✕'));
     expect(onClose).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByText('Готово'));

@@ -212,11 +212,11 @@ describe('SyncModal — закрытие', () => {
     externalApi.getSyncConfigs.mockResolvedValue(respOk({ success: true, data: [] }));
   });
 
-  it('× в шапке вызывает onClose', async () => {
+  it('✕ в шапке вызывает onClose', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<SyncModal user={user1} mode="prices" onClose={onClose} />);
-    await user.click(screen.getByText('×'));
+    await user.click(screen.getByText('✕'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

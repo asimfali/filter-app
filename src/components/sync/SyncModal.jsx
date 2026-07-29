@@ -4,6 +4,7 @@ import { mediaApi } from '../../api/media';
 import { can } from '../../utils/permissions';
 import { selectionApi } from '../../api/selection';
 import { IconLink, IconClock } from '../common/Icons';
+import Modal from '../common/Modal';
 
 // ─── Конфигурация режимов ─────────────────────────────────────────────────
 
@@ -364,36 +365,37 @@ export default function SyncModal({ user, onClose, mode }) {
     const anyLoading = Object.values(results).some(r => r.loading);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-            onClick={onClose}>
-            <div className="w-96 bg-white dark:bg-neutral-900
-                            rounded-xl shadow-2xl
-                            border border-gray-200 dark:border-gray-700
-                            overflow-hidden"
-                onClick={e => e.stopPropagation()}>
-
-                {/* Шапка */}
-                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800
-                                flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {config.title}
-                    </h2>
-                    <button onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600
-                                       dark:hover:text-gray-300 text-lg">
-                        ×
+        <Modal title={config.title} onClose={onClose} maxWidth="sm" scrollBody closeOnBackdropClick
+            footer={
+                <div className="flex gap-2">
+                    <button
+                        onClick={runAll}
+                        disabled={runningAll || anyLoading || items.length === 0}
+                        className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg
+                                    text-white transition-colors disabled:opacity-40
+                                    ${config.btnColor}`}>
+                        {runningAll ? 'Запуск всех...' : 'Запустить все'}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-3 py-2 text-sm rounded-lg
+                                   bg-neutral-100 dark:bg-neutral-800
+                                   text-gray-600 dark:text-gray-400
+                                   hover:bg-neutral-200 dark:hover:bg-neutral-700
+                                   transition-colors">
+                        Закрыть
                     </button>
                 </div>
-
+            }>
                 {/* Доп. контролы (если есть) */}
                 {config.extraControls && (
-                    <div className="px-5 pt-3">
+                    <div className="mb-3">
                         {config.extraControls(opts, setOpts)}
                     </div>
                 )}
 
                 {/* Список */}
-                <div className="px-5 py-4 space-y-2 max-h-72 overflow-y-auto">
+                <div className="space-y-2">
                     {items.length === 0 && (
                         <p className="text-sm text-gray-400 text-center py-4">
                             Загрузка...
@@ -608,31 +610,6 @@ export default function SyncModal({ user, onClose, mode }) {
                         );
                     })}
                 </div>
-
-
-
-                {/* Футер */}
-                <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800
-                                flex gap-2">
-                    <button
-                        onClick={runAll}
-                        disabled={runningAll || anyLoading || items.length === 0}
-                        className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg
-                                    text-white transition-colors disabled:opacity-40
-                                    ${config.btnColor}`}>
-                        {runningAll ? 'Запуск всех...' : 'Запустить все'}
-                    </button>
-                    <button
-                        onClick={onClose}
-                        className="px-3 py-2 text-sm rounded-lg
-                                   bg-neutral-100 dark:bg-neutral-800
-                                   text-gray-600 dark:text-gray-400
-                                   hover:bg-neutral-200 dark:hover:bg-neutral-700
-                                   transition-colors">
-                        Закрыть
-                    </button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

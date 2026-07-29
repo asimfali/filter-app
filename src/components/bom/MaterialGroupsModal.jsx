@@ -5,6 +5,7 @@ import Dropdown from '../common/Dropdown';
 import FolderPicker from './FolderPicker';
 import { inputCls } from '../../utils/styles';
 import { IconFolder,  } from '../common/Icons';
+import Modal from '../common/Modal';
 
 // GroupForm и GroupDetail оставить в этом же файле — используются только здесь
 
@@ -311,37 +312,18 @@ function MaterialGroupsModal({ onClose }) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-4xl
-                            max-h-[90vh] flex flex-col">
+        <Modal title="Группы материалов"
+            subtitle="Настройка вариантов выбора материала 1С для каждого типа/толщины"
+            onClose={onClose} maxWidth="4xl" scrollBody bodyClassName="flex-1 overflow-hidden flex"
+            headerExtra={
+                <button
+                    onClick={() => { setSelected(null); setCreating(true); }}
+                    className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600
+                               hover:bg-emerald-700 text-white transition-colors">
+                    + Новая группа
+                </button>
+            }>
                 {modals}
-                {/* Шапка */}
-                <div className="flex items-center justify-between px-5 py-4
-                                border-b border-gray-200 dark:border-gray-700 shrink-0">
-                    <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                            Группы материалов
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            Настройка вариантов выбора материала 1С для каждого типа/толщины
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => { setSelected(null); setCreating(true); }}
-                            className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600
-                                       hover:bg-emerald-700 text-white transition-colors">
-                            + Новая группа
-                        </button>
-                        <button onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 text-xl leading-none ml-2">
-                            ✕
-                        </button>
-                    </div>
-                </div>
-
-                {/* Тело — два столбца */}
-                <div className="flex flex-1 overflow-hidden">
                     {/* Список групп */}
                     <div className="w-72 shrink-0 border-r border-gray-200 dark:border-gray-700
                                     overflow-y-auto">
@@ -417,8 +399,6 @@ function MaterialGroupsModal({ onClose }) {
                             </div>
                         )}
                     </div>
-                </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

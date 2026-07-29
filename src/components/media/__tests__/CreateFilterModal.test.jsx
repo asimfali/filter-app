@@ -196,12 +196,12 @@ describe('CreateFilterModal — закрытие', () => {
         expect(onClose).toHaveBeenCalled();
     });
 
-    it('× закрывает модалку', async () => {
+    it('✕ закрывает модалку', async () => {
         const user = userEvent.setup();
         const onClose = vi.fn();
         render(<CreateFilterModal docId={1} axes={[axis1]} currentFilterIds={[]} onCreated={vi.fn()} onClose={onClose} />);
         await screen.findByText('Добавить фильтр');
-        await user.click(screen.getByText('×'));
+        await user.click(screen.getByText('✕'));
         expect(onClose).toHaveBeenCalled();
     });
 });
