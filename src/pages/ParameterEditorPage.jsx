@@ -1,23 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../api/auth';
+import { parseError } from '../utils';
 
 const API = '/api/v1/catalog';
 
 function parseApiError(data, status) {
-    // 403 — нет прав
-    if (status === 403) {
-        return data?.detail || 'Недостаточно прав для выполнения операции';
-    }
-    // 401 — не авторизован
-    if (status === 401) {
-        return 'Необходима авторизация';
-    }
-    // Стандартные ошибки DRF: { field: ['ошибка'] } или { detail: '...' }
-    if (data?.detail) return data.detail;
-    if (typeof data === 'object') {
-        return Object.values(data).flat().join(', ');
-    }
-    return 'Неизвестная ошибка';
+    // 401 — не авторизован (parseError общего назначения такого случая не знает)
+    if (status === 401) return 'Необходима авторизация';
+    // 403 — нет прав, с более подробным дефолтным текстом, чем в parseError
+    if (status === 403 && !data?.detail) return 'Недостаточно прав для выполнения операции';
+    return parseError(data, status);
 }
 
 // ── Хук загрузки данных ───────────────────────────────────────────────────
