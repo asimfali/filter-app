@@ -696,11 +696,17 @@ export default function FanChartPage() {
       const dFX = chart.display_factor_x ?? 1.0
       const dFY = chart.display_factor_y ?? 1.0
       const ratio = { x: xSF / dFX, y: ySF / dFY }
+      // chart может быть локальным объектом только что созданного (ещё не перезагруженного
+      // с бэкенда) графика — тогда x_min/x_max/y_min/y_max отсутствуют, есть только xDomain/yDomain
+      const xMin = chart.x_min ?? chart.xDomain?.[0]
+      const xMax = chart.x_max ?? chart.xDomain?.[1]
+      const yMin = chart.y_min ?? chart.yDomain?.[0]
+      const yMax = chart.y_max ?? chart.yDomain?.[1]
 
       setSelectedChart({
         ...chart,
-        xDomain: [chart.x_min * ratio.x, chart.x_max * ratio.x],
-        yDomain: [chart.y_min * ratio.y, chart.y_max * ratio.y],
+        xDomain: [xMin * ratio.x, xMax * ratio.x],
+        yDomain: [yMin * ratio.y, yMax * ratio.y],
         scaleType: chart.scale_type ?? chart.scaleType,
       })
       setChartData(chart.curves.map(c => ({
@@ -815,10 +821,13 @@ export default function FanChartPage() {
     const dFY = chart.display_factor_y ?? 1.0
 
     const { ok, data } = await selectionApi.fanChartSave(chartId, {
-      x_min: chart.x_min ?? 0.3,          // ← хранятся как есть
-      x_max: chart.x_max ?? 2.0,
-      y_min: chart.y_min ?? 60,
-      y_max: chart.y_max ?? 1000,
+      // chart.x_min и т.п. отсутствуют сразу после создания нового графика (там только
+      // xDomain/yDomain из CreateChartModal) — падать в них, а не в дефолты, иначе только
+      // что сохранённые границы графика молча перезатираются обратно на 0.3/2/60/1000
+      x_min: chart.x_min ?? chart.xDomain?.[0] ?? 0.3,
+      x_max: chart.x_max ?? chart.xDomain?.[1] ?? 2.0,
+      y_min: chart.y_min ?? chart.yDomain?.[0] ?? 60,
+      y_max: chart.y_max ?? chart.yDomain?.[1] ?? 1000,
       scale_type: chart.scaleType ?? chart.scale_type ?? 'log',
       x_label: chart.x_label ?? 'Q, тыс.м³/ч',
       y_label: chart.y_label ?? 'Pv, Па',
