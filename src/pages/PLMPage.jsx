@@ -4,6 +4,7 @@ import { catalogApi } from '../api/catalog';
 import { authApi } from '../api/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { can } from '../utils/permissions';
+import { useModals } from '../hooks/useModals';
 import BatchCreateForm from '../components/plm/BatchCreateForm';
 import { STAGE_STATUS_LABEL, STAGE_STATUS_COLOR, DECISION_ICON, DECISION_COLOR } from '../components/plm/constants';
 
@@ -42,6 +43,7 @@ function GroupsTab({ onOpenProduct, refData }) {
     const [selectedStages, setSelectedStages] = useState({}); // { groupId: Set<stageId> }
     const [batchPreset, setBatchPreset] = useState('');
     const [batchDept, setBatchDept] = useState('');
+    const { showConfirm, modals } = useModals();
 
     const canManage = can(user, 'plm.stage.manage');
 
@@ -170,16 +172,17 @@ function GroupsTab({ onOpenProduct, refData }) {
         setActionLoading(false);
     };
 
-    const handleDeleteGroup = async (groupId, groupName) => {
-        if (!window.confirm(`Удалить группу «${groupName}»? Стадии останутся.`)) return;
-        setActionLoading(true);
-        const { ok, data } = await plmApi.deleteGroup(groupId);
-        if (ok && data.success) {
-            setGroups(prev => prev.filter(g => g.id !== groupId));
-        } else {
-            setActionError(prev => ({ ...prev, [groupId]: data.error || 'Ошибка удаления' }));
-        }
-        setActionLoading(false);
+    const handleDeleteGroup = (groupId, groupName) => {
+        showConfirm(`Удалить группу «${groupName}»? Стадии останутся.`, async () => {
+            setActionLoading(true);
+            const { ok, data } = await plmApi.deleteGroup(groupId);
+            if (ok && data.success) {
+                setGroups(prev => prev.filter(g => g.id !== groupId));
+            } else {
+                setActionError(prev => ({ ...prev, [groupId]: data.error || 'Ошибка удаления' }));
+            }
+            setActionLoading(false);
+        });
     };
 
     const handleRemoveFromGroup = async (groupId, stageIds) => {
@@ -200,21 +203,22 @@ function GroupsTab({ onOpenProduct, refData }) {
         setActionLoading(false);
     };
 
-    const handleDeleteStage = async (groupId, stageId, stageName) => {
-        if (!window.confirm(`Удалить стадию «${stageName}»? Действие необратимо.`)) return;
-        setActionLoading(true);
-        const { ok, data } = await plmApi.deleteStage(stageId);
-        if (ok && data.success) {
-            await refreshGroup(groupId);
-            setSelectedStages(prev => {
-                const next = new Set(prev[groupId] || []);
-                next.delete(stageId);
-                return { ...prev, [groupId]: next };
-            });
-        } else {
-            setActionError(prev => ({ ...prev, [groupId]: data.error || 'Ошибка удаления' }));
-        }
-        setActionLoading(false);
+    const handleDeleteStage = (groupId, stageId, stageName) => {
+        showConfirm(`Удалить стадию «${stageName}»? Действие необратимо.`, async () => {
+            setActionLoading(true);
+            const { ok, data } = await plmApi.deleteStage(stageId);
+            if (ok && data.success) {
+                await refreshGroup(groupId);
+                setSelectedStages(prev => {
+                    const next = new Set(prev[groupId] || []);
+                    next.delete(stageId);
+                    return { ...prev, [groupId]: next };
+                });
+            } else {
+                setActionError(prev => ({ ...prev, [groupId]: data.error || 'Ошибка удаления' }));
+            }
+            setActionLoading(false);
+        });
     };
 
     const refreshGroup = async (groupId) => {
@@ -242,6 +246,7 @@ function GroupsTab({ onOpenProduct, refData }) {
 
     return (
         <div className="space-y-3">
+            {modals}
             {groups.map(group => {
                 const isExpanded = expanded[group.id];
                 const stages = groupStages[group.id] || [];

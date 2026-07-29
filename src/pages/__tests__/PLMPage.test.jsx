@@ -159,25 +159,33 @@ describe('PLMPage — GroupsTab: batch-действия внутри групп�
 
     it('удаление группы: confirm-гейт, успех убирает группу из списка', async () => {
         const user = userEvent.setup();
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
         plmApi.deleteGroup.mockResolvedValue(ok({}));
         render(<PLMPage onOpenProduct={vi.fn()} />);
         await screen.findByText('Группа А');
         await user.click(screen.getByTitle('Удалить группу'));
+        await user.click(screen.getByText('Подтвердить'));
         await waitFor(() => expect(plmApi.deleteGroup).toHaveBeenCalledWith(1));
         expect(screen.queryByText('Группа А')).not.toBeInTheDocument();
-        vi.restoreAllMocks();
+    });
+
+    it('удаление группы: отмена не вызывает deleteGroup', async () => {
+        const user = userEvent.setup();
+        render(<PLMPage onOpenProduct={vi.fn()} />);
+        await screen.findByText('Группа А');
+        await user.click(screen.getByTitle('Удалить группу'));
+        await user.click(screen.getByText('Отмена'));
+        expect(plmApi.deleteGroup).not.toHaveBeenCalled();
+        expect(screen.getByText('Группа А')).toBeInTheDocument();
     });
 
     it('удаление группы: ошибка API показывает actionError', async () => {
         const user = userEvent.setup();
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
         plmApi.deleteGroup.mockResolvedValue({ ok: false, data: { success: false, error: 'Нет прав' } });
         render(<PLMPage onOpenProduct={vi.fn()} />);
         await user.click(await screen.findByText('Группа А'));
         await user.click(screen.getByTitle('Удалить группу'));
+        await user.click(screen.getByText('Подтвердить'));
         expect(await screen.findByText('Нет прав')).toBeInTheDocument();
-        vi.restoreAllMocks();
     });
 });
 

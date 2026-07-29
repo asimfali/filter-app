@@ -4,6 +4,7 @@ import { authApi } from '../../api/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { can } from '../../utils/permissions';
 import { useBatchStages } from '../../hooks/useBatchStages';
+import { useModals } from '../../hooks/useModals';
 import BatchCreateForm from './BatchCreateForm';
 import StageTransferPanel from './StageTransferPanel';
 import { STAGE_STATUS_LABEL, STAGE_STATUS_COLOR, DECISION_ICON, DECISION_COLOR } from './constants';
@@ -16,6 +17,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
     const [loading, setLoading] = useState(false);
     // transfer: null | { stage } — какую стадию переносим
     const [transfer, setTransfer] = useState(null);
+    const { showConfirm, modals } = useModals();
 
     const visibleStages = stages.filter(s => {
         if (!selectedLitera || selectedLitera === 'none') return false;
@@ -50,38 +52,40 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
         setLoading(false);
     };
 
-    const handlePromote = async (stage) => {
-        if (!window.confirm(
+    const handlePromote = (stage) => {
+        showConfirm(
             `Перевести в следующую литеру?\n` +
             `Лит.${stage.litera_code} → следующая\n` +
-            `Характеристики будут скопированы. Текущая стадия архивируется.`
-        )) return;
-
-        setLoading(true);
-        const { ok, data } = await plmApi.promote(stage.id);
-        if (ok && data.success) {
-            onReload();
-        } else {
-            alert(data.error || 'Ошибка перехода');
-        }
-        setLoading(false);
+            `Характеристики будут скопированы. Текущая стадия архивируется.`,
+            async () => {
+                setLoading(true);
+                const { ok, data } = await plmApi.promote(stage.id);
+                if (ok && data.success) {
+                    onReload();
+                } else {
+                    alert(data.error || 'Ошибка перехода');
+                }
+                setLoading(false);
+            }
+        );
     };
 
-    const handleRollback = async (stage) => {
-        if (!window.confirm(
+    const handleRollback = (stage) => {
+        showConfirm(
             `Откатить Лит.${stage.litera_code}?\n` +
             `Стадия и её характеристики будут УДАЛЕНЫ.\n` +
-            `Используйте только если под этим номером выпускается новое изделие.`
-        )) return;
-
-        setLoading(true);
-        const { ok, data } = await plmApi.rollback(stage.id);
-        if (ok && data.success) {
-            onReload();
-        } else {
-            alert(data.error || 'Ошибка отката');
-        }
-        setLoading(false);
+            `Используйте только если под этим номером выпускается новое изделие.`,
+            async () => {
+                setLoading(true);
+                const { ok, data } = await plmApi.rollback(stage.id);
+                if (ok && data.success) {
+                    onReload();
+                } else {
+                    alert(data.error || 'Ошибка отката');
+                }
+                setLoading(false);
+            }
+        );
     };
 
     // Панель переноса поверх строки
@@ -103,6 +107,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
 
     return (
         <div className="border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden">
+            {modals}
             {/* Шапка */}
             <div
                 className="flex items-center justify-between px-3 py-2
@@ -232,6 +237,7 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts, result, on
     const [batchPreset, setBatchPreset] = useState('');
     const [batchDept, setBatchDept] = useState('');
     const [loading, setLoading] = useState(false);
+    const { showConfirm, modals } = useModals();
 
     // Собираем все stage_ids по статусу
     const allStages = Object.values(stagesByProduct).flat();
@@ -251,37 +257,41 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts, result, on
         setTimeout(() => onResult(null), 3000);
     };
 
-    const handleBatchPromote = async () => {
+    const handleBatchPromote = () => {
         if (!activeIds.length) return;
-        if (!window.confirm(
+        showConfirm(
             `Перевести ${activeIds.length} изделий в следующую литеру?\n` +
-            `Характеристики будут скопированы. Текущие стадии архивируются.`
-        )) return;
-        setLoading(true);
-        const { ok, data } = await plmApi.batchPromote(activeIds);
-        if (ok && data.success) {
-            onResult(`Переведено: ${data.data.promoted}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
-            onReload();
-        }
-        setLoading(false);
-        setTimeout(() => onResult(null), 4000);
+            `Характеристики будут скопированы. Текущие стадии архивируются.`,
+            async () => {
+                setLoading(true);
+                const { ok, data } = await plmApi.batchPromote(activeIds);
+                if (ok && data.success) {
+                    onResult(`Переведено: ${data.data.promoted}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
+                    onReload();
+                }
+                setLoading(false);
+                setTimeout(() => onResult(null), 4000);
+            }
+        );
     };
 
-    const handleBatchRollback = async () => {
+    const handleBatchRollback = () => {
         if (!activeIds.length) return;
-        if (!window.confirm(
+        showConfirm(
             `Откатить ${activeIds.length} изделий на предыдущую литеру?\n` +
             `Стадии и их характеристики будут УДАЛЕНЫ.\n` +
-            `Используйте только если выпускается новое изделие под старым номером.`
-        )) return;
-        setLoading(true);
-        const { ok, data } = await plmApi.batchRollback(activeIds);
-        if (ok && data.success) {
-            onResult(`Откатано: ${data.data.rolled_back}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
-            onReload();
-        }
-        setLoading(false);
-        setTimeout(() => onResult(null), 4000);
+            `Используйте только если выпускается новое изделие под старым номером.`,
+            async () => {
+                setLoading(true);
+                const { ok, data } = await plmApi.batchRollback(activeIds);
+                if (ok && data.success) {
+                    onResult(`Откатано: ${data.data.rolled_back}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
+                    onReload();
+                }
+                setLoading(false);
+                setTimeout(() => onResult(null), 4000);
+            }
+        );
     };
 
     const handleApprove = async () => {
@@ -300,6 +310,7 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts, result, on
 
     return (
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-3 space-y-2">
+            {modals}
             <div className="text-xs font-medium text-gray-600 dark:text-gray-400">
                 Пакетные действия
             </div>

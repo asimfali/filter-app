@@ -154,30 +154,30 @@ describe('PLMSidePanel — действия со стадией (промоут/
     it('промоут: отмена confirm — no-op; подтверждение → plmApi.promote + reload', async () => {
         const user = userEvent.setup();
         plmApi.getStages.mockResolvedValue(ok([stageActive]));
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
         plmApi.promote.mockResolvedValue(ok({}));
         render(<PLMSidePanel productIds={[1]} products={products} onClose={vi.fn()} selectedLitera={stageActive} />);
         await screen.findByText('Лит.В');
         await user.click(screen.getByText('Изделие А'));
         await user.click(await screen.findByText('→ Лит.+1'));
+        await user.click(screen.getByText('Отмена'));
         expect(plmApi.promote).not.toHaveBeenCalled();
 
         await user.click(screen.getByText('→ Лит.+1'));
+        await user.click(screen.getByText('Подтвердить'));
         await waitFor(() => expect(plmApi.promote).toHaveBeenCalledWith(13));
         await waitFor(() => expect(plmApi.getStages).toHaveBeenCalledTimes(2));
-        confirmSpy.mockRestore();
     });
 
     it('промоут: ошибка API — alert', async () => {
         const user = userEvent.setup();
         plmApi.getStages.mockResolvedValue(ok([stageActive]));
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
         vi.spyOn(window, 'alert').mockImplementation(() => {});
         plmApi.promote.mockResolvedValue({ ok: false, data: { success: false, error: 'Нельзя перейти' } });
         render(<PLMSidePanel productIds={[1]} products={products} onClose={vi.fn()} selectedLitera={stageActive} />);
         await screen.findByText('Лит.В');
         await user.click(screen.getByText('Изделие А'));
         await user.click(await screen.findByText('→ Лит.+1'));
+        await user.click(screen.getByText('Подтвердить'));
         await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Нельзя перейти'));
         vi.restoreAllMocks();
     });
@@ -185,15 +185,14 @@ describe('PLMSidePanel — действия со стадией (промоут/
     it('откат: confirm-гейт, успех → reload', async () => {
         const user = userEvent.setup();
         plmApi.getStages.mockResolvedValue(ok([stageActive]));
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
         plmApi.rollback.mockResolvedValue(ok({}));
         render(<PLMSidePanel productIds={[1]} products={products} onClose={vi.fn()} selectedLitera={stageActive} />);
         await screen.findByText('Лит.В');
         await user.click(screen.getByText('Изделие А'));
         await user.click(await screen.findByText('← Откат'));
+        await user.click(screen.getByText('Подтвердить'));
         await waitFor(() => expect(plmApi.rollback).toHaveBeenCalledWith(13));
         await waitFor(() => expect(plmApi.getStages).toHaveBeenCalledTimes(2));
-        vi.restoreAllMocks();
     });
 
     it('"↑ Серийные" переключает строку на StageTransferPanel; onDone/onClose возвращают обратно + reload', async () => {
@@ -243,13 +242,12 @@ describe('PLMSidePanel — batch-панель и создание группы',
     it('batch promote: confirm-гейт + результат с учётом skipped', async () => {
         const user = userEvent.setup();
         plmApi.getStages.mockResolvedValue(ok([stageActive]));
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
         plmApi.batchPromote.mockResolvedValue(ok({ promoted: 1, skipped: 2 }));
         render(<PLMSidePanel productIds={[1]} products={products} onClose={vi.fn()} selectedLitera={null} />);
         await user.click(await screen.findByText('→ Следующая литера (1)'));
+        await user.click(screen.getByText('Подтвердить'));
         await waitFor(() => expect(plmApi.batchPromote).toHaveBeenCalledWith([13]));
         expect(await screen.findByText('Переведено: 1, пропущено: 2')).toBeInTheDocument();
-        vi.restoreAllMocks();
     });
 
     it('batch approve: disabled без выбранного отдела, активна после выбора', async () => {
