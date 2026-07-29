@@ -4,14 +4,7 @@ import CreateIssueModal from '../components/issues/CreateIssueModal.jsx';
 import * as issuesApi from '../api/issues.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { IconPaperclip } from '../components/common/Icons.jsx';
-
-const STATUS_LABEL = {
-    open: 'Открыто',
-    in_progress: 'В работе',
-    resolved: 'Решено',
-    verified: 'Подтверждено ✓',
-    rejected: 'Отклонено',
-};
+import { ISSUE_STATUS_LABEL, ISSUE_STATUS_COLOR } from '../utils/issueStatus.js';
 
 const STATUS_NEXT_LABEL = {
     open: { status: 'in_progress', label: 'Взять в работу', color: 'bg-blue-600 hover:bg-blue-700 text-white' },
@@ -19,14 +12,6 @@ const STATUS_NEXT_LABEL = {
     resolved: null, // создатель видит две кнопки
     rejected: { status: 'in_progress', label: 'Взять в работу повторно', color: 'bg-blue-600 hover:bg-blue-700 text-white' },
     verified: null,
-};
-
-const STATUS_COLOR = {
-    open: 'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
-    in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    resolved: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    verified: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    rejected: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
 };
 
 // ─── Сообщение ───────────────────────────────────────────────────────────────
@@ -212,8 +197,8 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
                             → {issue.assigned_to_department_name}
                         </span>
                     )}
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[issue.status]}`}>
-                        {STATUS_LABEL[issue.status]}
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ISSUE_STATUS_COLOR[issue.status]}`}>
+                        {ISSUE_STATUS_LABEL[issue.status]}
                     </span>
                     <StatusDropdown issue={issue} onChangeStatus={onChangeStatus}
                         currentUserId={currentUserId} isThreadCreator={isThreadCreator} />
