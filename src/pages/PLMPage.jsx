@@ -123,7 +123,11 @@ function GroupsTab({ onOpenProduct, refData }) {
     };
 
     const handleBatchSubmit = async (groupId) => {
-        const ids = getSelectedIds(groupId);
+        // Кнопка показывает счётчик только по draft-стадиям — отправлять нужно тоже только их,
+        // а не всё выделение (пользователь может держать отмеченными и pending/active стадии).
+        const stages = groupStages[groupId] || [];
+        const draftIds = stages.filter(s => s.status === 'draft').map(s => s.id);
+        const ids = getSelectedIds(groupId).filter(id => draftIds.includes(id));
         if (!ids.length) return;
         setActionLoading(true);
         setActionError(prev => ({ ...prev, [groupId]: null }));
@@ -138,7 +142,11 @@ function GroupsTab({ onOpenProduct, refData }) {
     };
 
     const handleBatchApprove = async (groupId) => {
-        const ids = getSelectedIds(groupId);
+        // Аналогично handleBatchSubmit — счётчик на кнопке считает только pending_approval,
+        // отправлять нужно тоже только их.
+        const stages = groupStages[groupId] || [];
+        const pendingIds = stages.filter(s => s.status === 'pending_approval').map(s => s.id);
+        const ids = getSelectedIds(groupId).filter(id => pendingIds.includes(id));
         if (!ids.length || !batchDept) return;
         setActionLoading(true);
 
