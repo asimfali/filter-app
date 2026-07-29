@@ -247,11 +247,10 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
 }
 // ── Панель batch действий ─────────────────────────────────────────────────
 
-function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
+function BatchActionsBar({ stagesByProduct, onReload, presets, depts, result, onResult }) {
     const [batchPreset, setBatchPreset] = useState('');
     const [batchDept, setBatchDept] = useState('');
     const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState(null);
 
     // Собираем все stage_ids по статусу
     const allStages = Object.values(stagesByProduct).flat();
@@ -264,11 +263,11 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
         setLoading(true);
         const { ok, data } = await plmApi.batchSubmit(draftIds, batchPreset || null);
         if (ok && data.success) {
-            setResult(`Отправлено: ${data.data.submitted}`);
+            onResult(`Отправлено: ${data.data.submitted}`);
             onReload();
         }
         setLoading(false);
-        setTimeout(() => setResult(null), 3000);
+        setTimeout(() => onResult(null), 3000);
     };
 
     const handleBatchPromote = async () => {
@@ -280,11 +279,11 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
         setLoading(true);
         const { ok, data } = await plmApi.batchPromote(activeIds);
         if (ok && data.success) {
-            setResult(`Переведено: ${data.data.promoted}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
+            onResult(`Переведено: ${data.data.promoted}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
             onReload();
         }
         setLoading(false);
-        setTimeout(() => setResult(null), 4000);
+        setTimeout(() => onResult(null), 4000);
     };
 
     const handleBatchRollback = async () => {
@@ -297,11 +296,11 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
         setLoading(true);
         const { ok, data } = await plmApi.batchRollback(activeIds);
         if (ok && data.success) {
-            setResult(`Откатано: ${data.data.rolled_back}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
+            onResult(`Откатано: ${data.data.rolled_back}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
             onReload();
         }
         setLoading(false);
-        setTimeout(() => setResult(null), 4000);
+        setTimeout(() => onResult(null), 4000);
     };
 
     const handleApprove = async () => {
@@ -309,11 +308,11 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
         setLoading(true);
         const { ok, data } = await plmApi.batchApprove(pendingIds, Number(batchDept));
         if (ok && data.success) {
-            setResult(`Одобрено: ${data.data.approved}`);
+            onResult(`Одобрено: ${data.data.approved}`);
             onReload();
         }
         setLoading(false);
-        setTimeout(() => setResult(null), 3000);
+        setTimeout(() => onResult(null), 3000);
     };
 
     if (!draftIds.length && !pendingIds.length && !activeIds.length) return null;
@@ -393,6 +392,10 @@ export default function PLMSidePanel({ productIds, products, onClose, selectedLi
     const [showCreate, setShowCreate] = useState(false);
     const [presets, setPresets] = useState([]);
     const [depts, setDepts] = useState([]);
+    // Хранится здесь (не внутри BatchActionsBar) — onReload сразу ставит loading=true на этом
+    // компоненте, из-за чего BatchActionsBar размонтируется/монтируется заново в том же батче
+    // обновлений; локальный result сбрасывался бы при каждом remount, так и не будучи показан.
+    const [batchResult, setBatchResult] = useState(null);
 
     // Загружаем справочники для batch действий
     useState(() => {
@@ -442,6 +445,8 @@ export default function PLMSidePanel({ productIds, products, onClose, selectedLi
                         onReload={reload}
                         presets={presets}
                         depts={depts}
+                        result={batchResult}
+                        onResult={setBatchResult}
                     />
                 )}
 
