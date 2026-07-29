@@ -6,27 +6,7 @@ import { can } from '../../utils/permissions';
 import { useBatchStages } from '../../hooks/useBatchStages';
 import BatchCreateForm from './BatchCreateForm';
 import StageTransferPanel from './StageTransferPanel';
-
-const STATUS_LABEL = {
-    draft: 'Черновик',
-    pending_approval: 'На согласовании',
-    active: 'Активна',
-    archived: 'В архиве',
-};
-
-const STATUS_COLOR = {
-    draft: 'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
-    pending_approval: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    archived: 'bg-neutral-100 text-gray-400 dark:bg-neutral-800 dark:text-gray-500',
-};
-
-const DECISION_ICON = { pending: '○', approved: '✓', rejected: '✗' };
-const DECISION_COLOR = {
-    pending: 'text-gray-400',
-    approved: 'text-emerald-500',
-    rejected: 'text-red-500',
-};
+import { STAGE_STATUS_LABEL, STAGE_STATUS_COLOR, DECISION_ICON, DECISION_COLOR } from './constants';
 
 // ── Строка изделия со стадиями ────────────────────────────────────────────
 
@@ -144,7 +124,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
                         visibleStages.map(s => (
                             <span key={s.id}
                                 className={`text-xs px-1.5 py-0.5 rounded-full font-medium
-                                    ${STATUS_COLOR[s.status]}`}>
+                                    ${STAGE_STATUS_COLOR[s.status]}`}>
                                 Лит.{s.litera_code}
                             </span>
                         ))
@@ -164,8 +144,8 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
                             Лит.{stage.litera_code} — {stage.litera_name}
                         </span>
                         <div className="flex items-center gap-2">
-                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${STATUS_COLOR[stage.status]}`}>
-                                {STATUS_LABEL[stage.status]}
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${STAGE_STATUS_COLOR[stage.status]}`}>
+                                {STAGE_STATUS_LABEL[stage.status]}
                             </span>
                             {/* Кнопка переноса — только для ACTIVE и пользователей с manage */}
                             {stage.status === 'active' && canManage && (
