@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getExt, downloadUrl, buildTree, collectUuids } from '../ModelViewerPage.jsx';
+import { getExt, downloadUrl, buildTree } from '../ModelViewerPage.jsx';
 
 describe('getExt', () => {
     it('возвращает расширение в нижнем регистре', () => {
@@ -128,22 +128,5 @@ describe('buildTree', () => {
         expect(tree.uuid).toBe('root');
         expect(tree.children[0].uuid).toBe('inner');
         expect(tree.children[0].children[0].uuid).toBe('leaf');
-    });
-});
-
-describe('collectUuids', () => {
-    it('лист — массив из одного uuid', () => {
-        expect(collectUuids({ uuid: 'a', children: [] })).toEqual(['a']);
-    });
-
-    it('собирает uuid всех потомков в порядке обхода в глубину', () => {
-        const tree = {
-            uuid: 'root',
-            children: [
-                { uuid: 'a', children: [{ uuid: 'a1', children: [] }] },
-                { uuid: 'b', children: [] },
-            ],
-        };
-        expect(collectUuids(tree)).toEqual(['root', 'a', 'a1', 'b']);
     });
 });

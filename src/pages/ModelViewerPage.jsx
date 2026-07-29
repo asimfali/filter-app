@@ -203,7 +203,7 @@ function authFetch(path, opts = {}) {
 }
 
 // Построить дерево узлов из Three.js объекта
-export function buildTree(obj, parentId = null) {
+export function buildTree(obj) {
     const isVisible = obj.type === 'Mesh' || obj.type === 'Group'
         || obj.type === 'Object3D' || obj.type === 'Scene';
     if (!isVisible) return null;
@@ -224,7 +224,7 @@ export function buildTree(obj, parentId = null) {
     };
 
     for (const child of obj.children) {
-        const childNode = buildTree(child, obj.uuid);
+        const childNode = buildTree(child);
         if (childNode) node.children.push(childNode);
     }
 
@@ -232,15 +232,6 @@ export function buildTree(obj, parentId = null) {
     if (!obj.isMesh && !obj.name && node.children.length === 0) return null;
 
     return node;
-}
-
-// Собрать все uuid потомков (для скрытия группы)
-export function collectUuids(node) {
-    const result = [node.uuid];
-    for (const child of node.children) {
-        result.push(...collectUuids(child));
-    }
-    return result;
 }
 
 // ── Контекстное меню ──────────────────────────────────────────────────────────
