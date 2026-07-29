@@ -14,6 +14,7 @@ vi.mock('../../api/media', () => ({
         getFormData: vi.fn(),
         uploadProductDocument: vi.fn(),
         getProductDocuments: vi.fn(),
+        downloadFile: vi.fn(),
     },
 }));
 vi.mock('../../api/plm', () => ({ plmApi: { getStages: vi.fn() } }));
@@ -74,6 +75,7 @@ beforeEach(() => {
     useAuth.mockReturnValue({ user: withPerms() });
     useCart.mockReturnValue({ activeCartId: null, addToCart: vi.fn() });
     mediaApi.getFormData.mockResolvedValue(ok({ doc_types: [] }));
+    mediaApi.downloadFile.mockResolvedValue({ ok: true, blob: () => Promise.resolve(new Blob(['x'])) });
     plmApi.getStages.mockResolvedValue(ok({ success: true, data: [] }));
     getThreadsByProduct.mockResolvedValue([]);
     vi.stubGlobal('fetch', vi.fn((url) => {
@@ -159,9 +161,6 @@ describe('ProductPage — галерея (ImageSlider/AuthImage)', () => {
             if (url.includes('/card/')) {
                 return jsonRes({ success: true, data: makeProduct({ images: [{ rel_path: 'a/img1.jpg', name: 'img1' }] }) });
             }
-            if (url.includes('/media/download/')) {
-                return Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob(['x'])) });
-            }
             return jsonRes({});
         }));
         vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:mock-url');
@@ -181,9 +180,6 @@ describe('ProductPage — галерея (ImageSlider/AuthImage)', () => {
                     success: true,
                     data: makeProduct({ images: [{ rel_path: 'a/1.jpg', name: 'img1' }, { rel_path: 'a/2.jpg', name: 'img2' }] }),
                 });
-            }
-            if (url.includes('/media/download/')) {
-                return Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob(['x'])) });
             }
             return jsonRes({});
         }));
@@ -292,7 +288,6 @@ describe('ProductPage — параметры', () => {
 async function renderWithProduct(overrides) {
     vi.stubGlobal('fetch', vi.fn((url) => {
         if (url.includes('/card/')) return jsonRes({ success: true, data: makeProduct(overrides) });
-        if (url.includes('/media/download/')) return Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob(['x'])) });
         return jsonRes({});
     }));
     const user = userEvent.setup();

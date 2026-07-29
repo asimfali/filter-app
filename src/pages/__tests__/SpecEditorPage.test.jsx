@@ -19,7 +19,7 @@ vi.mock('../../api/sessions', () => ({
   },
 }));
 vi.mock('../../api/catalog', () => ({
-  catalogApi: { taskStatus: vi.fn() },
+  catalogApi: { taskStatus: vi.fn(), specsBulk: vi.fn(), specsBulkSave: vi.fn() },
 }));
 
 const withPerms = (...perms) => ({ id: 1, permissions: perms });
@@ -48,16 +48,11 @@ const makeData = (overrides = {}) => ({
   ...overrides,
 });
 
-// Роутер для сырого fetch: specs-bulk (загрузка), specs-bulk-save, push-to-1c.
+// Роутер для сырого fetch: остаётся только push-to-1c (specs-bulk/specs-bulk-save теперь идут
+// через catalogApi.specsBulk/specsBulkSave — мокаются отдельно).
 const routeFetch = (overrides = {}) => (url) => {
-  if (url.includes('specs-bulk-save')) {
-    return Promise.resolve(jsonResp(overrides.save ?? { success: true, data: { created: 0, updated: 1, skipped: 0 } }));
-  }
   if (url.includes('push-to-1c')) {
     return Promise.resolve(jsonResp(overrides.push ?? { success: true, data: { task_id: 'task-1', total: 2 } }));
-  }
-  if (url.includes('specs-bulk')) {
-    return Promise.resolve(jsonResp(overrides.load ?? { success: true, data: makeData() }));
   }
   return Promise.resolve(jsonResp({}));
 };
@@ -65,6 +60,8 @@ const routeFetch = (overrides = {}) => (url) => {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('fetch', vi.fn(routeFetch()));
+  catalogApi.specsBulk.mockResolvedValue({ data: { success: true, data: makeData() } });
+  catalogApi.specsBulkSave.mockResolvedValue({ data: { success: true, data: { created: 0, updated: 1, skipped: 0 } } });
   useAuth.mockReturnValue({ user: withPerms() });
 });
 
@@ -75,12 +72,12 @@ afterEach(() => {
 
 describe('SpecEditorPage — загрузка', () => {
   it('показывает загрузку, затем таблицу товаров/характеристик', async () => {
-    let resolveFetch;
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(r => { resolveFetch = r; })));
+    let resolveSpecsBulk;
+    catalogApi.specsBulk.mockReturnValue(new Promise(r => { resolveSpecsBulk = r; }));
     render(<SpecEditorPage productIds={[100, 101, 102]} onBack={vi.fn()} />);
     expect(screen.getByText('Загрузка...')).toBeInTheDocument();
 
-    resolveFetch(jsonResp({ success: true, data: makeData() }));
+    resolveSpecsBulk({ data: { success: true, data: makeData() } });
     expect(await screen.findByText('Изделие A')).toBeInTheDocument();
     expect(screen.getByText('Изделие B')).toBeInTheDocument();
     expect(screen.getByText('Длина')).toBeInTheDocument();
@@ -89,13 +86,13 @@ describe('SpecEditorPage — загрузка', () => {
   });
 
   it('ошибка загрузки (success:false) показывает сообщение', async () => {
-    vi.stubGlobal('fetch', vi.fn(routeFetch({ load: { success: false, error: 'Нет доступа' } })));
+    catalogApi.specsBulk.mockResolvedValue({ data: { success: false, error: 'Нет доступа' } });
     render(<SpecEditorPage productIds={[100]} onBack={vi.fn()} />);
     expect(await screen.findByText('Нет доступа')).toBeInTheDocument();
   });
 
   it('сетевая ошибка показывает "Ошибка сети"', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('network'))));
+    catalogApi.specsBulk.mockRejectedValue(new Error('network'));
     render(<SpecEditorPage productIds={[100]} onBack={vi.fn()} />);
     expect(await screen.findByText('Ошибка сети')).toBeInTheDocument();
   });
@@ -187,7 +184,7 @@ describe('SpecEditorPage — сохранение всех изменений', 
   });
 
   it('ошибка (json error) показывает сообщение', async () => {
-    vi.stubGlobal('fetch', vi.fn(routeFetch({ save: { success: false, error: 'Валидация не пройдена' } })));
+    catalogApi.specsBulkSave.mockResolvedValue({ data: { success: false, error: 'Валидация не пройдена' } });
     const user = userEvent.setup();
     render(<SpecEditorPage productIds={[100, 101, 102]} onBack={vi.fn()} />);
     await screen.findByText('Изделие A');
@@ -197,10 +194,7 @@ describe('SpecEditorPage — сохранение всех изменений', 
   });
 
   it('сетевая ошибка при сохранении показывает "Ошибка сети"', async () => {
-    vi.stubGlobal('fetch', vi.fn((url) => {
-      if (url.includes('specs-bulk-save')) return Promise.reject(new Error('down'));
-      return routeFetch()(url);
-    }));
+    catalogApi.specsBulkSave.mockRejectedValue(new Error('down'));
     const user = userEvent.setup();
     render(<SpecEditorPage productIds={[100, 101, 102]} onBack={vi.fn()} />);
     await screen.findByText('Изделие A');
@@ -345,7 +339,7 @@ const isCellSelected = (cell) => cell.className.includes('bg-violet-100');
 
 describe('SpecEditorPage — выделение мышью', () => {
   const gotoFlat = async () => {
-    vi.stubGlobal('fetch', vi.fn(routeFetch({ load: { success: true, data: flatData } })));
+    catalogApi.specsBulk.mockResolvedValue({ data: { success: true, data: flatData } });
     const utils = render(<SpecEditorPage productIds={[200, 201, 202]} onBack={vi.fn()} />);
     await screen.findByText('П1');
     return utils;
@@ -414,7 +408,7 @@ describe('SpecEditorPage — выделение мышью', () => {
 
 describe('SpecEditorPage — выделение с клавиатуры (регрессия бывшего краша)', () => {
   const gotoFlat = async () => {
-    vi.stubGlobal('fetch', vi.fn(routeFetch({ load: { success: true, data: flatData } })));
+    catalogApi.specsBulk.mockResolvedValue({ data: { success: true, data: flatData } });
     const utils = render(<SpecEditorPage productIds={[200, 201, 202]} onBack={vi.fn()} />);
     await screen.findByText('П1');
     return utils;
@@ -492,7 +486,7 @@ describe('SpecEditorPage — выделение с клавиатуры (рег�
 
 describe('SpecEditorPage — paste в выделенные ячейки', () => {
   const gotoFlat = async () => {
-    vi.stubGlobal('fetch', vi.fn(routeFetch({ load: { success: true, data: flatData } })));
+    catalogApi.specsBulk.mockResolvedValue({ data: { success: true, data: flatData } });
     const utils = render(<SpecEditorPage productIds={[200, 201, 202]} onBack={vi.fn()} />);
     await screen.findByText('П1');
     return utils;

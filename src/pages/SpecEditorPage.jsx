@@ -54,16 +54,8 @@ export default function SpecEditorPage({
         setLoading(true);
         setError(null);
 
-        fetch(`${API_BASE}/products/specs-bulk/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${tokenStorage.getAccess()}`,
-            },
-            body: JSON.stringify({ product_ids: productIds }),
-        })
-            .then(r => r.json())
-            .then(json => {
+        catalogApi.specsBulk(productIds)
+            .then(({ data: json }) => {
                 if (json.success) setData(json.data);
                 else setError(json.error || 'Ошибка загрузки');
             })
@@ -385,18 +377,7 @@ export default function SpecEditorPage({
         setSaveResult(null);
 
         try {
-            const res = await fetch(`${API_BASE}/products/specs-bulk-save/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${tokenStorage.getAccess()}`,
-                },
-                body: JSON.stringify({
-                    product_type_id: data.product_type_id,
-                    changes: Object.values(changes),
-                }),
-            });
-            const json = await res.json();
+            const { data: json } = await catalogApi.specsBulkSave(data.product_type_id, Object.values(changes));
             if (json.success) {
                 setSaveResult(json.data);
                 setData(prev => {

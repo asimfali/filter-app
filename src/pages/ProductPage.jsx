@@ -25,10 +25,7 @@ function useAuthImage(relPath) {
         if (!relPath) return;
         let objectUrl = null;
 
-        fetch(
-            `/api/v1/media/download/?path=${encodeURIComponent(relPath)}`,
-            { headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` } }
-        )
+        mediaApi.downloadFile(relPath)
             .then(r => r.ok ? r.blob() : null)
             .then(blob => {
                 if (!blob) return;
@@ -267,10 +264,7 @@ function ProductDocumentGroup({ group, onOpenViewer, product, docTypes }) {
             onOpenViewer?.({ relPath, fname: fileName, mtlPath: null });
             return;
         }
-        const res = await fetch(
-            `/api/v1/media/download/?path=${encodeURIComponent(relPath)}`,
-            { headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` } }
-        );
+        const res = await mediaApi.downloadFile(relPath);
         if (!res.ok) return;
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
@@ -431,10 +425,7 @@ function HeatExchangerSection({ heatExchangers, onOpenViewer }) {
 
     const handleDrawingClick = async (e, relPath) => {
         e.preventDefault();
-        const res = await fetch(
-            `/api/v1/media/download/?path=${encodeURIComponent(relPath)}`,
-            { headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` } }
-        );
+        const res = await mediaApi.downloadFile(relPath);
         if (!res.ok) return;
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);

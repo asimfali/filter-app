@@ -23,9 +23,8 @@ export default function RegisterForm({ onSuccess }) {
       .then(data => setDepartments(Array.isArray(data) ? data : (data.results || [])))
       .catch(() => { });
 
-    fetch('/api/v1/auth/roles/')
-      .then(r => r.json())
-      .then(data => setRoles(Array.isArray(data) ? data : (data.results || [])))
+    authApi.roles()
+      .then(({ data }) => setRoles(Array.isArray(data) ? data : (data.results || [])))
       .catch(() => { });
   }, []);
 

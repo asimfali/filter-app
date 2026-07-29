@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import RegisterForm from '../RegisterForm';
 import { authApi } from '../../../api/auth';
 
-vi.mock('../../../api/auth', () => ({ authApi: { register: vi.fn() } }));
+vi.mock('../../../api/auth', () => ({ authApi: { register: vi.fn(), roles: vi.fn() } }));
 
 const jsonRes = (data) => Promise.resolve({ json: async () => data });
 
@@ -14,10 +14,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   fetchMock = vi.fn((url) => {
     if (url.includes('/departments/')) return jsonRes([{ id: 1, name: 'Производство', children: [] }]);
-    if (url.includes('/roles/')) return jsonRes([{ id: 10, name: 'Инженер' }]);
     return jsonRes({});
   });
   vi.stubGlobal('fetch', fetchMock);
+  authApi.roles.mockResolvedValue({ data: [{ id: 10, name: 'Инженер' }] });
 });
 
 afterEach(() => {
@@ -47,7 +47,7 @@ describe('RegisterForm — справочники', () => {
     await waitDicts();
 
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/departments/?root_only=true');
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/roles/');
+    expect(authApi.roles).toHaveBeenCalled();
     expect(selects(container)[0].querySelector('option[value="1"]')).not.toBeNull();
     expect(selects(container)[1].querySelector('option[value="10"]')).not.toBeNull();
   });
@@ -55,9 +55,9 @@ describe('RegisterForm — справочники', () => {
   it('поддерживает пагинированный ответ вида {results: [...]}', async () => {
     fetchMock.mockImplementation((url) => {
       if (url.includes('/departments/')) return jsonRes({ results: [{ id: 2, name: 'Продажи', children: [] }] });
-      if (url.includes('/roles/')) return jsonRes({ results: [{ id: 20, name: 'Менеджер' }] });
       return jsonRes({});
     });
+    authApi.roles.mockResolvedValue({ data: { results: [{ id: 20, name: 'Менеджер' }] } });
     render(<RegisterForm onSuccess={vi.fn()} />);
 
     expect(await screen.findByText('Продажи')).toBeInTheDocument();
@@ -71,9 +71,9 @@ describe('RegisterForm — справочники', () => {
           { id: 1, name: 'Производство', children: [{ id: 2, name: 'Цех №1', children: [] }] },
         ]);
       }
-      if (url.includes('/roles/')) return jsonRes([]);
       return jsonRes({});
     });
+    authApi.roles.mockResolvedValue({ data: [] });
     const { container } = render(<RegisterForm onSuccess={vi.fn()} />);
     await screen.findByText('Производство');
 
@@ -83,6 +83,7 @@ describe('RegisterForm — справочники', () => {
 
   it('сетевая ошибка при загрузке справочников перехватывается молча', async () => {
     fetchMock.mockRejectedValue(new Error('network down'));
+    authApi.roles.mockRejectedValue(new Error('network down'));
     const { container } = render(<RegisterForm onSuccess={vi.fn()} />);
 
     // компонент не падает, селекты остаются с одной дефолтной опцией

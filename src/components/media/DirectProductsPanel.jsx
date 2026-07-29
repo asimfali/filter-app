@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { mediaApi } from '../../api/media';
+import { catalogApi } from '../../api/catalog';
 
 function DirectProductsPanel({ entityId, entityType, canWrite }) {
     const [open, setOpen] = useState(false);
@@ -50,11 +51,7 @@ function DirectProductsPanel({ entityId, entityType, canWrite }) {
         const t = setTimeout(async () => {
             setSearching(true);
             try {
-                const res = await fetch(
-                    `/api/v1/catalog/products/search/?q=${encodeURIComponent(query)}&limit=10`,
-                    { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } }
-                );
-                const data = await res.json();
+                const { data } = await catalogApi.searchProducts(query, { limit: 10 });
                 if (data.success) {
                     const attachedIds = new Set(products.map(p => p.id));
                     setSuggestions(data.data.filter(p => !attachedIds.has(p.id)));

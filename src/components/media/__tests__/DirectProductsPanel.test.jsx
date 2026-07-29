@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DirectProductsPanel from '../DirectProductsPanel';
 import { mediaApi } from '../../../api/media';
+import { catalogApi } from '../../../api/catalog';
 
 vi.mock('../../../api/media', () => ({
     mediaApi: {
@@ -17,15 +18,14 @@ vi.mock('../../../api/media', () => ({
         removeProductsFromDocument: vi.fn(),
     },
 }));
+vi.mock('../../../api/catalog', () => ({ catalogApi: { searchProducts: vi.fn() } }));
 
 const p1 = { id: 1, name: 'ВО-3.5', external_id: 'VO-35' };
 const p2 = { id: 2, name: 'ВО-4' };
 
 beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-        json: () => Promise.resolve({ success: true, data: [] }),
-    }));
+    catalogApi.searchProducts.mockResolvedValue({ data: { success: true, data: [] } });
 });
 
 describe('DirectProductsPanel — открытие/загрузка по entityType', () => {
@@ -94,14 +94,12 @@ describe('DirectProductsPanel — поиск и добавление (canWrite=t
         const input = await openPanel(user);
         await user.type(input, 'В');
         await new Promise(r => setTimeout(r, 350));
-        expect(globalThis.fetch).not.toHaveBeenCalled();
+        expect(catalogApi.searchProducts).not.toHaveBeenCalled();
     });
 
     it('поиск с дебаунсом исключает уже привязанные id из подсказок', async () => {
         const user = userEvent.setup();
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-            json: () => Promise.resolve({ success: true, data: [p1, p2] }),
-        }));
+        catalogApi.searchProducts.mockResolvedValue({ data: { success: true, data: [p1, p2] } });
         const input = await openPanel(user, [p1]);
         await user.type(input, 'ВО');
         expect(await screen.findByText('ВО-4')).toBeInTheDocument();
@@ -110,9 +108,7 @@ describe('DirectProductsPanel — поиск и добавление (canWrite=t
 
     it('выбор подсказки (mousedown) вызывает addProductsTo... и добавляет в список', async () => {
         const user = userEvent.setup();
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-            json: () => Promise.resolve({ success: true, data: [p2] }),
-        }));
+        catalogApi.searchProducts.mockResolvedValue({ data: { success: true, data: [p2] } });
         mediaApi.addProductsToDocument.mockResolvedValue({ ok: true });
         const input = await openPanel(user, []);
         await user.type(input, 'ВО');
