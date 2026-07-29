@@ -187,11 +187,11 @@ function ViewCube({ onSetView, onRotate, cameraRef, dark }) {
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 
-function getExt(fname) {
+export function getExt(fname) {
     return (fname || '').split('.').pop().toLowerCase();
 }
 
-function downloadUrl(path) {
+export function downloadUrl(path) {
     return `/api/v1/media/download/?path=${encodeURIComponent(path)}`;
 }
 
@@ -203,7 +203,7 @@ function authFetch(path, opts = {}) {
 }
 
 // Построить дерево узлов из Three.js объекта
-function buildTree(obj, parentId = null) {
+export function buildTree(obj, parentId = null) {
     const isVisible = obj.type === 'Mesh' || obj.type === 'Group'
         || obj.type === 'Object3D' || obj.type === 'Scene';
     if (!isVisible) return null;
@@ -235,7 +235,7 @@ function buildTree(obj, parentId = null) {
 }
 
 // Собрать все uuid потомков (для скрытия группы)
-function collectUuids(node) {
+export function collectUuids(node) {
     const result = [node.uuid];
     for (const child of node.children) {
         result.push(...collectUuids(child));
