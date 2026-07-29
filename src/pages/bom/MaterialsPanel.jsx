@@ -9,8 +9,6 @@ export default function MaterialsPanel({ materials, presets, sheetMappings, onSa
     const [rows, setRows] = useState(materials);
     const [partSearch, setPartSearch] = useState({});
     const [partResults, setPartResults] = useState({});
-    const [matSearch, setMatSearch] = useState({});
-    const [matResults, setMatResults] = useState({});
     const partRefs = useRef({});
     const matRefs = useRef({});
     const [units, setUnits] = useState([]);
@@ -73,27 +71,10 @@ export default function MaterialsPanel({ materials, presets, sheetMappings, onSa
         setPartResults(r => ({ ...r, [idx]: [] }));
     };
 
-    const handleMatSearch = async (idx, q) => {
-        setMatSearch(s => ({ ...s, [idx]: q }));
-        update(idx, 'source_material_name', q);
-        update(idx, 'source_material_id', null);
-        if (q.length < 2) { setMatResults(r => ({ ...r, [idx]: [] })); return; }
-
-        const row = rows[idx];
-        const { ok, data } = await bomApi.getMaterialGroup(
-            row.material_type || '',
-            row.thickness ? String(row.thickness) : '',
-            q,
-        );
-        if (ok && data.success) setMatResults(r => ({ ...r, [idx]: data.data }));
-    };
-
     const handleMatSelect = (idx, part) => {
         update(idx, 'source_material_id', part.id);
         update(idx, 'source_material_name', part.onec_name);
         bomApi.trackPartUse(part.id);
-        setMatSearch(s => ({ ...s, [idx]: undefined }));
-        setMatResults(r => ({ ...r, [idx]: [] }));
     };
 
     const errorMap = {};
@@ -135,8 +116,6 @@ export default function MaterialsPanel({ materials, presets, sheetMappings, onSa
                         <tbody>
                             {rows.map((row, idx) => {
                                 const hasError = errorMap[row.part_name];
-                                // Предупреждение: есть толщина но не выбран материал 1С
-                                const missingMat = row.thickness && !row.source_material_id;
                                 return (
                                     <tr key={idx}
                                         className={`border-b border-gray-50 dark:border-gray-800

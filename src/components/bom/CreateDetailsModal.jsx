@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import FolderPicker from './FolderPicker';
 
-export default function CreateDetailsModal({ onClose, onConfirm, defaultFolderId }) {
+export default function CreateDetailsModal({ onClose, onConfirm }) {
     const [selectedFolder, setSelectedFolder] = useState(null);
 
     return (

@@ -4,7 +4,6 @@ import { useModals } from '../../hooks/useModals';
 import ValidationReport from '../../components/bom/ValidationReport';
 import MergeExcelModal from '../../components/bom/MergeExcelModal';
 import ImportJsonModal from '../../components/bom/ImportJsonModal';
-import CreateDetailsModal from '../../components/bom/CreateDetailsModal';
 import SpecHeaderForm from './SpecHeaderForm';
 import MaterialsPanel from './MaterialsPanel';
 import { inputCls } from '../../utils/styles';
@@ -88,15 +87,6 @@ export default function SpecEditor({ spec: initialSpec, onClose, onSaved, canWri
         if (ok && data.success) setValidation(data.data);
         await reload();
         setValidating(false);
-    };
-
-    const handlePush = async () => {
-        setPushing(true);
-        setValidation(null);
-        const { ok, data } = await bomApi.pushSpec(spec.id);
-        if (data.data && !data.data.success) setValidation(data.data);
-        await reload();
-        setPushing(false);
     };
 
     const handleCreateDetails = async () => {

@@ -3,10 +3,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CreateDetailsModal from '../CreateDetailsModal';
 
-// Компонент импортируется, но нигде не рендерится в приложении (SpecEditor.jsx
-// импортирует его, но кнопки "Создать детали"/"Обновить детали" вызывают
-// bomApi.createDetails/updateDetails напрямую, минуя эту модалку) — тестируем
-// как самостоятельный, потенциально ещё не подключённый компонент.
+// Компонент нигде не рендерится в приложении (кнопки "Создать детали"/"Обновить
+// детали" в SpecEditor.jsx вызывают bomApi.createDetails/updateDetails напрямую,
+// минуя эту модалку) — тестируем как самостоятельный, потенциально ещё не
+// подключённый компонент.
 vi.mock('../FolderPicker', () => ({
   default: ({ value, onChange }) => (
     <div data-testid="folder-picker-stub" data-value={value?.path ?? ''}>
@@ -40,13 +40,6 @@ describe('CreateDetailsModal', () => {
     await user.click(screen.getByText('Создать детали'));
 
     expect(onConfirm).toHaveBeenCalledWith(42);
-  });
-
-  it('defaultFolderId не используется — папку всё равно нужно выбрать заново', () => {
-    // документирует текущее поведение: проп существует, но нигде не читается
-    render(<CreateDetailsModal onClose={vi.fn()} onConfirm={vi.fn()} defaultFolderId={999} />);
-    expect(screen.getByTestId('folder-picker-stub')).toHaveAttribute('data-value', '');
-    expect(screen.getByText('Создать детали')).toBeDisabled();
   });
 
   it('"Отмена" вызывает onClose', async () => {
