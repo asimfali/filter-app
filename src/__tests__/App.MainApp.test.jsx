@@ -286,11 +286,13 @@ describe('MainApp — handleNavigate: побочные эффекты по ти�
     expect(el).toHaveAttribute('data-initial-changes', '{}');
   });
 
-  it('model-viewer выставляет modelViewerFile и переключает на полноэкранный режим (без Header)', () => {
+  it('model-viewer выставляет modelViewerFile и переключает на полноэкранный режим (без Header)', async () => {
     render(<App />);
     goTo('model-viewer', { relPath: 'docs/a', fname: 'model.obj', mtlPath: 'docs/a/model.mtl' });
 
-    const el = screen.getByTestId('page-model-viewer');
+    // ModelViewerPage грузится лениво (React.lazy) — первое обращение в файле
+    // требует дождаться разрешения промиса импорта, дальше React кеширует.
+    const el = await screen.findByTestId('page-model-viewer');
     expect(el).toHaveAttribute('data-rel-path', 'docs/a');
     expect(el).toHaveAttribute('data-fname', 'model.obj');
     expect(el).toHaveAttribute('data-mtl-path', 'docs/a/model.mtl');
