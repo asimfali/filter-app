@@ -10,22 +10,7 @@ import UnitWeightModal from '../../components/bom/UnitWeightModal';
 import PullModal from '../../components/bom/PullModal';
 import SyncModal from '../../components/bom/SyncModal';
 import { IconBox, IconLock } from '../../components/common/Icons';
-
-const STATUS_LABEL = {
-    draft: 'Черновик',
-    ready: 'Готова к загрузке',
-    pushing: 'Загружается...',
-    pushed: 'Загружена в 1С',
-    push_error: 'Ошибка загрузки',
-};
-
-const STATUS_COLOR = {
-    draft: 'text-gray-500 dark:text-gray-400',
-    ready: 'text-emerald-600 dark:text-emerald-400',
-    pushing: 'text-blue-500 dark:text-blue-400',
-    pushed: 'text-emerald-700 dark:text-emerald-300',
-    push_error: 'text-red-600 dark:text-red-400',
-};
+import { SPEC_STATUS_LABEL, SPEC_STATUS_COLOR } from './constants';
 
 export default function SpecList({ specs, loading, canWrite, canView, onOpen, onRefresh, onSearch }) {
     const [pullOpen, setPullOpen] = useState(false);
@@ -280,8 +265,8 @@ export default function SpecList({ specs, loading, canWrite, canView, onOpen, on
                                         {spec.process_type || '—'}
                                     </td>
                                     <td className="px-4 py-3">
-                                        <span className={`text-xs font-medium ${STATUS_COLOR[spec.status]}`}>
-                                            {STATUS_LABEL[spec.status] || spec.status}
+                                        <span className={`text-xs font-medium ${SPEC_STATUS_COLOR[spec.status]}`}>
+                                            {SPEC_STATUS_LABEL[spec.status] || spec.status}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">
