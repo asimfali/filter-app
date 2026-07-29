@@ -16,9 +16,9 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
     // Del — удаление выделенных
     useEffect(() => {
         const handleKey = (e) => {
-            if (e.key === 'Delete' && selected.size > 0) {
-                onDetach?.([...selected]);
-                setSelected(new Set());
+            if (e.key === 'Delete' && fullSelect.selected.size > 0) {
+                onDetach?.([...fullSelect.selected]);
+                fullSelect.setSelected(new Set());
             }
         };
         window.addEventListener('keydown', handleKey);

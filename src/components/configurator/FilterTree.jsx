@@ -9,7 +9,7 @@ import { can } from '../../utils/permissions';
 import { useChainSearch } from '../../hooks/useChainSearch';
 import { IconEye, IconLock } from '../common/Icons.jsx';
 
-const byNumericValue = (a, b) => {
+export const byNumericValue = (a, b) => {
   const na = parseFloat(String(a.label).replace(',', '.'));
   const nb = parseFloat(String(b.label).replace(',', '.'));
   const aNum = !Number.isNaN(na);
