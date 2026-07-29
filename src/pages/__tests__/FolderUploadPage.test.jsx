@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FolderUploadPage from '../FolderUploadPage';
 import { mediaApi } from '../../api/media';
+import { catalogApi } from '../../api/catalog';
 import { sessionsApi } from '../../api/sessions';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -17,6 +18,7 @@ vi.mock('../../api/media', () => ({
         bulkSetDocumentFilters: vi.fn(),
     },
 }));
+vi.mock('../../api/catalog', () => ({ catalogApi: { productTypes: vi.fn() } }));
 vi.mock('../../api/sessions', () => ({
     sessionsApi: { list: vi.fn(), create: vi.fn(), update: vi.fn() },
 }));
@@ -53,12 +55,9 @@ beforeEach(() => {
         folder_upload_settings: [],
     }));
     sessionsApi.list.mockResolvedValue({ results: [] });
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-        json: () => Promise.resolve({ results: [productType1] }),
-    }));
+    catalogApi.productTypes.mockResolvedValue({ ok: true, data: { results: [productType1] } });
 });
 afterEach(() => {
-    vi.unstubAllGlobals();
     vi.useRealTimers();
 });
 

@@ -1,6 +1,7 @@
 // src/pages/FolderUploadPage.jsx
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { mediaApi } from '../api/media';
+import { catalogApi } from '../api/catalog';
 import { useAuth } from '../contexts/AuthContext';
 import { can } from '../utils/permissions';
 import { filterLatestPassports } from '../utils/filterLatestPassports';
@@ -148,7 +149,6 @@ export default function FolderUploadPage({ onBack }) {
     const [excludeFolders, setExcludeFolders] = useState('Архив, archive');
     const [folderMarker, setFolderMarker] = useState('ПАСПОРТ');
     const [nameTemplate, setNameTemplate] = useState('{doc_type} {series}{heating} {design}');
-    const [axes, setAxes] = useState([]);
     const [folderUploadSettings, setFolderUploadSettings] = useState([]);
     const [sessionId, setSessionId] = useState(null);
     const sessionApplied = useRef(false);
@@ -237,15 +237,12 @@ export default function FolderUploadPage({ onBack }) {
         mediaApi.getFormData().then(({ ok, data }) => {
             if (!ok) return;
             setDocTypes(data.doc_types || []);
-            setAxes(data.axes || []);
             setFolderUploadSettings(data.folder_upload_settings || []);
         });
-        fetch('/api/v1/catalog/product-types/')
-            .then(r => r.json())
-            .then(data => {
-                const types = data.results || data;
-                setProductTypes(Array.isArray(types) ? types : []);
-            });
+        catalogApi.productTypes().then(({ data }) => {
+            const types = data.results || data;
+            setProductTypes(Array.isArray(types) ? types : []);
+        });
     }, []);
 
     const availableCodes = useMemo(() => {
@@ -359,8 +356,6 @@ export default function FolderUploadPage({ onBack }) {
 
         setItems(parsed);
         setLoading(false);
-        setItems(parsed);
-        setLoading(false);
         saveSession({ items: parsed.map(({ file, ...rest }) => rest) });
     };
 
@@ -435,7 +430,6 @@ export default function FolderUploadPage({ onBack }) {
     const sel = "border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
         "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
         "focus:outline-none focus:ring-2 focus:ring-blue-500";
-    const inputCls = sel;
 
     if (!user) return null;
 

@@ -9,11 +9,9 @@ import { useCart } from '../contexts/CartContext';
 import { can } from '../utils/permissions';
 import { useDocTypes } from '../hooks/useDocUpload';
 import DocTypeSelector from '../components/media/DocTypeSelector';
-import { plmApi } from '../api/plm';
 import ProductStages from '../components/plm/ProductStages';
 import LiteraSelector from '../components/plm/LiteraSelector';
 import { useProductStages } from '../hooks/useBatchStages';
-import { catalogApi } from '../api/catalog';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -291,13 +289,7 @@ function ProductDocumentGroup({ group, onOpenViewer, product, docTypes }) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
 
-        // было: качало файл
-        // const a = document.createElement('a');
-        // a.href = url;
-        // a.download = fileName;
-        // a.click();
-
-        // стало: PDF и изображения открываем в новой вкладке
+        // PDF и изображения открываем в новой вкладке
         const isPdf = name.endsWith('.pdf');
         const isImage = /\.(jpg|jpeg|png|webp)$/.test(name);
 

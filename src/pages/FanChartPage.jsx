@@ -723,9 +723,6 @@ export default function FanChartPage() {
     setLoading(true)
     const { ok, data } = await selectionApi.fanChartDetail(chart.id)
     if (ok) {
-      console.log('scale_type:', data.scale_type)
-      console.log('x_min:', data.x_min, 'x_max:', data.x_max)
-      console.log('first curve first points:', data.curves?.[0]?.points?.slice(0, 3))
       const xSF = data.x_scale_factor ?? 1.0
       const ySF = data.y_scale_factor ?? 1.0
       const dFX = data.display_factor_x ?? 1.0
