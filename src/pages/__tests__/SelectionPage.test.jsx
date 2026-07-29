@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SelectionPage from '../SelectionPage';
 import { selectionApi } from '../../api/selection';
@@ -30,7 +30,21 @@ vi.mock('../../components/common/SmartSelect', () => ({
     ),
 }));
 vi.mock('../../components/selection/ProposalsPanel', () => ({
-    default: ({ open }) => (open ? <div data-testid="proposals-panel-stub" /> : null),
+    default: ({ open, onClose, onRestore }) => (open ? (
+        <div data-testid="proposals-panel-stub">
+            <button onClick={onClose}>close-proposals</button>
+            <button onClick={() => onRestore({
+                id: 55,
+                proposal_number: 'П-55',
+                customer: 'ООО Ромашка',
+                params: {
+                    heat_type: 'W', install_type: 'BO', ip: 54, h: 3, b: 4,
+                    tn: -25, tv: 16, V: 4, tsm: 0, Tpr: 60, optimize: true,
+                    _region: { id: 9, name: 'Москва', tn: -25, V: 4 },
+                },
+            })}>restore-proposal</button>
+        </div>
+    ) : null),
 }));
 
 const ok = (data) => ({ ok: true, data });
@@ -184,18 +198,18 @@ describe('SelectionPage — регион и координаты', () => {
     });
 });
 
-describe('SelectionPage — расчёт (авто-режим)', () => {
-    async function submitForm(user, overrides = {}) {
-        const inputs = document.querySelectorAll('input[type="number"]');
-        const [hInp, bInp, tnInp, tvInp, vInp] = inputs;
-        const values = { h: '2', b: '2', tn: '-20', tv: '18', V: '3', ...overrides };
-        for (const [inp, val] of [[hInp, values.h], [bInp, values.b], [tnInp, values.tn], [tvInp, values.tv], [vInp, values.V]]) {
-            await user.clear(inp);
-            await user.type(inp, val);
-        }
-        await user.click(screen.getByRole('button', { name: /Подобрать завесы/ }));
+async function submitForm(user, overrides = {}) {
+    const inputs = document.querySelectorAll('input[type="number"]');
+    const [hInp, bInp, tnInp, tvInp, vInp] = inputs;
+    const values = { h: '2', b: '2', tn: '-20', tv: '18', V: '3', ...overrides };
+    for (const [inp, val] of [[hInp, values.h], [bInp, values.b], [tnInp, values.tn], [tvInp, values.tv], [vInp, values.V]]) {
+        await user.clear(inp);
+        await user.type(inp, val);
     }
+    await user.click(screen.getByRole('button', { name: /Подобрать завесы/ }));
+}
 
+describe('SelectionPage — расчёт (авто-режим)', () => {
     it('успешный расчёт рендерит результаты (SeriaCard/CombinationRow)', async () => {
         const user = userEvent.setup();
         selectionApi.calculate.mockResolvedValue(ok({
@@ -329,5 +343,268 @@ describe('SelectionPage — расчёт (авто-режим)', () => {
         await waitFor(() => expect(selectionApi.accessories).toHaveBeenCalledWith([1]));
         expect(radios[0]).toBeChecked();
         expect(radios[1]).not.toBeChecked();
+    });
+});
+
+describe('SelectionPage — ручной режим', () => {
+    it('фильтрует серии/дизайны по исключённым из конфига', async () => {
+        selectionApi.getConfig.mockResolvedValue(ok({
+            success: true,
+            data: { excluded_designs: ['Design2'], excluded_series: ['КЭВ'] },
+        }));
+        const user = userEvent.setup();
+        render(<SelectionPage />);
+        await screen.findByText('Электро');
+        await user.click(screen.getByText('Ручной'));
+
+        expect(await screen.findByText('ВО')).toBeInTheDocument();
+        expect(screen.queryByText('КЭВ')).not.toBeInTheDocument();
+
+        await user.click(screen.getByText('ВО'));
+        expect(await screen.findByText('Design1')).toBeInTheDocument();
+        expect(screen.queryByText('Design2')).not.toBeInTheDocument();
+    });
+
+    it('выбор серии/дизайна грузит длины (availableOptions), показывает loading', async () => {
+        let resolveLengths;
+        selectionApi.availableOptions.mockReturnValue(new Promise(r => { resolveLengths = r; }));
+        const user = userEvent.setup();
+        render(<SelectionPage />);
+        await screen.findByText('Электро');
+        await user.click(screen.getByText('Ручной'));
+        await user.click(screen.getByText('ВО'));
+        await user.click(screen.getByText('Design1'));
+
+        expect(selectionApi.availableOptions).toHaveBeenCalledWith('ВО', 'Design1', 'E', 21);
+        expect(await screen.findByText('Загрузка...')).toBeInTheDocument();
+
+        resolveLengths(ok({ success: true, data: { lengths: [1000, 1500] } }));
+        expect(await screen.findByRole('button', { name: /^1000 мм/ })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^1500 мм/ })).toBeInTheDocument();
+    });
+
+    it('нет доступных длин', async () => {
+        selectionApi.availableOptions.mockResolvedValue(ok({ success: true, data: { lengths: [] } }));
+        const user = userEvent.setup();
+        render(<SelectionPage />);
+        await screen.findByText('Электро');
+        await user.click(screen.getByText('Ручной'));
+        await user.click(screen.getByText('ВО'));
+        await user.click(screen.getByText('Design1'));
+        expect(await screen.findByText('Нет доступных длин')).toBeInTheDocument();
+    });
+
+    it('предупреждение о выборе длины, накопление по клику, "← Убрать" последнюю', async () => {
+        selectionApi.availableOptions.mockResolvedValue(ok({ success: true, data: { lengths: [1000, 1500] } }));
+        const user = userEvent.setup();
+        render(<SelectionPage />);
+        await screen.findByText('Электро');
+        await user.click(screen.getByText('Ручной'));
+        await user.click(screen.getByText('ВО'));
+        await user.click(screen.getByText('Design1'));
+        const lenBtn = await screen.findByRole('button', { name: /^1000 мм/ });
+
+        expect(screen.getByText('Выберите хотя бы одну длину')).toBeInTheDocument();
+
+        await user.click(lenBtn);
+        await user.click(lenBtn);
+        expect(screen.queryByText('Выберите хотя бы одну длину')).not.toBeInTheDocument();
+        expect(screen.getByText('1000 мм + 1000 мм')).toBeInTheDocument();
+
+        await user.click(screen.getByText('← Убрать'));
+        expect(screen.queryByText('1000 мм + 1000 мм')).not.toBeInTheDocument();
+        expect(lenBtn).toBeInTheDocument();
+    });
+
+    it('углы: дефолт 30°, удаление, добавление валидного, игнор вне диапазона/дублей', async () => {
+        selectionApi.availableOptions.mockResolvedValue(ok({ success: true, data: { lengths: [1000] } }));
+        const user = userEvent.setup();
+        render(<SelectionPage />);
+        await screen.findByText('Электро');
+        await user.click(screen.getByText('Ручной'));
+        await user.click(screen.getByText('ВО'));
+        await user.click(screen.getByText('Design1'));
+        await screen.findByText('Углы расчёта');
+
+        expect(screen.getByText('30°')).toBeInTheDocument();
+
+        const angleInput = document.querySelector('input[placeholder="°"]');
+        await user.type(angleInput, '150');
+        await user.click(screen.getByText('+ Добавить'));
+        expect(screen.queryByText('150°')).not.toBeInTheDocument();
+
+        await user.clear(angleInput);
+        await user.type(angleInput, '30');
+        await user.click(screen.getByText('+ Добавить'));
+        expect(screen.getAllByText('30°')).toHaveLength(1);
+
+        await user.clear(angleInput);
+        await user.type(angleInput, '45');
+        await user.click(screen.getByText('+ Добавить'));
+        expect(screen.getByText('45°')).toBeInTheDocument();
+
+        const removeDefault = within(screen.getByText('30°')).getByRole('button');
+        await user.click(removeDefault);
+        expect(screen.queryByText('30°')).not.toBeInTheDocument();
+        expect(screen.getByText('45°')).toBeInTheDocument();
+    });
+
+    it('manualInvalid блокирует submit пока не выбраны серия/дизайн/длина/угол', async () => {
+        selectionApi.availableOptions.mockResolvedValue(ok({ success: true, data: { lengths: [1000] } }));
+        const user = userEvent.setup();
+        render(<SelectionPage />);
+        await screen.findByText('Электро');
+        await user.click(screen.getByText('Ручной'));
+        const submitBtn = screen.getByRole('button', { name: /Подобрать завесы/ });
+        expect(submitBtn).toBeDisabled();
+
+        await user.click(screen.getByText('ВО'));
+        expect(submitBtn).toBeDisabled();
+        await user.click(screen.getByText('Design1'));
+        const lenBtn = await screen.findByRole('button', { name: /^1000 мм/ });
+        expect(submitBtn).toBeDisabled();
+
+        await user.click(lenBtn);
+        expect(submitBtn).not.toBeDisabled();
+    });
+
+    it('submit в ручном режиме отправляет payload с mode=manual и manual.{series,design,lbodies,angles}', async () => {
+        selectionApi.availableOptions.mockResolvedValue(ok({ success: true, data: { lengths: [1000] } }));
+        selectionApi.calculate.mockResolvedValue(ok({ success: true, data: { results: [] } }));
+        const user = userEvent.setup();
+        render(<SelectionPage />);
+        await screen.findByText('Электро');
+        await user.click(screen.getByText('Ручной'));
+        await user.click(screen.getByText('ВО'));
+        await user.click(screen.getByText('Design1'));
+        const lenBtn = await screen.findByRole('button', { name: /^1000 мм/ });
+        await user.click(lenBtn);
+
+        await submitForm(user);
+
+        const payload = selectionApi.calculate.mock.calls[0][0];
+        expect(payload.mode).toBe('manual');
+        expect(payload.manual).toEqual({ series: 'ВО', design: 'Design1', lbodies: [1000], angles: [30] });
+    });
+});
+
+async function setupSelectedCombo(user) {
+    selectionApi.calculate.mockResolvedValue(ok({
+        success: true,
+        data: {
+            results: [{
+                seria: 'ВО', design: '',
+                combinations: [{ angle: 30, Tz: 12, tsm: 5, products: [{ name: 'A', count: 1, id: 1 }], total_length: 1 }],
+            }],
+        },
+    }));
+    selectionApi.accessories.mockResolvedValue(ok({ success: true, data: { items: [], has_pcb: false } }));
+    render(<SelectionPage />);
+    await screen.findByText('Электро');
+    await submitForm(user);
+    await screen.findByText('Серия ВО');
+    await user.click(document.querySelector('input[type="radio"][class*="accent-blue"]'));
+    await screen.findByText('Просмотреть предложение');
+}
+
+describe('SelectionPage — генерация предложения', () => {
+    it('"Просмотреть предложение" — без сохранения, открывает blob в новой вкладке', async () => {
+        const user = userEvent.setup();
+        const blob = new Blob(['x']);
+        selectionApi.proposal.mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) });
+        vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+        vi.spyOn(window.URL, 'revokeObjectURL').mockImplementation(() => {});
+        const fakeTab = { document: { write: vi.fn(), close: vi.fn() } };
+        const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakeTab);
+
+        await setupSelectedCombo(user);
+        await user.click(screen.getByText('Просмотреть предложение'));
+
+        await waitFor(() => expect(selectionApi.proposal).toHaveBeenCalled());
+        expect(selectionApi.proposalsCreate).not.toHaveBeenCalled();
+        expect(openSpy).toHaveBeenCalledWith('', '_blank');
+        expect(fakeTab.document.write).toHaveBeenCalledWith(expect.stringContaining('blob:mock-url'));
+
+        vi.restoreAllMocks();
+    });
+
+    it('"Скачать PDF" без currentProposalId — создаёт предложение (proposalsCreate), потом скачивает', async () => {
+        const user = userEvent.setup();
+        const blob = new Blob(['x']);
+        selectionApi.proposalsCreate.mockResolvedValue({ ok: true, data: { id: 77, proposal_number: 'П-77' } });
+        selectionApi.proposal.mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) });
+        vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+        vi.spyOn(window.URL, 'revokeObjectURL').mockImplementation(() => {});
+        const clicks = [];
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+            clicks.push({ href: this.href, download: this.download });
+        });
+
+        await setupSelectedCombo(user);
+        await user.click(screen.getByText('Скачать PDF'));
+
+        await waitFor(() => expect(selectionApi.proposalsCreate).toHaveBeenCalled());
+        expect(selectionApi.proposalsCreate).toHaveBeenCalledWith(expect.objectContaining({
+            selection_type: 'CURTAIN_SHUTTER',
+        }));
+        await waitFor(() => expect(clicks.length).toBe(1));
+        expect(clicks[0].download).toBe('Предложение.pdf');
+        expect(selectionApi.proposal.mock.calls[0][0].proposal_no).toBe('П-77');
+
+        vi.restoreAllMocks();
+    });
+
+    it('"Скачать PDF" с существующим currentProposalId — обновляет (proposalsUpdate), не создаёт заново', async () => {
+        const user = userEvent.setup();
+        selectionApi.proposalsUpdate.mockResolvedValue({ ok: true, data: {} });
+        selectionApi.proposal.mockResolvedValue({ ok: true, blob: () => Promise.resolve(new Blob(['x'])) });
+        vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+        vi.spyOn(window.URL, 'revokeObjectURL').mockImplementation(() => {});
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+        await setupSelectedCombo(user);
+        // Восстанавливаем предложение из истории — это выставит currentProposalId
+        await user.click(screen.getByText('История'));
+        await user.click(screen.getByText('restore-proposal'));
+        // После restore результаты сброшены — пересчитываем и выбираем вариант заново
+        await submitForm(user);
+        await screen.findByText('Серия ВО');
+        await user.click(document.querySelector('input[type="radio"][class*="accent-blue"]'));
+        await screen.findByText('Скачать PDF');
+
+        await user.click(screen.getByText('Скачать PDF'));
+
+        await waitFor(() => expect(selectionApi.proposalsUpdate).toHaveBeenCalledWith(55, expect.objectContaining({ status: 'SENT' })));
+        expect(selectionApi.proposalsCreate).not.toHaveBeenCalled();
+
+        vi.restoreAllMocks();
+    });
+
+    it('ошибка формирования предложения (!res.ok)', async () => {
+        const user = userEvent.setup();
+        selectionApi.proposal.mockResolvedValue({ ok: false });
+        vi.spyOn(window, 'open').mockReturnValue({ document: { write: vi.fn(), close: vi.fn() } });
+
+        await setupSelectedCombo(user);
+        await user.click(screen.getByText('Просмотреть предложение'));
+
+        expect(await screen.findByText('Ошибка формирования предложения')).toBeInTheDocument();
+        vi.restoreAllMocks();
+    });
+});
+
+describe('SelectionPage — восстановление из истории (ProposalsPanel.onRestore)', () => {
+    it('восстанавливает форму/заказчика/регион, сбрасывает результаты', async () => {
+        const user = userEvent.setup();
+        await setupSelectedCombo(user);
+        expect(screen.getByText('Серия ВО')).toBeInTheDocument();
+
+        await user.click(screen.getByText('История'));
+        await user.click(screen.getByText('restore-proposal'));
+
+        expect(screen.queryByText('Серия ВО')).not.toBeInTheDocument();
+        const values = Array.from(document.querySelectorAll('input[type="number"]')).map(i => i.value);
+        expect(values).toEqual(['3', '4', '-25', '16', '4']);
+        expect(screen.getByDisplayValue('ООО Ромашка')).toBeInTheDocument();
     });
 });
