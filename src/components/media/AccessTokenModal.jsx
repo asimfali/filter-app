@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { mediaApi } from '../../api/media';
 import { apiFetch } from '../../api/auth';
 import { IconEye } from '../common/Icons';
+import { inputCls } from '../../utils/styles';
 
 export default function AccessTokenModal({ product, docType, onClose }) {
     const [tokens, setTokens] = useState([]);
