@@ -391,3 +391,181 @@ describe('FolderUploadPage — режим products в таблице', () => {
         expect(await screen.findByText('Найденное изделие')).toBeInTheDocument();
     });
 });
+
+describe('FolderUploadPage — handleUpload (режим filters)', () => {
+    it('disabled без docTypeId даже если items есть', async () => {
+        const user = await renderPage();
+        await parseWithItems(user, '1', [{ external_id: 'a', path: 'x/a.pdf', article: 'a', filters: [] }]);
+        await user.selectOptions(screen.getByText('Паспорта').closest('select'), '');
+        expect(screen.getByRole('button', { name: /Загрузить 1 файлов/ })).toBeDisabled();
+    });
+
+    it('успешная загрузка: uploadDocument с generatedName, bulkSetDocumentFilters для непустых filters, статус ok, "✓ Готово"', async () => {
+        const user = await renderPage();
+        await user.selectOptions(screen.getByText('— выберите —').closest('select'), '1');
+        fireEvent.change(screen.getByPlaceholderText('{doc_type} {series} {heating} {design}'), {
+            target: { value: '{doc_type} {series}' },
+        });
+        await parseWithItems(user, '1', [
+            {
+                external_id: 'a', path: 'x/a.pdf', article: 'a',
+                filters: [{ id: 1, axis_id: 100, axis: 'Серия', axis_code: 'series', values: ['200'] }],
+            },
+            { external_id: 'b', path: 'y/b.pdf', article: 'b', filters: [] },
+        ]);
+        mediaApi.uploadDocument.mockResolvedValue(ok({ success: true, document: { id: 500 } }));
+        mediaApi.bulkSetDocumentFilters.mockResolvedValue(ok({ success: true }));
+
+        await user.click(screen.getByRole('button', { name: /Загрузить 2 файлов/ }));
+
+        await waitFor(() => expect(mediaApi.uploadDocument).toHaveBeenCalledTimes(2));
+        expect(mediaApi.uploadDocument.mock.calls[0][0]).toBe('1');
+        expect(mediaApi.uploadDocument.mock.calls[0][1]).toBe('a');
+        expect(mediaApi.uploadDocument.mock.calls[0][3]).toBe('Паспорта 200');
+
+        // Фильтры проставляются только для строки с непустыми filters
+        await waitFor(() => expect(mediaApi.bulkSetDocumentFilters).toHaveBeenCalledTimes(1));
+        expect(mediaApi.bulkSetDocumentFilters).toHaveBeenCalledWith(500, [1]);
+        expect(mediaApi.addProductsToDocument).not.toHaveBeenCalled();
+
+        expect(await screen.findByText('✓ Готово')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: '✓ Готово' })).toBeDisabled();
+        expect(screen.getAllByText('✓ Загружено')).toHaveLength(2);
+    });
+
+    it('ошибка API одной строки не прерывает цикл, накапливает progress.errors и статус error', async () => {
+        const user = await renderPage();
+        await parseWithItems(user, '1', [
+            { external_id: 'a', path: 'x/a.pdf', article: 'a', filters: [] },
+            { external_id: 'b', path: 'y/b.pdf', article: 'b', filters: [] },
+        ]);
+        mediaApi.uploadDocument
+            .mockResolvedValueOnce({ ok: false, data: { success: false, error: 'Дубликат' } })
+            .mockResolvedValueOnce(ok({ success: true, document: { id: 501 } }));
+
+        await user.click(screen.getByRole('button', { name: /Загрузить 2 файлов/ }));
+
+        expect(await screen.findByText('✓ Готово')).toBeInTheDocument();
+        expect(screen.getByText('Ошибок: 1')).toBeInTheDocument();
+        expect(screen.getByText('✗ Ошибка', { selector: 'span' })).toBeInTheDocument();
+        expect(screen.getByText('✓ Загружено')).toBeInTheDocument();
+    });
+
+    it('сетевая ошибка (reject) тоже засчитывается как error, не роняет цикл', async () => {
+        const user = await renderPage();
+        await parseWithItems(user, '1', [
+            { external_id: 'a', path: 'x/a.pdf', article: 'a', filters: [] },
+            { external_id: 'b', path: 'y/b.pdf', article: 'b', filters: [] },
+        ]);
+        mediaApi.uploadDocument
+            .mockRejectedValueOnce(new Error('network'))
+            .mockResolvedValueOnce(ok({ success: true, document: { id: 502 } }));
+
+        await user.click(screen.getByRole('button', { name: /Загрузить 2 файлов/ }));
+
+        expect(await screen.findByText('✓ Готово')).toBeInTheDocument();
+        expect(screen.getByText('Ошибок: 1')).toBeInTheDocument();
+    });
+
+    it('прогресс во время загрузки показывает "Загрузка N/M..."', async () => {
+        const user = await renderPage();
+        await parseWithItems(user, '1', [
+            { external_id: 'a', path: 'x/a.pdf', article: 'a', filters: [] },
+            { external_id: 'b', path: 'y/b.pdf', article: 'b', filters: [] },
+        ]);
+        let resolveFirst;
+        mediaApi.uploadDocument
+            .mockImplementationOnce(() => new Promise(r => { resolveFirst = r; }))
+            .mockResolvedValueOnce(ok({ success: true }));
+
+        await user.click(screen.getByRole('button', { name: /Загрузить 2 файлов/ }));
+        expect(await screen.findByText('Загрузка 0/2...')).toBeInTheDocument();
+
+        resolveFirst(ok({ success: true }));
+        expect(await screen.findByText('✓ Готово')).toBeInTheDocument();
+    });
+
+    it('STEP-подсказка о конвертации видна только после allDone и при наличии .step файла', async () => {
+        const user = await renderPage();
+        await user.selectOptions(screen.getByText('— выберите —').closest('select'), '2'); // docTypeModels
+        mediaApi.parseFolderPaths.mockResolvedValue(ok({
+            success: true,
+            results: [{ external_id: 'a', path: 'x/a.step', article: 'a', filters: [] }],
+        }));
+        fireEvent.change(document.querySelector('input[type="file"]'), {
+            target: { files: [makeFile('x/a.step', 'a.step')] },
+        });
+        await waitFor(() => expect(mediaApi.parseFolderPaths).toHaveBeenCalled());
+
+        expect(screen.queryByText(/STEP файлы конвертируются/)).not.toBeInTheDocument();
+        mediaApi.uploadDocument.mockResolvedValue(ok({ success: true }));
+        await user.click(screen.getByRole('button', { name: /Загрузить 1 файлов/ }));
+        expect(await screen.findByText(/STEP файлы конвертируются в GLB/)).toBeInTheDocument();
+    });
+});
+
+describe('FolderUploadPage — handleUpload (режим products)', () => {
+    it('передаёт addProductsToDocument только с selected id, no-op если ничего не выбрано', async () => {
+        const user = await renderPage();
+        mediaApi.matchProductsByArticle.mockResolvedValue(ok({
+            success: true,
+            results: { 'ART-1': [{ id: 5, name: 'Изделие А' }, { id: 6, name: 'Изделие Б' }] },
+        }));
+        await parseWithItems(user, '3', [{ external_id: 'a', path: 'x/a.pdf', article: 'ART-1', filters: [] }]);
+        await screen.findByText('Изделие А');
+
+        // Снимаем выбор со второго изделия
+        const checkboxes = screen.getAllByRole('checkbox');
+        await user.click(checkboxes[1]);
+
+        mediaApi.uploadDocument.mockResolvedValue(ok({ success: true, document: { id: 600 } }));
+        await user.click(screen.getByRole('button', { name: /Загрузить 1 файлов/ }));
+
+        await waitFor(() => expect(mediaApi.addProductsToDocument).toHaveBeenCalledWith(600, [5]));
+        expect(mediaApi.bulkSetDocumentFilters).not.toHaveBeenCalled();
+    });
+
+    it('ничего не выбрано — addProductsToDocument не вызывается', async () => {
+        const user = await renderPage();
+        mediaApi.matchProductsByArticle.mockResolvedValue(ok({
+            success: true,
+            results: { 'ART-1': [{ id: 5, name: 'Изделие А' }] },
+        }));
+        await parseWithItems(user, '3', [{ external_id: 'a', path: 'x/a.pdf', article: 'ART-1', filters: [] }]);
+        const checkbox = await screen.findByRole('checkbox');
+        await user.click(checkbox);
+
+        mediaApi.uploadDocument.mockResolvedValue(ok({ success: true, document: { id: 601 } }));
+        await user.click(screen.getByRole('button', { name: /Загрузить 1 файлов/ }));
+
+        await waitFor(() => expect(mediaApi.uploadDocument).toHaveBeenCalled());
+        expect(mediaApi.addProductsToDocument).not.toHaveBeenCalled();
+    });
+});
+
+describe('FolderUploadPage — права доступа', () => {
+    it('без пользователя ничего не рендерит', () => {
+        useAuth.mockReturnValue({ user: null });
+        const { container } = render(<FolderUploadPage onBack={vi.fn()} />);
+        expect(container).toBeEmptyDOMElement();
+    });
+
+    it('без portal.documents.upload — экран "Нет доступа", "← Назад" вызывает onBack', async () => {
+        useAuth.mockReturnValue({ user: withPerms() });
+        const user = userEvent.setup();
+        const onBack = vi.fn();
+        render(<FolderUploadPage onBack={onBack} />);
+        expect(await screen.findByText('Нет доступа к этой странице')).toBeInTheDocument();
+        await user.click(screen.getByText('← Назад'));
+        expect(onBack).toHaveBeenCalled();
+    });
+
+    it('с правом — обычный рендер, "← Назад" в шапке вызывает onBack', async () => {
+        const onBack = vi.fn();
+        const user = userEvent.setup();
+        render(<FolderUploadPage onBack={onBack} />);
+        await screen.findByText('Загрузка из папки');
+        await user.click(screen.getByText('← Назад'));
+        expect(onBack).toHaveBeenCalled();
+    });
+});
