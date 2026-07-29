@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PLMSidePanel from '../PLMSidePanel';
 import { plmApi } from '../../../api/plm';
+import { authApi } from '../../../api/auth';
 import { useAuth } from '../../../contexts/AuthContext';
 
 vi.mock('../../../api/plm', () => ({
@@ -20,6 +21,7 @@ vi.mock('../../../api/plm', () => ({
         batchApprove: vi.fn(),
     },
 }));
+vi.mock('../../../api/auth', () => ({ authApi: { departments: vi.fn() } }));
 vi.mock('../../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../BatchCreateForm', () => ({
     default: ({ productIds, onCreated, onCancel }) => (
@@ -51,7 +53,7 @@ beforeEach(() => {
     vi.clearAllMocks();
     useAuth.mockReturnValue({ user: withPerms() });
     plmApi.getPresets.mockResolvedValue(ok([]));
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: () => Promise.resolve([]) }));
+    authApi.departments.mockResolvedValue({ ok: true, data: [] });
 });
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -253,9 +255,7 @@ describe('PLMSidePanel — batch-панель и создание группы',
     it('batch approve: disabled без выбранного отдела, активна после выбора', async () => {
         const user = userEvent.setup();
         plmApi.getStages.mockResolvedValue(ok([stagePending]));
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-            json: () => Promise.resolve([{ id: 9, name: 'ОТК' }]),
-        }));
+        authApi.departments.mockResolvedValue({ ok: true, data: [{ id: 9, name: 'ОТК' }] });
         plmApi.batchApprove.mockResolvedValue(ok({ approved: 1 }));
         render(<PLMSidePanel productIds={[1]} products={products} onClose={vi.fn()} selectedLitera={null} />);
         const approveBtn = await screen.findByText('Одобрить (1)');

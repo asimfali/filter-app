@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { plmApi } from '../../api/plm';
+import { authApi } from '../../api/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { can } from '../../utils/permissions';
 import { useBatchStages } from '../../hooks/useBatchStages';
@@ -398,12 +399,10 @@ export default function PLMSidePanel({ productIds, products, onClose, selectedLi
     const [batchResult, setBatchResult] = useState(null);
 
     // Загружаем справочники для batch действий
-    useState(() => {
+    useEffect(() => {
         plmApi.getPresets().then(({ data }) => data.success && setPresets(data.data));
-        fetch('/api/v1/auth/departments/?root_only=false', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
-        }).then(r => r.json()).then(data => {
-            setDepts(Array.isArray(data) ? data : (data.results || []));
+        authApi.departments().then(({ ok, data }) => {
+            if (ok) setDepts(Array.isArray(data) ? data : (data.results || []));
         }).catch(() => { });
     }, []);
 

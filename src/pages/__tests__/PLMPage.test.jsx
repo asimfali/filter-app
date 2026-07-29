@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PLMPage from '../PLMPage';
 import { plmApi } from '../../api/plm';
+import { authApi } from '../../api/auth';
+import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
 
 vi.mock('../../api/plm', () => ({
@@ -22,7 +24,8 @@ vi.mock('../../api/plm', () => ({
         deleteStage: vi.fn(),
     },
 }));
-vi.mock('../../api/auth', () => ({ tokenStorage: { getAccess: vi.fn(() => 'token') } }));
+vi.mock('../../api/auth', () => ({ authApi: { departments: vi.fn() } }));
+vi.mock('../../api/catalog', () => ({ catalogApi: { searchProducts: vi.fn() } }));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../../components/plm/BatchCreateForm', () => ({
     default: ({ productIds, onCreated, onCancel }) => (
@@ -50,12 +53,7 @@ beforeEach(() => {
     plmApi.getLiteras.mockResolvedValue(ok([]));
     plmApi.getVisibilityGroups.mockResolvedValue(ok([]));
     plmApi.getPresets.mockResolvedValue(ok([]));
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-        json: () => Promise.resolve({ success: true, data: [] }),
-    }));
-});
-afterEach(() => {
-    vi.unstubAllGlobals();
+    authApi.departments.mockResolvedValue({ ok: true, data: [] });
 });
 
 describe('PLMPage — переключение вкладок', () => {
@@ -139,9 +137,7 @@ describe('PLMPage — GroupsTab: batch-действия внутри групп�
 
     it('batch approve требует выбранный отдел, вызывает batchApprove и сбрасывает кэш approvals', async () => {
         const user = userEvent.setup();
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-            json: () => Promise.resolve([{ id: 9, name: 'ОТК' }]),
-        }));
+        authApi.departments.mockResolvedValue({ ok: true, data: [{ id: 9, name: 'ОТК' }] });
         plmApi.getApprovals.mockResolvedValue(ok([{ id: 200, department: 9, department_name: 'ОТК', decision: 'pending' }]));
         plmApi.batchApprove.mockResolvedValue(ok({ approved: 1 }));
         await expandGroup(user);
@@ -240,12 +236,10 @@ describe('PLMPage — ProductsTab', () => {
 
     it('успешный поиск рендерит список изделий', async () => {
         const user = userEvent.setup();
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-            json: () => Promise.resolve({
-                success: true,
-                data: [{ id: 5, name: 'Калорифер КЭВ-1', product_type: 'Калорифер' }],
-            }),
-        }));
+        catalogApi.searchProducts.mockResolvedValue({
+            ok: true,
+            data: { success: true, data: [{ id: 5, name: 'Калорифер КЭВ-1', product_type: 'Калорифер' }] },
+        });
         render(<PLMPage onOpenProduct={vi.fn()} />);
         await user.click(screen.getByText('Изделия'));
         await user.type(screen.getByPlaceholderText(/Найти изделие/), 'Калорифер');
@@ -257,9 +251,7 @@ describe('PLMPage — ProductsTab', () => {
 
     it('пустой результат — "Ничего не найдено"', async () => {
         const user = userEvent.setup();
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-            json: () => Promise.resolve({ success: true, data: [] }),
-        }));
+        catalogApi.searchProducts.mockResolvedValue({ ok: true, data: { success: true, data: [] } });
         render(<PLMPage onOpenProduct={vi.fn()} />);
         await user.click(screen.getByText('Изделия'));
         await user.type(screen.getByPlaceholderText(/Найти изделие/), 'нетнигде');
@@ -270,15 +262,16 @@ describe('PLMPage — ProductsTab', () => {
     it('выбор изделий + "Создать группу стадий" открывает форму с выбранными id, после создания сбрасывает выбор', async () => {
         useAuth.mockReturnValue({ user: withPerms('plm.stage.manage') });
         const user = userEvent.setup();
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-            json: () => Promise.resolve({
+        catalogApi.searchProducts.mockResolvedValue({
+            ok: true,
+            data: {
                 success: true,
                 data: [
                     { id: 5, name: 'Калорифер А', product_type: 'Калорифер' },
                     { id: 6, name: 'Калорифер Б', product_type: 'Калорифер' },
                 ],
-            }),
-        }));
+            },
+        });
         render(<PLMPage onOpenProduct={vi.fn()} />);
         await user.click(screen.getByText('Изделия'));
         await user.type(screen.getByPlaceholderText(/Найти изделие/), 'Калорифер');
@@ -301,9 +294,10 @@ describe('PLMPage — ProductsTab', () => {
 
     it('без plm.stage.manage — нет тулбара выбора/создания группы', async () => {
         const user = userEvent.setup();
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-            json: () => Promise.resolve({ success: true, data: [{ id: 5, name: 'АБ', product_type: 'Т' }] }),
-        }));
+        catalogApi.searchProducts.mockResolvedValue({
+            ok: true,
+            data: { success: true, data: [{ id: 5, name: 'АБ', product_type: 'Т' }] },
+        });
         render(<PLMPage onOpenProduct={vi.fn()} />);
         await user.click(screen.getByText('Изделия'));
         await user.type(screen.getByPlaceholderText(/Найти изделие/), 'АБ');

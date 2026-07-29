@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { plmApi } from '../api/plm';
+import { catalogApi } from '../api/catalog';
+import { authApi } from '../api/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { can } from '../utils/permissions';
-import { tokenStorage } from '../api/auth';
 import BatchCreateForm from '../components/plm/BatchCreateForm';
-
-const API_BASE = '/api/v1/catalog';
 
 const STATUS_LABEL = {
     draft: 'Черновик',
@@ -37,11 +36,8 @@ function useRefData() {
         plmApi.getVisibilityGroups().then(({ data }) => data.success && setVisGroups(data.data));
         plmApi.getPresets().then(({ data }) => data.success && setPresets(data.data));
         // Подразделения для batch approve
-        fetch('/api/v1/auth/departments/?root_only=false', {
-            headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` },
-        }).then(r => r.json()).then(data => {
-            const list = Array.isArray(data) ? data : (data.results || []);
-            setDepts(list);
+        authApi.departments().then(({ ok, data }) => {
+            if (ok) setDepts(Array.isArray(data) ? data : (data.results || []));
         }).catch(() => { });
     }, []);
 
@@ -566,7 +562,7 @@ function StageRowInGroup({
 
 // ── Вкладка: Изделия (поиск + индивидуальные стадии) ─────────────────────
 
-function ProductsTab({ onOpenProduct, refData }) {
+function ProductsTab({ onOpenProduct }) {
     const { user } = useAuth();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -583,11 +579,7 @@ function ProductsTab({ onOpenProduct, refData }) {
         setLoading(true);
         setSelectedProducts(new Set());
 
-        const res = await fetch(
-            `${API_BASE}/products/search/?q=${encodeURIComponent(query)}&limit=50`,
-            { headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` } }
-        );
-        const data = await res.json();
+        const { data } = await catalogApi.searchProducts(query, { limit: 50 });
         if (data.success) setProducts(data.data);
         setLoading(false);
         setSearched(true);
@@ -652,7 +644,6 @@ function ProductsTab({ onOpenProduct, refData }) {
             {showBatchCreate && (
                 <BatchCreateForm
                     productIds={Array.from(selectedProducts)}
-                    refData={refData}
                     onCreated={() => {
                         setShowBatchCreate(false);
                         setSelectedProducts(new Set());
@@ -738,7 +729,7 @@ export default function PLMPage({ onOpenProduct }) {
                 <GroupsTab onOpenProduct={onOpenProduct} refData={refData} />
             )}
             {tab === 'products' && (
-                <ProductsTab onOpenProduct={onOpenProduct} refData={refData} />
+                <ProductsTab onOpenProduct={onOpenProduct} />
             )}
         </div>
     );
