@@ -60,6 +60,16 @@ async function renderWithDocs(docs) {
     return user;
 }
 
+async function renderWithDocsGroup(docType, docs) {
+    mediaApi.getFormData.mockResolvedValue(ok({ doc_types: [docType1, docType], axes: [] }));
+    mediaApi.getDocuments.mockResolvedValue(ok({ documents: docs }));
+    const user = userEvent.setup();
+    render(<DocumentsPage onOpenViewer={vi.fn()} onFolderUpload={vi.fn()} />);
+    await screen.findByText(/Найдено:/);
+    await user.click(screen.getByText(docType.name));
+    return user;
+}
+
 describe('DocumentsPage — DropZone/AddFileRow (загрузка)', () => {
     it('DropZone: пустой документ, drop файла загружает через uploadDocument', async () => {
         mediaApi.uploadDocument.mockResolvedValue(ok({ success: true }));
@@ -198,5 +208,111 @@ describe('DocumentsPage — EditableName', () => {
     it('пустое имя показывает placeholder (тип + external_id)', async () => {
         await renderWithDocs([makeDoc({ name: '' })]);
         expect(screen.getByText('Паспорта passport-001')).toBeInTheDocument();
+    });
+});
+
+describe('DocumentsPage — DocumentCard: standalone', () => {
+    const standaloneType = { id: 2, name: 'Галерея', upload_mode: 'standalone' };
+
+    it('isStandalone скрывает шапку (имя/фильтры/удаление) и DirectProductsPanel', async () => {
+        await renderWithDocsGroup(standaloneType, [makeDoc({
+            doc_type: standaloneType, name: 'Слаг-1', external_id: 'hero-1',
+            current: [{ rel_path: 'a/b.jpg', name: 'b.jpg', size: '1 KB' }],
+        })]);
+        expect(screen.queryByText('Слаг-1')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('filters-panel-stub')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('direct-products-panel-stub')).not.toBeInTheDocument();
+        // Файлы всё равно показываются
+        expect(screen.getByText('b.jpg')).toBeInTheDocument();
+    });
+
+    it('обычный (не standalone) тип рендерит FiltersPanel/DirectProductsPanel с правильными пропами', async () => {
+        await renderWithDocs([makeDoc({ id: 42 })]);
+        const filtersStub = screen.getByTestId('filters-panel-stub');
+        expect(filtersStub.dataset.entityId).toBe('42');
+        expect(filtersStub.dataset.entityType).toBe('document');
+        expect(screen.getByTestId('direct-products-panel-stub')).toBeInTheDocument();
+    });
+});
+
+describe('DocumentsPage — DocumentCard: удаление документа', () => {
+    it('видно только при canDelete && current.length===0, confirm-gate', async () => {
+        mediaApi.deleteDocument.mockResolvedValue({ ok: true });
+        const user = await renderWithDocs([makeDoc({ current: [] })]);
+        await user.click(screen.getByText('✕'));
+        expect(screen.getByText('Удалить документ?')).toBeInTheDocument();
+        expect(mediaApi.deleteDocument).not.toHaveBeenCalled();
+
+        await user.click(screen.getByText('Удалить документ?'));
+        await waitFor(() => expect(mediaApi.deleteDocument).toHaveBeenCalledWith(1));
+    });
+
+    it('не показывается, если есть файлы (current.length>0)', async () => {
+        await renderWithDocs([makeDoc({ current: [{ rel_path: 'a/b.pdf', name: 'b.pdf', size: '1 KB' }] })]);
+        expect(screen.queryByText('Удалить документ?')).not.toBeInTheDocument();
+        // "✕" здесь — кнопка удаления файла (FileRow), не документа
+    });
+
+    it('без canDelete кнопка не рендерится', async () => {
+        useAuth.mockReturnValue({ user: withPerms('portal.documents.upload') });
+        await renderWithDocs([makeDoc({ current: [] })]);
+        expect(screen.queryByText('✕')).not.toBeInTheDocument();
+    });
+});
+
+describe('DocumentsPage — DocumentCard: архив', () => {
+    it('сворачиваемый архив, сгруппирован по дате', async () => {
+        const user = await renderWithDocs([makeDoc({
+            archive_visible: true,
+            archive: {
+                '2026-01-01': [{ rel_path: 'a/old1.pdf', name: 'old1.pdf', size: '1 KB' }],
+                '2026-02-01': [{ rel_path: 'a/old2.pdf', name: 'old2.pdf', size: '1 KB' }],
+            },
+        })]);
+        expect(screen.getByText('Архив')).toBeInTheDocument();
+        expect(screen.queryByText('old1.pdf')).not.toBeInTheDocument();
+
+        await user.click(screen.getByText('Архив'));
+        expect(screen.getByText('2026-01-01')).toBeInTheDocument();
+        expect(screen.getByText('old1.pdf')).toBeInTheDocument();
+        expect(screen.getByText('old2.pdf')).toBeInTheDocument();
+    });
+
+    it('archive_visible=false или пустой archive — блок архива не рендерится', async () => {
+        await renderWithDocs([makeDoc({ archive_visible: false, archive: { '2026-01-01': [{ rel_path: 'x', name: 'x.pdf' }] } })]);
+        expect(screen.queryByText('Архив')).not.toBeInTheDocument();
+    });
+});
+
+describe('DocumentsPage — DocumentGroup', () => {
+    it('свёрнута по умолчанию, разворачивается по клику, счётчик со склонением', async () => {
+        const user = userEvent.setup();
+        mediaApi.getDocuments.mockResolvedValue(ok({
+            documents: [makeDoc({ id: 1, external_id: 'p-1' }), makeDoc({ id: 2, external_id: 'p-2' })],
+        }));
+        render(<DocumentsPage onOpenViewer={vi.fn()} onFolderUpload={vi.fn()} />);
+        await screen.findByText(/Найдено:/);
+
+        expect(screen.getByText('2 документа')).toBeInTheDocument();
+        expect(screen.queryByText('Паспорта passport-001')).not.toBeInTheDocument();
+        await user.click(screen.getByText('Паспорта'));
+        expect(await screen.findAllByText(/Паспорта p-/)).not.toHaveLength(0);
+        await user.click(screen.getByText('Паспорта'));
+        expect(screen.queryByText(/Паспорта p-/)).not.toBeInTheDocument();
+    });
+
+    it.each([
+        [1, 'документ'],
+        [2, 'документа'],
+        [5, 'документов'],
+        [11, 'документов'],
+        [21, 'документ'],
+    ])('склонение для %i — "%s"', async (count, word) => {
+        mediaApi.getDocuments.mockResolvedValue(ok({
+            documents: Array.from({ length: count }, (_, i) => makeDoc({ id: i + 1, external_id: `p-${i + 1}` })),
+        }));
+        render(<DocumentsPage onOpenViewer={vi.fn()} onFolderUpload={vi.fn()} />);
+        await screen.findByText(/Найдено:/);
+        expect(screen.getByText(`${count} ${word}`)).toBeInTheDocument();
     });
 });
