@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AccessTokenModal from '../AccessTokenModal';
 import { mediaApi } from '../../../api/media';
-import { apiFetch } from '../../../api/auth';
+import { apiFetch, authApi } from '../../../api/auth';
 
 vi.mock('../../../api/media', () => ({
     mediaApi: {
@@ -12,7 +12,7 @@ vi.mock('../../../api/media', () => ({
         revokeAccessToken: vi.fn(),
     },
 }));
-vi.mock('../../../api/auth', () => ({ apiFetch: vi.fn() }));
+vi.mock('../../../api/auth', () => ({ apiFetch: vi.fn(), authApi: { departments: vi.fn() } }));
 
 const ok = (data) => ({ ok: true, data: { success: true, ...data } });
 const jsonRes = (body) => ({ json: () => Promise.resolve(body) });
@@ -29,9 +29,9 @@ beforeEach(() => {
     vi.clearAllMocks();
     apiFetch.mockImplementation((url) => {
         if (url.includes('users-list')) return Promise.resolve(jsonRes({ results: [{ id: 1, full_name: 'Петров П.П.' }] }));
-        if (url.includes('departments')) return Promise.resolve(jsonRes([{ id: 5, name: 'ОТК' }]));
         return Promise.resolve(jsonRes({}));
     });
+    authApi.departments.mockResolvedValue({ ok: true, data: [{ id: 5, name: 'ОТК' }] });
 });
 
 describe('AccessTokenModal — загрузка', () => {

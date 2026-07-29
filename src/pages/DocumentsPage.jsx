@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { mediaApi } from '../api/media';
 import { can } from '../utils/permissions';
-import CreateFilterModal from '../components/media/CreateFilterModal.jsx';
 import { canPreview3D } from '../utils/fileUtils';
 import { useCommonDocUpload } from '../hooks/useDocUpload';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
@@ -407,9 +406,6 @@ function EditableName({ value, onSave, canEdit, placeholder }) {
 function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOpenViewer }) {
   const isStandalone = item.doc_type?.upload_mode === 'standalone';
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [filters, setFilters] = useState(item.filters || []);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [removingId, setRemovingId] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [docName, setDocName] = useState(item.name || '');   // ← добавлено
@@ -425,18 +421,6 @@ function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOp
   const handleRename = async (newName) => {
     const { ok, data } = await mediaApi.renameDocument(item.id, newName);
     if (ok && data.success) setDocName(data.name);
-  };
-
-  const handleRemoveFilter = async (filterId) => {
-    setRemovingId(filterId);
-    const { ok } = await mediaApi.removeFilterFromDocument(item.id, filterId);
-    if (ok) setFilters(prev => prev.filter(f => f.id !== filterId));
-    setRemovingId(null);
-  };
-
-  const handleFilterCreated = (newFilter) => {
-    setFilters(prev => [...prev, newFilter]);
-    setShowCreateModal(false);
   };
 
   return (
@@ -1107,8 +1091,6 @@ export default function DocumentsPage({ onOpenViewer, onFolderUpload }) {
   const { user } = useAuth();
   const canUpload = can(user, 'portal.documents.upload');
   const canDelete = can(user, 'portal.documents.delete');
-  const canUploadGallery = can(user, 'portal.gallery.upload');
-  const canDeleteGallery = can(user, 'portal.gallery.delete');
   const canManageFilters = can(user, 'portal.documents.upload');
   const [uploadMode, setUploadMode] = useState('single');
 

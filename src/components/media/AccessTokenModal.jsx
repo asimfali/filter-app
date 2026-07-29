@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { mediaApi } from '../../api/media';
-import { apiFetch } from '../../api/auth';
+import { apiFetch, authApi } from '../../api/auth';
 import { IconEye } from '../common/Icons';
 import { inputCls } from '../../utils/styles';
 
@@ -28,8 +28,8 @@ export default function AccessTokenModal({ product, docType, onClose }) {
         apiFetch('/api/v1/auth/users-list/').then(r => r.json()).then(d => {
             setUsers(d.results || d || []);
         });
-        apiFetch('/api/v1/auth/departments/?root_only=false').then(r => r.json()).then(d => {
-            setDepartments(Array.isArray(d) ? d : (d.results || []));
+        authApi.departments().then(({ data }) => {
+            setDepartments(Array.isArray(data) ? data : (data.results || []));
         });
     }, []);
 

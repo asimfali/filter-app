@@ -271,27 +271,7 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
     const [draggingOver, setDraggingOver] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [uploadMsg, setUploadMsg] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-    const [searching, setSearching] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
-
-    // Поиск существующих документов типа heart_exchanger
-    useEffect(() => {
-        if (!drawingDocTypeId || searchQuery.length < 2) {
-            setSearchResults([]);
-            return;
-        }
-        const t = setTimeout(async () => {
-            setSearching(true);
-            const { ok, data } = await mediaApi.searchDocuments(
-                String(drawingDocTypeId), searchQuery
-            );
-            if (ok) setSearchResults(data.results || []);
-            setSearching(false);
-        }, 300);
-        return () => clearTimeout(t);
-    }, [searchQuery, drawingDocTypeId]);
 
     const handleDrop = async (e) => {
         e.preventDefault();
@@ -344,7 +324,6 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
                 if (updated) setDrawingFiles(updated.drawing_files || []);
             }
             setShowSearch(false);
-            setSearchQuery('');
             setUploadMsg({ ok: true, text: `✓ Привязан: ${doc.external_id}` });
         }
     };

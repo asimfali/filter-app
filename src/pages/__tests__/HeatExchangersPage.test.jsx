@@ -393,12 +393,12 @@ describe('HeatExchangersPage — DrawingPanel', () => {
     expect(screen.queryByText(/Привязать существующий/)).not.toBeInTheDocument();
   });
 
-  it('находка: поиск SmartSelect идёт по своему endpoint, а не через mediaApi.searchDocuments/searchQuery-стейт панели', async () => {
-    // DrawingPanel объявляет searchQuery/searchResults/searching и эффект на mediaApi.searchDocuments,
-    // но ничего в разметке не вызывает setSearchQuery — реальный поиск полностью делает SmartSelect
-    // через свой endpoint (см. components/common/SmartSelect.jsx — там свой fetch по endpoint+q).
-    // Итог: этот блок стейта/эффекта в DrawingPanel — мёртвый код, mediaApi.searchDocuments никогда
-    // не вызывается из реального UI. Задокументировано в project-known-dead-code.md, не чиним.
+  it('поиск SmartSelect идёт по своему endpoint, а не через mediaApi.searchDocuments', async () => {
+    // Реальный поиск полностью делает SmartSelect через свой endpoint (см.
+    // components/common/SmartSelect.jsx — там свой fetch по endpoint+q). DrawingPanel раньше
+    // держал собственный мёртвый searchQuery/searchResults/searching + эффект на
+    // mediaApi.searchDocuments, который никогда не вызывался из реального UI — блок удалён
+    // при уборке мёртвого кода, mediaApi.searchDocuments в этом компоненте больше не используется.
     const user = await gotoCard();
     await user.click(screen.getByText(/Привязать существующий/));
     expect(screen.getByTestId('smart-select')).toHaveAttribute(
