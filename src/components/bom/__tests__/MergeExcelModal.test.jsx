@@ -67,7 +67,7 @@ describe('MergeExcelModal', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<MergeExcelModal specId={1} onClose={onClose} onMerged={vi.fn()} />);
-    await user.click(screen.getByText('×'));
+    await user.click(screen.getByText('✕'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -132,7 +132,7 @@ describe('PullModal — загрузка спецификации', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<PullModal onClose={onClose} onPulled={vi.fn()} />);
-    await user.click(screen.getByText('×'));
+    await user.click(screen.getByText('✕'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,6 +3,7 @@ import FanChartEditor, { CURVE_TYPE_LABELS } from '../components/common/FanChart
 import { tokenStorage } from '../api/auth'
 import { selectionApi } from '../api/selection'
 import ConfirmModal from '../components/common/ConfirmModal'
+import Modal from '../components/common/Modal'
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
@@ -392,15 +393,8 @@ function CreateChartModal({ productExternalId, onCreated, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-md p-6 space-y-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-            Новый график
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
-        </div>
-
+    <Modal title="Новый график" onClose={onClose}>
+      <div className="space-y-5">
         {/* Условия */}
         <div className="space-y-3">
           <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Условия</div>
@@ -461,7 +455,7 @@ function CreateChartModal({ productExternalId, onCreated, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -495,15 +489,8 @@ function AddCurveModal({ onAdd, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-            Добавить кривую
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
-        </div>
-
+    <Modal title="Добавить кривую" onClose={onClose} maxWidth="sm">
+      <div className="space-y-4">
         {/* Тип кривой */}
         <div className="space-y-1.5">
           <label className="text-xs text-gray-500">Тип кривой</label>
@@ -588,7 +575,7 @@ function AddCurveModal({ onAdd, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 

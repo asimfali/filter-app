@@ -137,7 +137,7 @@ describe('CreateSpecModal — создание', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<CreateSpecModal onClose={onClose} onCreated={vi.fn()} />);
-    await user.click(screen.getByText('×'));
+    await user.click(screen.getByText('✕'));
     expect(onClose).toHaveBeenCalledTimes(1);
     await user.click(screen.getByText('Отмена'));
     expect(onClose).toHaveBeenCalledTimes(2);

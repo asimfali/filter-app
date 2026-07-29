@@ -90,7 +90,7 @@ describe('ImportExcelModal', () => {
     const onClose = vi.fn();
     render(<ImportExcelModal onClose={onClose} onImported={vi.fn()} />);
 
-    await user.click(screen.getByText('×'));
+    await user.click(screen.getByText('✕'));
     expect(onClose).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByText('Отмена'));

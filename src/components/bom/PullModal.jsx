@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { bomApi } from '../../api/bom';
 import { catalogApi } from '../../api/catalog';
 import { inputCls } from '../../utils/styles';
+import Modal from '../common/Modal';
 
 export default function PullModal({ onClose, onPulled }) {
     const [mode, setMode] = useState('product'); // product | name
@@ -51,22 +52,8 @@ export default function PullModal({ onClose, onPulled }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center
-                        bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
-                            border border-gray-200 dark:border-gray-700
-                            w-full max-w-md p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                        Загрузить спецификацию из 1С
-                    </h2>
-                    <button onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600
-                                   dark:hover:text-gray-300 text-xl leading-none">
-                        ×
-                    </button>
-                </div>
-
+        <Modal title="Загрузить спецификацию из 1С" onClose={onClose}>
+            <div className="space-y-4">
                 {/* Режим поиска */}
                 <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
                     {[
@@ -161,6 +148,6 @@ export default function PullModal({ onClose, onPulled }) {
                     </button>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 }

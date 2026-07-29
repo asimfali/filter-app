@@ -11,6 +11,7 @@ import PullModal from '../../components/bom/PullModal';
 import SyncModal from '../../components/bom/SyncModal';
 import { IconBox, IconLock } from '../../components/common/Icons';
 import { SPEC_STATUS_LABEL, SPEC_STATUS_COLOR } from './constants';
+import Modal from '../../components/common/Modal';
 
 export default function SpecList({ specs, loading, canWrite, canView, onOpen, onRefresh, onSearch }) {
     const [pullOpen, setPullOpen] = useState(false);
@@ -330,13 +331,8 @@ export default function SpecList({ specs, loading, canWrite, canView, onOpen, on
 
             {/* Модалка переименования */}
             {renameOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
-                        border border-gray-200 dark:border-gray-700
-                        w-full max-w-md p-6 space-y-4">
-                        <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                            Переименовать спецификацию
-                        </h2>
+                <Modal title="Переименовать спецификацию" onClose={() => setRenameOpen(false)}>
+                    <div className="space-y-4">
                         <input
                             value={renameName}
                             onChange={e => setRenameName(e.target.value)}
@@ -358,18 +354,13 @@ export default function SpecList({ specs, loading, canWrite, canView, onOpen, on
                             </button>
                         </div>
                     </div>
-                </div>
+                </Modal>
             )}
 
             {/* Модалка копирования */}
             {cloneOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
-                        border border-gray-200 dark:border-gray-700
-                        w-full max-w-md p-6 space-y-4">
-                        <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                            Копировать спецификацию
-                        </h2>
+                <Modal title="Копировать спецификацию" onClose={() => setCloneOpen(false)}>
+                    <div className="space-y-4">
                         <p className="text-xs text-gray-500">
                             Копия: <span className="font-medium">{actionSpec?.specName}</span>
                         </p>
@@ -395,7 +386,7 @@ export default function SpecList({ specs, loading, canWrite, canView, onOpen, on
                             </button>
                         </div>
                     </div>
-                </div>
+                </Modal>
             )}
         </div>
     );

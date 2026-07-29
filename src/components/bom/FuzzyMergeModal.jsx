@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { bomApi } from '../../api/bom';
+import Modal from '../common/Modal';
 
 export default function FuzzyMergeModal({ material, onClose, onMerged }) {
     const [results, setResults] = useState([]);
@@ -31,19 +32,12 @@ export default function FuzzyMergeModal({ material, onClose, onMerged }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
-                            border border-gray-200 dark:border-gray-700
-                            w-full max-w-lg p-6 space-y-4">
-                <div>
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                        Уточните номенклатуру
-                    </h2>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Исходное имя:{' '}
-                        <span className="font-mono text-amber-600">{material.part_name}</span>
-                    </p>
-                </div>
+        <Modal title="Уточните номенклатуру" onClose={onClose} maxWidth="lg">
+            <div className="space-y-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Исходное имя:{' '}
+                    <span className="font-mono text-amber-600">{material.part_name}</span>
+                </p>
 
                 <div className="space-y-1 max-h-72 overflow-y-auto">
                     {loading && (
@@ -101,6 +95,6 @@ export default function FuzzyMergeModal({ material, onClose, onMerged }) {
                     </button>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 }

@@ -8,6 +8,7 @@ import SpecHeaderForm from './SpecHeaderForm';
 import MaterialsPanel from './MaterialsPanel';
 import { inputCls } from '../../utils/styles';
 import { SPEC_STATUS_LABEL, SPEC_STATUS_COLOR } from './constants';
+import Modal from '../../components/common/Modal';
 
 export default function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush, canView }) {
     const [spec, setSpec] = useState(initialSpec);
@@ -159,13 +160,8 @@ export default function SpecEditor({ spec: initialSpec, onClose, onSaved, canWri
                     )}
 
                     {cloneOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
-                                            border border-gray-200 dark:border-gray-700
-                                            w-full max-w-md p-6 space-y-4">
-                                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                                    Копировать спецификацию
-                                </h2>
+                        <Modal title="Копировать спецификацию" onClose={() => setCloneOpen(false)}>
+                            <div className="space-y-4">
                                 <input
                                     value={cloneName}
                                     onChange={e => setCloneName(e.target.value)}
@@ -189,7 +185,7 @@ export default function SpecEditor({ spec: initialSpec, onClose, onSaved, canWri
                                     </button>
                                 </div>
                             </div>
-                        </div>
+                        </Modal>
                     )}
                     {canWrite && (
                         <button

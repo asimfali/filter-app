@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../api/auth';
 import { parseError } from '../utils';
+import Modal from '../components/common/Modal';
 
 const API = '/api/v1/catalog';
 
@@ -22,23 +23,6 @@ function useProductTypes() {
             .then(data => setTypes(Array.isArray(data) ? data : (data.results || [])));
     }, []);
     return types;
-}
-
-// ── Модальное окно ────────────────────────────────────────────────────────
-
-function Modal({ title, onClose, children }) {
-    return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-md">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
-                    <button onClick={onClose}
-                        className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 text-xl leading-none">✕</button>
-                </div>
-                <div className="px-5 py-4">{children}</div>
-            </div>
-        </div>
-    );
 }
 
 function AxisOrderPanel({ axis }) {
