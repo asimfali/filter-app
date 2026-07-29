@@ -783,10 +783,6 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
         const { ok, data } = await mediaApi.getProductDocuments(productId, docTypeId);
         if (ok && data.success) {
             const files = data.data?.[0]?.current || [];
-            setPrivateDocsCache(prev => ({
-                ...prev,
-                [docTypeCode]: files,
-            }));
             // Обновляем product.documents в state
             setProduct(prev => {
                 const existing = prev.documents.find(d => d.doc_type_code === docTypeCode);
