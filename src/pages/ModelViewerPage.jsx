@@ -7,9 +7,11 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader';
 import { tokenStorage } from '../api/auth';
-export { canPreview3D } from '../utils/fileUtils';
+import { getExt } from '../utils/fileUtils';
 import { useTheme } from '../contexts/ThemeContext';
 import { IconEye, IconEyeOff } from '../components/common/Icons';
+
+export { getExt };
 
 // ─── Видовой куб ──────────────────────────────────────────────────────────────
 
@@ -186,10 +188,6 @@ function ViewCube({ onSetView, onRotate, cameraRef, dark }) {
 }
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
-
-export function getExt(fname) {
-    return (fname || '').split('.').pop().toLowerCase();
-}
 
 export function downloadUrl(path) {
     return `/api/v1/media/download/?path=${encodeURIComponent(path)}`;
