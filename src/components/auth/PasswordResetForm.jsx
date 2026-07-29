@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import EyeIcon from './EyeIcon';
 import { authApi } from '../../api/auth';
-
-const inputClass = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-  "focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:text-white";
+import { authInputCls } from '../../utils/styles';
 
 export default function PasswordResetForm({ onBack }) {
   const [step, setStep]         = useState('request'); // 'request' | 'confirm' | 'done'
@@ -61,7 +59,7 @@ export default function PasswordResetForm({ onBack }) {
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Код из письма</label>
         <input type="text" required inputMode="numeric" maxLength={6}
           value={code} onChange={e => setCode(e.target.value)}
-          placeholder="123456" className={inputClass} autoFocus />
+          placeholder="123456" className={authInputCls} autoFocus />
       </div>
 
       <div>
@@ -70,7 +68,7 @@ export default function PasswordResetForm({ onBack }) {
           <input type={showPass ? 'text' : 'password'} required
             value={password} onChange={e => setPassword(e.target.value)}
             placeholder="Минимум 8 символов" autoComplete="new-password"
-            className={`${inputClass} pr-9`} />
+            className={`${authInputCls} pr-9`} />
           <EyeIcon show={showPass} onToggle={() => setShowPass(v => !v)} />
         </div>
       </div>
@@ -81,7 +79,7 @@ export default function PasswordResetForm({ onBack }) {
           <input type={showPass2 ? 'text' : 'password'} required
             value={password2} onChange={e => setPassword2(e.target.value)}
             placeholder="Повторите пароль" autoComplete="new-password"
-            className={`${inputClass} pr-9 ${mismatch ? 'border-red-400 focus:ring-red-400' : match ? 'border-green-400 focus:ring-green-400' : ''}`} />
+            className={`${authInputCls} pr-9 ${mismatch ? 'border-red-400 focus:ring-red-400' : match ? 'border-green-400 focus:ring-green-400' : ''}`} />
           <EyeIcon show={showPass2} onToggle={() => setShowPass2(v => !v)} />
         </div>
         {mismatch && <p className="text-red-500 text-xs mt-1">Пароли не совпадают</p>}
@@ -104,7 +102,7 @@ export default function PasswordResetForm({ onBack }) {
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
         <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-          placeholder="you@teplomash.ru" autoComplete="email" autoFocus className={inputClass} />
+          placeholder="you@teplomash.ru" autoComplete="email" autoFocus className={authInputCls} />
       </div>
 
       <button type="submit" disabled={loading}

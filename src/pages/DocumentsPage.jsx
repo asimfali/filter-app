@@ -10,6 +10,11 @@ import { IconFolder, IconImage, IconFile, IconVideo } from '../components/common
 
 const MEDIA = '/media';
 
+// Стиль select/input для форм создания/загрузки документов (BulkCreateForm, UploadForm)
+const SELECT_CLS = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
+    "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
+    "focus:outline-none focus:ring-2 focus:ring-blue-500";
+
 // ── Иконки ────────────────────────────────────────────────────────────────
 
 function PdfIcon({ className = "w-5 h-5" }) {
@@ -630,10 +635,6 @@ function BulkCreateForm({ docTypes, onCreated }) {
     setLoading(false);
   };
 
-  const sel = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-    "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
-    "focus:outline-none focus:ring-2 focus:ring-blue-500";
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Тип документа */}
@@ -642,7 +643,7 @@ function BulkCreateForm({ docTypes, onCreated }) {
           Тип документа
         </label>
         <select required value={docTypeId} onChange={e => setDocTypeId(e.target.value)}
-          className={sel}>
+          className={SELECT_CLS}>
           <option value="">— выберите —</option>
           {docTypes.map(dt => (
             <option key={dt.id} value={dt.id}>{dt.name}</option>
@@ -904,10 +905,6 @@ function UploadForm({ docTypes, onUploaded }) {
     setLoading(false);
   };
 
-  const sel = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm " +
-    "bg-white dark:bg-neutral-800 text-gray-900 dark:text-white " +
-    "focus:outline-none focus:ring-2 focus:ring-blue-500";
-
   return (
     <form onSubmit={multiFiles.length > 0 ? handleSubmitMultiple : handleSubmit} className="space-y-4">
       <div>
@@ -916,7 +913,7 @@ function UploadForm({ docTypes, onUploaded }) {
         </label>
         <select required value={form.doc_type_id}
           onChange={handleDocTypeChange}
-          className={sel}>
+          className={SELECT_CLS}>
           <option value="">— выберите —</option>
           {docTypes.map(dt => (
             <option key={dt.id} value={dt.id}>{dt.name}</option>
@@ -939,7 +936,7 @@ function UploadForm({ docTypes, onUploaded }) {
             }}
             placeholder="hero-1, hero-2..."
             disabled={!form.doc_type_id}
-            className={sel}
+            className={SELECT_CLS}
           />
         ) : (
           <div className="relative">
@@ -952,7 +949,7 @@ function UploadForm({ docTypes, onUploaded }) {
               }}
               placeholder={form.doc_type_id ? 'Введите название...' : 'Сначала выберите тип'}
               disabled={!form.doc_type_id}
-              className={sel}
+              className={SELECT_CLS}
             />
             {searching && (
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">···</span>
