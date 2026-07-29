@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
-import FanChartEditor from '../components/common/FanChartEditor'
+import FanChartEditor, { CURVE_TYPE_LABELS } from '../components/common/FanChartEditor'
 import { tokenStorage } from '../api/auth'
 import { selectionApi } from '../api/selection'
 import ConfirmModal from '../components/common/ConfirmModal'
@@ -29,13 +29,6 @@ const D_RATIO_COLORS = [
   '#ef4444', '#f97316', '#1d4ed8', '#16a34a',
   '#9333ea', '#0891b2', '#ca8a04', '#be185d',
 ]
-
-const CURVE_TYPE_LABELS = {
-  PRESSURE: 'Давление Pv(Q)',
-  EFFICIENCY: 'КПД η(Q)',
-  POWER: 'Мощность Nu(Q)',
-  TIP_SPEED: 'Окружная скорость u(Q)',
-}
 
 function NetworkCurvePanel({ xDomain, onNetworkCurve, onOperatingPoint,
   productFilter, onSelection, onCalc, scaleType = 'log', chartId = null,

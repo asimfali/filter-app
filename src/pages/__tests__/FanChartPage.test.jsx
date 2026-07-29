@@ -32,6 +32,12 @@ vi.mock('../../components/common/FanChartEditor', () => ({
             <button onClick={() => onCurveClick?.(curves[0]?.id)}>trigger-curve-click</button>
         </div>
     ),
+    CURVE_TYPE_LABELS: {
+        PRESSURE: 'Давление Pv(Q)',
+        EFFICIENCY: 'КПД η(Q)',
+        POWER: 'Мощность Nu(Q)',
+        TIP_SPEED: 'Окружная скорость u(Q)',
+    },
 }));
 
 const ok = (data) => ({ ok: true, data });
