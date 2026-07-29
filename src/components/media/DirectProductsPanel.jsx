@@ -95,10 +95,10 @@ function DirectProductsPanel({ entityId, entityType, canWrite }) {
     const handleRemove = async (productId) => {
         setRemovingId(productId);
         const req = entityType === 'heat-exchanger'
-            ? mediaApi.getHeatExchangerProducts(entityId)
+            ? mediaApi.removeProductsFromHeatExchanger(entityId, [productId])
             : entityType === 'accessory-kit'
-                ? mediaApi.getAccessoryKitProducts(entityId)
-                : mediaApi.getDocumentProducts(entityId);
+                ? mediaApi.removeProductsFromAccessoryKit(entityId, [productId])
+                : mediaApi.removeProductsFromDocument(entityId, [productId]);
         const { ok } = await req;
         if (ok) setProducts(prev => prev.filter(p => p.id !== productId));
         setRemovingId(null);
