@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ProductPage from '../ProductPage';
 import { mediaApi } from '../../api/media';
@@ -491,5 +491,266 @@ describe('ProductPage — характеристики (инлайн-редак�
         await user.type(input, '{Enter}');
         expect(await screen.findByText('Нельзя менять')).toBeInTheDocument();
         expect(screen.getByDisplayValue('10 кВт')).toBeInTheDocument(); // форма всё ещё открыта
+    });
+});
+
+describe('ProductPage — ProductThreads (замечания)', () => {
+    it('без external_id — getThreadsByProduct не вызывается, секции нет', async () => {
+        await renderWithProduct({ external_id: '' });
+        expect(getThreadsByProduct).not.toHaveBeenCalled();
+        expect(screen.queryByText('Замечания')).not.toBeInTheDocument();
+    });
+
+    it('пустой список тредов — секция не рендерится', async () => {
+        getThreadsByProduct.mockResolvedValue([]);
+        await renderWithProduct({ external_id: 'VO-35' });
+        await vi.waitFor(() => expect(getThreadsByProduct).toHaveBeenCalledWith('VO-35'));
+        expect(screen.queryByText('Замечания')).not.toBeInTheDocument();
+    });
+
+    it('ошибка (reject) — секция не рендерится, не роняет страницу', async () => {
+        getThreadsByProduct.mockRejectedValue(new Error('network'));
+        await renderWithProduct({ external_id: 'VO-35' });
+        await vi.waitFor(() => expect(getThreadsByProduct).toHaveBeenCalled());
+        expect(screen.queryByText('Замечания')).not.toBeInTheDocument();
+    });
+
+    it('рендерит треды, разворачивание показывает issues, "Открыть →" вызывает onOpenThread', async () => {
+        getThreadsByProduct.mockResolvedValue({
+            results: [{
+                id: 1, title: 'Течь корпуса', is_closed: false, open_issues_count: 1,
+                issues_summary: [{
+                    id: 100, number: 42, title: 'Скол на корпусе', status: 'open',
+                    created_by_name: 'Иванов', assigned_to_department_name: 'ОТК',
+                }],
+            }, {
+                id: 2, title: 'Закрытый тред', is_closed: true, open_issues_count: 0,
+                issues_summary: [],
+            }],
+        });
+        const onOpenThread = vi.fn();
+        vi.stubGlobal('fetch', vi.fn((url) => {
+            if (url.includes('/card/')) return jsonRes({ success: true, data: makeProduct({ external_id: 'VO-35' }) });
+            return jsonRes({});
+        }));
+        const user = userEvent.setup();
+        render(<ProductPage productId={1} onBack={vi.fn()} onOpenThread={onOpenThread} />);
+        await screen.findByText('ВО-3.5');
+
+        expect(await screen.findByText('Течь корпуса')).toBeInTheDocument();
+        expect(screen.getByText('1 открытых')).toBeInTheDocument();
+        expect(screen.getByText('Активен')).toBeInTheDocument();
+        expect(screen.getByText('Закрыт')).toBeInTheDocument();
+
+        await user.click(screen.getByText('Течь корпуса'));
+        expect(screen.getByText('#42')).toBeInTheDocument();
+        expect(screen.getByText('Скол на корпусе')).toBeInTheDocument();
+        expect(screen.getByText('Открыто')).toBeInTheDocument();
+
+        await user.click(screen.getByText('Закрытый тред'));
+        expect(screen.getByText('Замечаний нет')).toBeInTheDocument();
+
+        const openButtons = screen.getAllByText('Открыть →');
+        await user.click(openButtons[0]);
+        expect(onOpenThread).toHaveBeenCalledWith(1);
+    });
+});
+
+describe('ProductPage — документы', () => {
+    it('DocTypeSelector виден только при непустых docTypes, выбор показывает DropZone', async () => {
+        const dt = { id: 1, code: 'passport', name: 'Паспорт', upload_permission_code: 'media.upload' };
+        vi.stubGlobal('fetch', vi.fn((url) => {
+            if (url.includes('/card/')) return jsonRes({ success: true, data: makeProduct() });
+            return jsonRes({});
+        }));
+        mediaApi.getFormData.mockResolvedValue(ok({ doc_types: [dt] }));
+        const user = userEvent.setup();
+        render(<ProductPage productId={1} onBack={vi.fn()} />);
+        await screen.findByText('ВО-3.5');
+
+        const selector = await screen.findByTestId('doc-type-selector-stub');
+        expect(selector).toBeInTheDocument();
+        expect(screen.queryByText(/Перетащите или кликните/)).not.toBeInTheDocument();
+
+        await user.click(screen.getByText('Паспорт'));
+        expect(screen.getByText(/Перетащите или кликните для загрузки/)).toBeInTheDocument();
+    });
+
+    it('регрессия: успешная загрузка (без конвертации) не крашит — мёржит файлы в существующую группу без дублей', async () => {
+        const dt = { id: 1, code: 'passport', name: 'Паспорт', upload_permission_code: 'media.upload' };
+        vi.stubGlobal('fetch', vi.fn((url) => {
+            if (url.includes('/card/')) {
+                return jsonRes({
+                    success: true,
+                    data: makeProduct({
+                        documents: [{ doc_type: 'Паспорт', doc_type_code: 'passport', files: [{ rel_path: 'a/old.pdf', name: 'old.pdf' }] }],
+                    }),
+                });
+            }
+            return jsonRes({});
+        }));
+        mediaApi.getFormData.mockResolvedValue(ok({ doc_types: [dt] }));
+        mediaApi.uploadProductDocument.mockResolvedValue(ok({ success: true }));
+        mediaApi.getProductDocuments.mockResolvedValue(ok({
+            success: true,
+            data: [{ current: [{ rel_path: 'a/old.pdf', name: 'old.pdf' }, { rel_path: 'a/new.pdf', name: 'new.pdf' }] }],
+        }));
+        const user = userEvent.setup();
+        render(<ProductPage productId={1} onBack={vi.fn()} />);
+        await screen.findByText('ВО-3.5');
+        const selector = await screen.findByTestId('doc-type-selector-stub');
+        await user.click(within(selector).getByText('Паспорт'));
+
+        const input = document.getElementById('product-doc-input');
+        const file = new File(['x'], 'new.pdf', { type: 'application/pdf' });
+        fireEvent.change(input, { target: { files: [file] } });
+
+        expect(await screen.findByText('✓ new.pdf')).toBeInTheDocument();
+        await vi.waitFor(() => expect(mediaApi.getProductDocuments).toHaveBeenCalledWith(1, 1));
+        // Не крашится (не ReferenceError) и файл добавлен без дублирования старого
+        expect(await screen.findByText('new')).toBeInTheDocument();
+        expect(screen.getAllByText('old')).toHaveLength(1);
+    });
+
+    it('регрессия: успешная загрузка нового типа документа создаёт новую группу', async () => {
+        const dt = { id: 1, code: 'cert', name: 'Сертификат', upload_permission_code: 'media.upload' };
+        vi.stubGlobal('fetch', vi.fn((url) => {
+            if (url.includes('/card/')) return jsonRes({ success: true, data: makeProduct({ documents: [] }) });
+            return jsonRes({});
+        }));
+        mediaApi.getFormData.mockResolvedValue(ok({ doc_types: [dt] }));
+        mediaApi.uploadProductDocument.mockResolvedValue(ok({ success: true }));
+        mediaApi.getProductDocuments.mockResolvedValue(ok({
+            success: true,
+            data: [{ current: [{ rel_path: 'a/c.pdf', name: 'c.pdf' }] }],
+        }));
+        const user = userEvent.setup();
+        render(<ProductPage productId={1} onBack={vi.fn()} />);
+        await screen.findByText('ВО-3.5');
+        await user.click(await screen.findByText('Сертификат'));
+
+        const input = document.getElementById('product-doc-input');
+        fireEvent.change(input, { target: { files: [new File(['x'], 'c.pdf', { type: 'application/pdf' })] } });
+
+        expect(await screen.findByText('✓ c.pdf')).toBeInTheDocument();
+        expect(await screen.findByText('c')).toBeInTheDocument(); // новая группа документов с файлом
+    });
+
+    it('converting:true — сообщение без вызова onUploaded (getProductDocuments не вызывается)', async () => {
+        const dt = { id: 1, code: 'models', name: '3D модель', upload_permission_code: 'media.upload' };
+        vi.stubGlobal('fetch', vi.fn((url) => {
+            if (url.includes('/card/')) return jsonRes({ success: true, data: makeProduct() });
+            return jsonRes({});
+        }));
+        mediaApi.getFormData.mockResolvedValue(ok({ doc_types: [dt] }));
+        mediaApi.uploadProductDocument.mockResolvedValue(ok({ success: true, converting: true }));
+        const user = userEvent.setup();
+        render(<ProductPage productId={1} onBack={vi.fn()} />);
+        await screen.findByText('ВО-3.5');
+        await user.click(await screen.findByText('3D модель'));
+
+        const input = document.getElementById('product-doc-input');
+        fireEvent.change(input, { target: { files: [new File(['x'], 'model.step')] } });
+
+        expect(await screen.findByText(/STEP загружен/)).toBeInTheDocument();
+        expect(mediaApi.getProductDocuments).not.toHaveBeenCalled();
+    });
+
+    it('сетевая ошибка загрузки — "Ошибка сети", автосброс через 3с', async () => {
+        const dt = { id: 1, code: 'passport', name: 'Паспорт', upload_permission_code: 'media.upload' };
+        vi.stubGlobal('fetch', vi.fn((url) => {
+            if (url.includes('/card/')) return jsonRes({ success: true, data: makeProduct() });
+            return jsonRes({});
+        }));
+        mediaApi.getFormData.mockResolvedValue(ok({ doc_types: [dt] }));
+        mediaApi.uploadProductDocument.mockRejectedValue(new Error('network'));
+        const user = userEvent.setup();
+        render(<ProductPage productId={1} onBack={vi.fn()} />);
+        await screen.findByText('ВО-3.5');
+        await user.click(await screen.findByText('Паспорт'));
+
+        vi.useFakeTimers();
+        const input = document.getElementById('product-doc-input');
+        fireEvent.change(input, { target: { files: [new File(['x'], 'a.pdf')] } });
+        await vi.waitFor(() => expect(screen.getByText('Ошибка сети')).toBeInTheDocument());
+
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(screen.queryByText('Ошибка сети')).not.toBeInTheDocument();
+    });
+});
+
+describe('ProductPage — ProductDocumentGroup', () => {
+    it('пустой product.documents — "Документов пока нет"', async () => {
+        await renderWithProduct({ documents: [] });
+        expect(screen.getByText('Документов пока нет')).toBeInTheDocument();
+    });
+
+    it('PDF/изображение — скачивание blob → window.open', async () => {
+        const user = await renderWithProduct({
+            documents: [{ doc_type: 'Паспорта', doc_type_code: 'passport', files: [{ rel_path: 'a/b.pdf', name: 'b.pdf' }] }],
+        });
+        const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {});
+        vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+        await user.click(screen.getByText('b'));
+        await vi.waitFor(() => expect(openSpy).toHaveBeenCalledWith('blob:mock-url', '_blank'));
+        vi.restoreAllMocks();
+    });
+
+    it('3D-файл вызывает onOpenViewer без скачивания', async () => {
+        const onOpenViewer = vi.fn();
+        vi.stubGlobal('fetch', vi.fn((url) => {
+            if (url.includes('/card/')) {
+                return jsonRes({
+                    success: true,
+                    data: makeProduct({ documents: [{ doc_type: '3D', doc_type_code: 'models', files: [{ rel_path: 'a/m.glb', name: 'm.glb' }] }] }),
+                });
+            }
+            return jsonRes({});
+        }));
+        const user = userEvent.setup();
+        render(<ProductPage productId={1} onBack={vi.fn()} onOpenViewer={onOpenViewer} />);
+        await screen.findByText('ВО-3.5');
+        await user.click(screen.getByText('m'));
+        expect(onOpenViewer).toHaveBeenCalledWith({ relPath: 'a/m.glb', fname: 'm.glb', mtlPath: null });
+    });
+
+    it('"🔑 Доступ" видна только при праве upload_permission_code, открывает AccessTokenModal', async () => {
+        const dt = { id: 1, code: 'passport', name: 'Паспорт', upload_permission_code: 'media.upload' };
+        useAuth.mockReturnValue({ user: withPerms('media.upload') });
+        vi.stubGlobal('fetch', vi.fn((url) => {
+            if (url.includes('/card/')) {
+                return jsonRes({
+                    success: true,
+                    data: makeProduct({ documents: [{ doc_type: 'Паспорт', doc_type_code: 'passport', files: [{ rel_path: 'a/b.pdf', name: 'b.pdf' }] }] }),
+                });
+            }
+            return jsonRes({});
+        }));
+        mediaApi.getFormData.mockResolvedValue(ok({ doc_types: [dt] }));
+        const user = userEvent.setup();
+        render(<ProductPage productId={1} onBack={vi.fn()} />);
+        await screen.findByText('ВО-3.5');
+
+        await user.click(screen.getByText('🔑 Доступ'));
+        expect(screen.getByTestId('access-token-modal-stub')).toBeInTheDocument();
+        await user.click(screen.getByText('close-access'));
+        expect(screen.queryByTestId('access-token-modal-stub')).not.toBeInTheDocument();
+    });
+
+    it('без права upload_permission_code — кнопки "🔑 Доступ" нет', async () => {
+        const dt = { id: 1, code: 'passport', name: 'Паспорт', upload_permission_code: 'media.upload' };
+        vi.stubGlobal('fetch', vi.fn((url) => {
+            if (url.includes('/card/')) {
+                return jsonRes({
+                    success: true,
+                    data: makeProduct({ documents: [{ doc_type: 'Паспорт', doc_type_code: 'passport', files: [{ rel_path: 'a/b.pdf', name: 'b.pdf' }] }] }),
+                });
+            }
+            return jsonRes({});
+        }));
+        mediaApi.getFormData.mockResolvedValue(ok({ doc_types: [dt] }));
+        render(<ProductPage productId={1} onBack={vi.fn()} />);
+        await screen.findByText('ВО-3.5');
+        expect(screen.queryByText('🔑 Доступ')).not.toBeInTheDocument();
     });
 });
