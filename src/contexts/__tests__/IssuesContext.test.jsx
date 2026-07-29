@@ -13,7 +13,6 @@ vi.mock('../../api/issues.js', () => ({
     getThread: vi.fn(),
     createThread: vi.fn(),
     createIssue: vi.fn(),
-    markAllNotificationsRead: vi.fn(),
 }));
 
 function makeSocket(overrides = {}) {
@@ -21,13 +20,11 @@ function makeSocket(overrides = {}) {
         connected: true,
         error: null,
         threads: {},
-        notifications: [],
         joinThread: vi.fn(),
         leaveThread: vi.fn(),
         sendMessage: vi.fn(),
         changeStatus: vi.fn(),
         markRead: vi.fn(),
-        clearNotifications: vi.fn(),
         loadIssueMessages: vi.fn(),
         ...overrides,
     };
@@ -51,7 +48,6 @@ function Harness() {
             <button onClick={() => issues.sendMessage(5, 'привет')}>send-message</button>
             <button onClick={() => issues.markRead([1, 2])}>mark-read</button>
             <button onClick={() => issues.loadIssueMessages(5)}>load-issue-messages</button>
-            <button onClick={() => issues.dismissNotifications()}>dismiss-notifications</button>
         </div>
     );
 }
@@ -158,16 +154,6 @@ describe('IssuesProvider — замечания/сообщения/уведом�
 
         await user.click(screen.getByText('load-issue-messages'));
         expect(socket.loadIssueMessages).toHaveBeenCalledWith(5);
-    });
-
-    it('dismissNotifications очищает сокет и дёргает markAllNotificationsRead (ошибка проглатывается)', async () => {
-        issuesApi.markAllNotificationsRead.mockRejectedValue(new Error('fail'));
-        const user = userEvent.setup();
-        renderIssues();
-
-        await user.click(screen.getByText('dismiss-notifications'));
-        expect(socket.clearNotifications).toHaveBeenCalled();
-        await waitFor(() => expect(issuesApi.markAllNotificationsRead).toHaveBeenCalled());
     });
 
     it('connected/threadData пробрасываются напрямую из сокета', () => {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useIssues } from '../../contexts/IssuesContext.jsx';
-import { tokenStorage } from '../../api/auth.js';
+import { authApi } from '../../api/auth.js';
 
 export default function CreateThreadModal({ productIds, graphContext, onClose, onCreated }) {
     const { createThread } = useIssues();
@@ -15,14 +15,9 @@ export default function CreateThreadModal({ productIds, graphContext, onClose, o
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        const token = tokenStorage.getAccess();
-        fetch('/api/v1/auth/departments/?root_only=false', {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then(r => r.json())
-            .then(data => {
-                const list = Array.isArray(data) ? data : (data.results ?? []);
-                setDepartments(list);
+        authApi.departments()
+            .then(({ ok, data }) => {
+                if (ok) setDepartments(Array.isArray(data) ? data : (data.results ?? []));
             })
             .catch(() => {})
             .finally(() => setDeptsLoading(false));

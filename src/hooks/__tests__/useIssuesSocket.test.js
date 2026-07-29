@@ -256,9 +256,9 @@ describe('useIssuesSocket — обработка серверных событи
         expect(result.current.threads).toEqual({});
     });
 
-    it('notification вызывает onNotification, но не попадает в state.notifications хука', () => {
+    it('notification вызывает onNotification (единственный путь доставки — хук сам уведомления не хранит)', () => {
         const onNotification = vi.fn();
-        const { result } = renderHook(() => useIssuesSocket({ onNotification }));
+        renderHook(() => useIssuesSocket({ onNotification }));
         act(() => lastWs()._open());
 
         act(() => lastWs()._message({ type: 'notification', payload: { type: 'issue_assigned', text: 'Вам назначили замечание' } }));
@@ -269,7 +269,6 @@ describe('useIssuesSocket — обработка серверных событи
             is_delivered: false,
             payload: { type: 'issue_assigned', text: 'Вам назначили замечание' },
         });
-        expect(result.current.notifications).toEqual([]);
     });
 
     it('issue_messages_loaded заменяет сообщения найденного по issue_id треда и пересортировывает', () => {
@@ -308,11 +307,5 @@ describe('useIssuesSocket — обработка серверных событи
         act(() => lastWs()._open());
         act(() => lastWs()._message({ type: 'error', code: 'not_found' }));
         expect(result.current.error).toBe('not_found');
-    });
-
-    it('clearNotifications сбрасывает notifications (уже всегда пустой массив в этом хуке)', () => {
-        const { result } = renderHook(() => useIssuesSocket());
-        act(() => result.current.clearNotifications());
-        expect(result.current.notifications).toEqual([]);
     });
 });

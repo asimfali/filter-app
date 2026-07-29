@@ -127,7 +127,6 @@ function IssuePanel({ issue, threadId, messages, currentUserId, isThreadCreator,
 
     const totalMessages = issueMeta?.total_messages ?? issueMessages.length;  // ← после issueMessages
     const previewMessage = issueMessages[0] ?? null;
-    const hasMore = issueMessages.length > 1;
 
     const handleExpand = () => {
         if (!expanded && !messagesLoaded) {

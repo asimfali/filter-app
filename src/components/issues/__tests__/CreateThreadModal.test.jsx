@@ -1,30 +1,22 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CreateThreadModal from '../CreateThreadModal.jsx';
 import { useIssues } from '../../../contexts/IssuesContext.jsx';
+import { authApi } from '../../../api/auth.js';
 
 vi.mock('../../../contexts/IssuesContext.jsx', () => ({ useIssues: vi.fn() }));
+vi.mock('../../../api/auth.js', () => ({ authApi: { departments: vi.fn() } }));
 
 const departments = [{ id: 1, name: 'ОТК' }, { id: 2, name: 'Сборка' }];
 
-function mockFetchOk(data) {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: () => Promise.resolve(data) }));
-}
-
 beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.setItem('access_token', 'tok');
-});
-
-afterEach(() => {
-    vi.unstubAllGlobals();
-    localStorage.clear();
 });
 
 describe('CreateThreadModal — загрузка отделов', () => {
     it('показывает "Загрузка..." пока список отделов не пришёл, затем select с опциями', async () => {
-        mockFetchOk(departments);
+        authApi.departments.mockResolvedValue({ ok: true, data: departments });
         useIssues.mockReturnValue({ createThread: vi.fn() });
         render(<CreateThreadModal productIds={['a']} onClose={vi.fn()} onCreated={vi.fn()} />);
 
@@ -34,14 +26,14 @@ describe('CreateThreadModal — загрузка отделов', () => {
     });
 
     it('поддерживает как голый массив, так и {results: [...]} в ответе', async () => {
-        mockFetchOk({ results: departments });
+        authApi.departments.mockResolvedValue({ ok: true, data: { results: departments } });
         useIssues.mockReturnValue({ createThread: vi.fn() });
         render(<CreateThreadModal productIds={['a']} onClose={vi.fn()} onCreated={vi.fn()} />);
         await waitFor(() => expect(screen.getByText('ОТК')).toBeInTheDocument());
     });
 
     it('ошибка загрузки отделов — молча остаётся пустой select, без краша', async () => {
-        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')));
+        authApi.departments.mockRejectedValue(new Error('network'));
         useIssues.mockReturnValue({ createThread: vi.fn() });
         render(<CreateThreadModal productIds={['a']} onClose={vi.fn()} onCreated={vi.fn()} />);
 
@@ -51,7 +43,7 @@ describe('CreateThreadModal — загрузка отделов', () => {
 });
 
 describe('CreateThreadModal — валидация и отправка', () => {
-    beforeEach(() => mockFetchOk(departments));
+    beforeEach(() => authApi.departments.mockResolvedValue({ ok: true, data: departments }));
 
     it('кнопка "Создать тред" недоступна без заголовка/отдела', async () => {
         useIssues.mockReturnValue({ createThread: vi.fn() });
