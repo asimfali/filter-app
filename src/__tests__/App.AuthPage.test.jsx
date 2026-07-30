@@ -72,7 +72,7 @@ vi.mock('../pages/IssuesPage.jsx', () => ({ default: () => null }));
 vi.mock('../pages/IssueThreadPage.jsx', () => ({ default: () => null }));
 vi.mock('../pages/SpecPreviewPage', () => ({ default: () => null }));
 vi.mock('../pages/model-viewer/ModelViewerPage', () => ({ default: () => null }));
-vi.mock('../pages/PLMPage', () => ({ default: () => null }));
+vi.mock('../pages/plm/PLMPage', () => ({ default: () => null }));
 vi.mock('../pages/PartEditorPage', () => ({ default: () => null }));
 vi.mock('../pages/HeatExchangersPage', () => ({ default: () => null }));
 vi.mock('../pages/AccessoryKitsPage', () => ({ default: () => null }));

@@ -95,7 +95,7 @@ vi.mock('../pages/documents/DocumentsPage', () => ({
   ),
 }));
 
-vi.mock('../pages/PLMPage', () => ({
+vi.mock('../pages/plm/PLMPage', () => ({
   default: ({ onOpenProduct }) => (
     <div data-testid="page-plm">
       <button onClick={() => onOpenProduct(321)}>plm-open-product</button>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { plmApi } from '../api/plm';
+import { authApi } from '../api/auth';
 
 /**
  * Загрузка стадий для списка изделий.
@@ -60,4 +61,25 @@ export function useProductStages(productId) {
     useEffect(() => { load(); }, [load]);
 
     return { stages, loading, selectedStage, setSelectedStage, reload: load };
+}
+
+// ── Справочники PLM (литеры, группы видимости, пресеты, подразделения) ────
+
+export function useRefData() {
+    const [literas, setLiteras] = useState([]);
+    const [visGroups, setVisGroups] = useState([]);
+    const [presets, setPresets] = useState([]);
+    const [depts, setDepts] = useState([]);
+
+    useEffect(() => {
+        plmApi.getLiteras().then(({ data }) => data.success && setLiteras(data.data));
+        plmApi.getVisibilityGroups().then(({ data }) => data.success && setVisGroups(data.data));
+        plmApi.getPresets().then(({ data }) => data.success && setPresets(data.data));
+        // Подразделения для batch approve
+        authApi.departments().then(({ ok, data }) => {
+            if (ok) setDepts(Array.isArray(data) ? data : (data.results || []));
+        }).catch(() => { });
+    }, []);
+
+    return { literas, visGroups, presets, depts };
 }

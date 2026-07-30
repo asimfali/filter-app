@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PLMPage from '../PLMPage';
-import { plmApi } from '../../api/plm';
-import { authApi } from '../../api/auth';
-import { catalogApi } from '../../api/catalog';
-import { useAuth } from '../../contexts/AuthContext';
+import { plmApi } from '../../../api/plm';
+import { authApi } from '../../../api/auth';
+import { catalogApi } from '../../../api/catalog';
+import { useAuth } from '../../../contexts/AuthContext';
 
-vi.mock('../../api/plm', () => ({
+vi.mock('../../../api/plm', () => ({
     plmApi: {
         getLiteras: vi.fn(),
         getVisibilityGroups: vi.fn(),
@@ -24,10 +24,10 @@ vi.mock('../../api/plm', () => ({
         deleteStage: vi.fn(),
     },
 }));
-vi.mock('../../api/auth', () => ({ authApi: { departments: vi.fn() } }));
-vi.mock('../../api/catalog', () => ({ catalogApi: { searchProducts: vi.fn() } }));
-vi.mock('../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
-vi.mock('../../components/plm/BatchCreateForm', () => ({
+vi.mock('../../../api/auth', () => ({ authApi: { departments: vi.fn() } }));
+vi.mock('../../../api/catalog', () => ({ catalogApi: { searchProducts: vi.fn() } }));
+vi.mock('../../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
+vi.mock('../../../components/plm/BatchCreateForm', () => ({
     default: ({ productIds, onCreated, onCancel }) => (
         <div data-testid="batch-create-form-stub" data-product-ids={JSON.stringify(productIds)}>
             <button onClick={() => onCreated({ id: 1 })}>create-group</button>

@@ -18,7 +18,7 @@ import SpecEditorPage from './pages/SpecEditorPage';
 import IssuesPage from './pages/IssuesPage.jsx';
 import IssueThreadPage from './pages/IssueThreadPage.jsx';
 import SpecPreviewPage from './pages/SpecPreviewPage';
-import PLMPage from './pages/PLMPage';
+import PLMPage from './pages/plm/PLMPage';
 import PartEditorPage from './pages/PartEditorPage';
 import PasswordResetForm from './components/auth/PasswordResetForm';
 import HeatExchangersPage from './pages/HeatExchangersPage';
