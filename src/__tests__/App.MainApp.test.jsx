@@ -147,7 +147,7 @@ vi.mock('../pages/VariantEditorPage', () => ({
 }));
 
 vi.mock('../pages/ParameterEditorPage', () => ({ default: () => <div data-testid="page-parameters" /> }));
-vi.mock('../pages/StaffPage', () => ({ default: () => <div data-testid="page-staff" /> }));
+vi.mock('../pages/staff/StaffPage', () => ({ default: () => <div data-testid="page-staff" /> }));
 vi.mock('../pages/HeatExchangersPage', () => ({ default: () => <div data-testid="page-heat-exchangers" /> }));
 vi.mock('../pages/AccessoryKitsPage', () => ({ default: () => <div data-testid="page-accessory-kits" /> }));
 vi.mock('../pages/DefectActPage', () => ({ default: () => <div data-testid="page-defect-acts" /> }));

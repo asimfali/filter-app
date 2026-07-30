@@ -11,7 +11,7 @@ import ActivateForm from './components/auth/ActivateForm';
 import TwoFAForm from './components/auth/TwoFAForm';
 import FilterTreeGraph from './components/configurator/FilterTree';
 import ParameterEditorPage from './pages/ParameterEditorPage';
-import StaffPage from './pages/StaffPage';
+import StaffPage from './pages/staff/StaffPage';
 import DocumentsPage from './pages/documents/DocumentsPage';
 import ProductPage from './pages/product/ProductPage';
 import SpecEditorPage from './pages/SpecEditorPage';

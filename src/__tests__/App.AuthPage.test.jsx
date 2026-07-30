@@ -64,7 +64,7 @@ vi.mock('../components/auth/PasswordResetForm', () => ({
 // three.js) — мокаем, чтобы тест не тянул тяжёлые реальные модули.
 vi.mock('../components/configurator/FilterTree', () => ({ default: () => null }));
 vi.mock('../pages/ParameterEditorPage', () => ({ default: () => null }));
-vi.mock('../pages/StaffPage', () => ({ default: () => null }));
+vi.mock('../pages/staff/StaffPage', () => ({ default: () => null }));
 vi.mock('../pages/documents/DocumentsPage', () => ({ default: () => null }));
 vi.mock('../pages/product/ProductPage', () => ({ default: () => null }));
 vi.mock('../pages/SpecEditorPage', () => ({ default: () => null }));

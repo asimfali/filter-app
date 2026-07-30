@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import StaffPage from '../StaffPage';
-import { apiFetch, authApi } from '../../api/auth';
-import { useAuth } from '../../contexts/AuthContext';
+import { apiFetch, authApi } from '../../../api/auth';
+import { useAuth } from '../../../contexts/AuthContext';
 
-vi.mock('../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
-vi.mock('../../api/auth', () => ({
+vi.mock('../../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
+vi.mock('../../../api/auth', () => ({
   apiFetch: vi.fn(),
   authApi: { specMatrix: vi.fn(), specToggle: vi.fn() },
 }));
