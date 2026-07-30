@@ -213,14 +213,14 @@ describe('ParameterEditorPage — удаление оси', () => {
     expect(screen.queryByText(/«Дизайн»/)).not.toBeInTheDocument();
   });
 
-  it('конфликт (не ok): подтверждение через confirm() запускает force-delete', async () => {
+  it('конфликт (не ok): подтверждение в модалке запускает force-delete', async () => {
     apiFetch.mockImplementation(routeFetch({
       deleteAxis: () => resp({ error: 'conflict' }, false),
       forceDelete: () => resp({ success: true }),
     }));
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const user = await gotoTyped();
     await user.click(screen.getAllByTitle('Удалить')[0]);
+    await user.click(await screen.findByText('Подтвердить'));
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
       expect.stringContaining('/force-delete/'), expect.objectContaining({ method: 'DELETE' })
@@ -228,13 +228,13 @@ describe('ParameterEditorPage — удаление оси', () => {
     await waitFor(() => expect(screen.queryByText('Дизайн')).not.toBeInTheDocument());
   });
 
-  it('конфликт: отказ в confirm() не отправляет force-delete', async () => {
+  it('конфликт: отказ в модалке не отправляет force-delete', async () => {
     apiFetch.mockImplementation(routeFetch({ deleteAxis: () => resp({ error: 'conflict' }, false) }));
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
     const user = await gotoTyped();
     apiFetch.mockClear();
     apiFetch.mockImplementation(routeFetch({ deleteAxis: () => resp({ error: 'conflict' }, false) }));
     await user.click(screen.getAllByTitle('Удалить')[0]);
+    await user.click(await screen.findByText('Отмена'));
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining('/parameter-axes/10/'), expect.objectContaining({ method: 'DELETE' })));
     expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/force-delete/'), expect.anything());
@@ -246,9 +246,9 @@ describe('ParameterEditorPage — удаление оси', () => {
       deleteAxis: () => resp({ error: 'conflict' }, false),
       forceDelete: () => resp({ success: false }),
     }));
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const user = await gotoTyped();
     await user.click(screen.getAllByTitle('Удалить')[0]);
+    await user.click(await screen.findByText('Подтвердить'));
     await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining('/force-delete/'), expect.anything()));
     expect(screen.getByText('Дизайн')).toBeInTheDocument();
   });
@@ -327,23 +327,23 @@ describe('ParameterEditorPage — ValuesPanel / ValueForm', () => {
     expect(await screen.findByText('Дубликат значения')).toBeInTheDocument();
   });
 
-  it('удаление значения запрашивает confirm() и убирает его из списка', async () => {
+  it('удаление значения запрашивает подтверждение в модалке и убирает его из списка', async () => {
     const user = await gotoValues({ values: [value1] });
     await screen.findByText('Комфорт');
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     await user.click(screen.getByText('Удалить'));
+    await user.click(await screen.findByText('Подтвердить'));
     await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
       expect.stringContaining('/parameter-values/200/'), expect.objectContaining({ method: 'DELETE' })
     ));
     expect(screen.queryByText('Комфорт')).not.toBeInTheDocument();
   });
 
-  it('отказ в confirm() не отправляет DELETE', async () => {
+  it('отказ в модалке не отправляет DELETE', async () => {
     const user = await gotoValues({ values: [value1] });
     await screen.findByText('Комфорт');
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
     apiFetch.mockClear();
     await user.click(screen.getByText('Удалить'));
+    await user.click(await screen.findByText('Отмена'));
     expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/parameter-values/200/'), expect.anything());
     expect(screen.getByText('Комфорт')).toBeInTheDocument();
   });

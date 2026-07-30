@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../api/auth';
 import { parseError } from '../utils';
 import Modal from '../components/common/Modal';
+import { useModals } from '../hooks/useModals';
 
 const API = '/api/v1/catalog';
 
@@ -452,6 +453,7 @@ function ValuesPanel({ axis }) {
     const [values, setValues] = useState([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState(null); // null | 'add' | value-object
+    const { showConfirm, modals } = useModals();
 
     const load = async () => {
         setLoading(true);
@@ -466,10 +468,11 @@ function ValuesPanel({ axis }) {
 
     useEffect(() => { load(); }, [axis.id]);
 
-    const handleDelete = async (id) => {
-        if (!confirm('Удалить значение?')) return;
-        await apiFetch(`${API}/parameter-values/${id}/`, { method: 'DELETE' });
-        setValues(v => v.filter(x => x.id !== id));
+    const handleDelete = (id) => {
+        showConfirm('Удалить значение?', async () => {
+            await apiFetch(`${API}/parameter-values/${id}/`, { method: 'DELETE' });
+            setValues(v => v.filter(x => x.id !== id));
+        });
     };
 
     return (
@@ -538,6 +541,7 @@ function ValuesPanel({ axis }) {
                         onClose={() => setModal(null)} />
                 </Modal>
             )}
+            {modals}
         </div>
     );
 }
@@ -640,6 +644,7 @@ export default function ParameterEditorPage() {
     const [selectedAxis, setSelectedAxis] = useState(null);
     const [loadingAxes, setLoadingAxes] = useState(false);
     const [modal, setModal] = useState(null); // null | 'add-axis' | axis-object
+    const { showConfirm, modals } = useModals();
 
     // Загрузка осей при выборе типа
     useEffect(() => {
@@ -664,29 +669,29 @@ export default function ParameterEditorPage() {
     const handleDeleteAxis = async (axis) => {
         // Сначала пробуем обычное удаление
         const res = await apiFetch(`${API}/parameter-axes/${axis.id}/`, { method: 'DELETE' });
-        
+
         if (res.ok || res.status === 204) {
             setAxes(ax => ax.filter(a => a.id !== axis.id));
             if (selectedAxis?.id === axis.id) setSelectedAxis(null);
             return;
         }
-    
+
         // Если 409/400 — есть привязки, предлагаем force delete
-        const data = await res.json().catch(() => ({}));
-        const confirmed = confirm(
+        await res.json().catch(() => ({}));
+        showConfirm(
             `Ось «${axis.name}» имеет привязки к товарам.\n\n` +
-            `Удалить ось вместе со всеми привязками товаров?`
+            `Удалить ось вместе со всеми привязками товаров?`,
+            async () => {
+                const res2 = await apiFetch(`${API}/parameter-axes/${axis.id}/force-delete/`, {
+                    method: 'DELETE',
+                });
+                const data2 = await res2.json();
+                if (res2.ok && data2.success) {
+                    setAxes(ax => ax.filter(a => a.id !== axis.id));
+                    if (selectedAxis?.id === axis.id) setSelectedAxis(null);
+                }
+            }
         );
-        if (!confirmed) return;
-    
-        const res2 = await apiFetch(`${API}/parameter-axes/${axis.id}/force-delete/`, {
-            method: 'DELETE',
-        });
-        const data2 = await res2.json();
-        if (res2.ok && data2.success) {
-            setAxes(ax => ax.filter(a => a.id !== axis.id));
-            if (selectedAxis?.id === axis.id) setSelectedAxis(null);
-        }
     };
 
     return (
@@ -828,6 +833,7 @@ export default function ParameterEditorPage() {
                         onClose={() => setModal(null)} />
                 </Modal>
             )}
+            {modals}
         </div>
     );
 }

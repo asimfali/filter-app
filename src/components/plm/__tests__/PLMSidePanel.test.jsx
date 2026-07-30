@@ -168,18 +168,16 @@ describe('PLMSidePanel — действия со стадией (промоут/
         await waitFor(() => expect(plmApi.getStages).toHaveBeenCalledTimes(2));
     });
 
-    it('промоут: ошибка API — alert', async () => {
+    it('промоут: ошибка API — модалка с предупреждением', async () => {
         const user = userEvent.setup();
         plmApi.getStages.mockResolvedValue(ok([stageActive]));
-        vi.spyOn(window, 'alert').mockImplementation(() => {});
         plmApi.promote.mockResolvedValue({ ok: false, data: { success: false, error: 'Нельзя перейти' } });
         render(<PLMSidePanel productIds={[1]} products={products} onClose={vi.fn()} selectedLitera={stageActive} />);
         await screen.findByText('Лит.В');
         await user.click(screen.getByText('Изделие А'));
         await user.click(await screen.findByText('→ Лит.+1'));
         await user.click(screen.getByText('Подтвердить'));
-        await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Нельзя перейти'));
-        vi.restoreAllMocks();
+        expect(await screen.findByText('Нельзя перейти')).toBeInTheDocument();
     });
 
     it('откат: confirm-гейт, успех → reload', async () => {

@@ -182,19 +182,19 @@ describe('StaffPage — снятие роли', () => {
     });
   };
 
-  it('отмена в confirm() не удаляет роль', async () => {
+  it('отмена в модалке подтверждения не удаляет роль', async () => {
     setupWithRole();
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
     const user = userEvent.setup();
     render(<StaffPage />);
     await user.click(await screen.findByText('Иванов Иван'));
     await user.click(screen.getByText('Снять'));
+    expect(screen.getByText('Снять роль?')).toBeInTheDocument();
+    await user.click(screen.getByText('Отмена'));
     expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/user-roles/5/'), expect.anything());
   });
 
-  it('подтверждение в confirm() удаляет роль и обновляет список', async () => {
+  it('подтверждение в модалке удаляет роль и обновляет список', async () => {
     setupWithRole();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const user = userEvent.setup();
     render(<StaffPage />);
     await user.click(await screen.findByText('Иванов Иван'));
@@ -202,6 +202,7 @@ describe('StaffPage — снятие роли', () => {
     // после клика реализация снова резолвит DELETE + users-list, роуты уже настроены выше
     setupWithRole();
     await user.click(screen.getByText('Снять'));
+    await user.click(screen.getByText('Подтвердить'));
     await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
       expect.stringContaining('/user-roles/5/'), expect.objectContaining({ method: 'DELETE' })
     ));

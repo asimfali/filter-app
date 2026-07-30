@@ -81,14 +81,12 @@ describe('AccessTokenModal — создание токена', () => {
         await screen.findByText('Петров П.П.');
     }
 
-    it('без получателя (ни пользователь, ни отдел) — alert, без вызова API', async () => {
+    it('без получателя (ни пользователь, ни отдел) — модалка с предупреждением, без вызова API', async () => {
         const user = userEvent.setup();
-        vi.spyOn(window, 'alert').mockImplementation(() => {});
         await openForm(user);
         await user.click(screen.getByText('Выдать доступ'));
-        expect(window.alert).toHaveBeenCalledWith('Укажите получателя — пользователя или подразделение');
+        expect(await screen.findByText('Укажите получателя — пользователя или подразделение')).toBeInTheDocument();
         expect(mediaApi.createAccessToken).not.toHaveBeenCalled();
-        vi.restoreAllMocks();
     });
 
     it('успешное создание с пользователем добавляет токен в список и закрывает форму', async () => {

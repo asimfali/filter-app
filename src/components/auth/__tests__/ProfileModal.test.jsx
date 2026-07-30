@@ -65,7 +65,6 @@ beforeEach(() => {
   authApi.getPreferences.mockResolvedValue(okPrefs({ theme: 'dark', avatar_url: null }));
   bomApi.getStagePresets.mockResolvedValue(okPrefs([]));
   bomApi.getFolders.mockResolvedValue(okPrefs([]));
-  vi.stubGlobal('confirm', vi.fn(() => true));
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })));
 });
 
@@ -170,29 +169,33 @@ describe('ProfileModal — синхронизация с внешним сайт
     expect(screen.queryByText('Синхронизировать сайт')).not.toBeInTheDocument();
   });
 
-  it('отмена в confirm() не вызывает pushToSite', async () => {
+  it('отмена в модалке подтверждения не вызывает pushToSite', async () => {
     const user = userEvent.setup();
-    window.confirm.mockReturnValue(false);
     await renderProfile({ user: withPush });
 
     await user.click(screen.getByText('Синхронизировать сайт'));
+    await user.click(await screen.findByText('Отмена'));
 
     expect(externalApi.pushToSite).not.toHaveBeenCalled();
   });
 
   it('подтверждение запускает pushToSite, показывает статус запуска и опрашивает taskStatus до готовности', async () => {
-    vi.useFakeTimers();
     externalApi.pushToSite.mockResolvedValue({ ok: true, data: { success: true, data: { task_id: 't1', total: 42 } } });
     externalApi.taskStatus.mockResolvedValue({
       ok: true,
       data: { success: true, data: { ready: true, result: { success: true, pushed: 42 } } },
     });
+    const user = userEvent.setup();
     await renderProfile({ user: withPush });
+    await user.click(screen.getByText('Синхронизировать сайт'));
 
-    // fireEvent вместо userEvent — findByText/userEvent сами полагаются на
-    // real-time polling, который зависает под fake timers (см. коммит)
+    // fake timers включаем ДО клика "Подтвердить" — именно он (через pushToSite →
+    // setPushTaskId) планирует setInterval опроса, а переключить уже запланированный
+    // реальный таймер на фейковый нельзя; fireEvent вместо userEvent — real-time
+    // polling зависает под fake timers (см. комментарий в SpecEditorPage.test.jsx)
+    vi.useFakeTimers();
     await act(async () => {
-      fireEvent.click(screen.getByText('Синхронизировать сайт'));
+      fireEvent.click(screen.getByText('Подтвердить'));
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -213,6 +216,7 @@ describe('ProfileModal — синхронизация с внешним сайт
     await renderProfile({ user: withPush });
 
     await user.click(screen.getByText('Синхронизировать сайт'));
+    await user.click(await screen.findByText('Подтвердить'));
 
     expect(await screen.findByText('Сервис недоступен')).toBeInTheDocument();
     expect(screen.queryByText('Отправка...')).not.toBeInTheDocument();

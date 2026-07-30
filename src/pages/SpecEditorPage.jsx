@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { can } from '../utils/permissions';
 import { catalogApi } from '../api/catalog';
 import { IconSave } from '../components/common/Icons';
+import { useModals } from '../hooks/useModals';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -18,6 +19,7 @@ export default function SpecEditorPage({
 }) {
     const { user } = useAuth();
     const canPushTo1C = can(user, 'catalog.push_to_1c');
+    const { showConfirm, modals } = useModals();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -203,12 +205,15 @@ export default function SpecEditorPage({
     }, [pushTaskId]);
 
 
-    const handlePushTo1C = async () => {
-        if (!confirm(
+    const handlePushTo1C = () => {
+        showConfirm(
             `Отправить характеристики ${products.length} товаров в 1С?\n\n` +
-            `Это обновит дополнительные реквизиты номенклатуры. Действие нельзя отменить.`
-        )) return;
+            `Это обновит дополнительные реквизиты номенклатуры. Действие нельзя отменить.`,
+            doPushTo1C
+        );
+    };
 
+    const doPushTo1C = async () => {
         setPushing(true);
         setPushResult(null);
 
@@ -261,12 +266,13 @@ export default function SpecEditorPage({
         setSaveResult(null);
     };
 
-    const handleReset = async () => {
-        if (!confirm('Сбросить сессию и выйти из редактора?')) return;
-        if (draftSessionId) {
-            await sessionsApi.remove(draftSessionId);
-        }
-        onBack();
+    const handleReset = () => {
+        showConfirm('Сбросить сессию и выйти из редактора?', async () => {
+            if (draftSessionId) {
+                await sessionsApi.remove(draftSessionId);
+            }
+            onBack();
+        });
     };
 
     // ── Drag для выделения диапазона ─────────────────────────────────────────
@@ -697,6 +703,7 @@ export default function SpecEditorPage({
                 </table>
             </div>
 
+            {modals}
         </div>
     );
 }

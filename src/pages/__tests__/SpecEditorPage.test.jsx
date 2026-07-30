@@ -237,25 +237,25 @@ describe('SpecEditorPage — черновик сессии', () => {
 });
 
 describe('SpecEditorPage — сброс сессии', () => {
-  it('confirm() отклонён — onBack не вызывается, сессия не удаляется', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('отмена в модалке — onBack не вызывается, сессия не удаляется', async () => {
     const onBack = vi.fn();
     const user = userEvent.setup();
     render(<SpecEditorPage productIds={[100]} sessionId={77} onBack={onBack} />);
     await screen.findByText('Изделие A');
     await user.click(screen.getByText('✕ Сбросить сессию'));
+    await user.click(await screen.findByText('Отмена'));
     expect(onBack).not.toHaveBeenCalled();
     expect(sessionsApi.remove).not.toHaveBeenCalled();
   });
 
-  it('подтверждение удаляет черновик-сессию и вызывает onBack', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('подтверждение в модалке удаляет черновик-сессию и вызывает onBack', async () => {
     sessionsApi.remove.mockResolvedValue({});
     const onBack = vi.fn();
     const user = userEvent.setup();
     render(<SpecEditorPage productIds={[100]} sessionId={77} onBack={onBack} />);
     await screen.findByText('Изделие A');
     await user.click(screen.getByText('✕ Сбросить сессию'));
+    await user.click(await screen.findByText('Подтвердить'));
     await waitFor(() => expect(sessionsApi.remove).toHaveBeenCalledWith(77));
     expect(onBack).toHaveBeenCalled();
   });
@@ -274,20 +274,19 @@ describe('SpecEditorPage — выгрузка в 1С', () => {
     expect(screen.queryByText(/Выгрузить в 1С/)).not.toBeInTheDocument();
   });
 
-  it('confirm() отклонён — запрос не отправляется', async () => {
+  it('отмена в модалке — запрос не отправляется', async () => {
     useAuth.mockReturnValue({ user: withPerms('catalog.push_to_1c') });
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
     vi.stubGlobal('fetch', vi.fn(routeFetch()));
     const user = userEvent.setup();
     render(<SpecEditorPage productIds={[100, 101, 102]} onBack={vi.fn()} />);
     await screen.findByText('Изделие A');
     await user.click(screen.getByText(/Выгрузить в 1С/));
+    await user.click(await screen.findByText('Отмена'));
     expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('push-to-1c'), expect.anything());
   });
 
   it('успешный запуск поллит задачу до готовности и показывает результат', async () => {
     useAuth.mockReturnValue({ user: withPerms('catalog.push_to_1c') });
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.stubGlobal('fetch', vi.fn(routeFetch()));
     catalogApi.taskStatus
       .mockResolvedValueOnce({ ok: true, data: { success: true, data: { ready: false } } })
@@ -296,14 +295,16 @@ describe('SpecEditorPage — выгрузка в 1С', () => {
         data: { success: true, data: { ready: true, result: { success: true, pushed: 2, total: 2, errors: [] } } },
       });
 
+    const user = userEvent.setup();
     render(<SpecEditorPage productIds={[100, 101, 102]} onBack={vi.fn()} />);
     await screen.findByText('Изделие A');
+    await user.click(screen.getByText(/Выгрузить в 1С/));
 
-    // fake timers должны быть активны ДО клика — именно клик планирует setInterval,
-    // а переключать реальный уже запланированный таймер на фейковый нельзя.
+    // fake timers должны быть активны ДО клика "Подтвердить" — именно он планирует
+    // setInterval, а переключать реальный уже запланированный таймер на фейковый нельзя.
     // Once fake timers включены — весь ввод только через fireEvent (userEvent виснет).
     vi.useFakeTimers();
-    fireEvent.click(screen.getByText(/Выгрузить в 1С/));
+    fireEvent.click(screen.getByText('Подтвердить'));
 
     await vi.waitFor(() => expect(screen.getByText(/Выгрузка запущена/)).toBeInTheDocument());
     await vi.advanceTimersByTimeAsync(2000);
@@ -313,12 +314,12 @@ describe('SpecEditorPage — выгрузка в 1С', () => {
 
   it('ошибка запуска показывает сообщение без поллинга', async () => {
     useAuth.mockReturnValue({ user: withPerms('catalog.push_to_1c') });
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.stubGlobal('fetch', vi.fn(routeFetch({ push: { success: false, error: 'Нет связи с 1С' } })));
     const user = userEvent.setup();
     render(<SpecEditorPage productIds={[100, 101, 102]} onBack={vi.fn()} />);
     await screen.findByText('Изделие A');
     await user.click(screen.getByText(/Выгрузить в 1С/));
+    await user.click(await screen.findByText('Подтвердить'));
     expect(await screen.findByText('Нет связи с 1С')).toBeInTheDocument();
     expect(catalogApi.taskStatus).not.toHaveBeenCalled();
   });

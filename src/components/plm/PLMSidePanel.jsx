@@ -17,7 +17,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
     const [loading, setLoading] = useState(false);
     // transfer: null | { stage } — какую стадию переносим
     const [transfer, setTransfer] = useState(null);
-    const { showConfirm, modals } = useModals();
+    const { showConfirm, showAlert, modals } = useModals();
 
     const visibleStages = stages.filter(s => {
         if (!selectedLitera || selectedLitera === 'none') return false;
@@ -63,7 +63,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
                 if (ok && data.success) {
                     onReload();
                 } else {
-                    alert(data.error || 'Ошибка перехода');
+                    showAlert(data.error || 'Ошибка перехода');
                 }
                 setLoading(false);
             }
@@ -81,7 +81,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
                 if (ok && data.success) {
                     onReload();
                 } else {
-                    alert(data.error || 'Ошибка отката');
+                    showAlert(data.error || 'Ошибка отката');
                 }
                 setLoading(false);
             }

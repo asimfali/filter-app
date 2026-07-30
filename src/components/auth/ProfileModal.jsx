@@ -8,9 +8,11 @@ import SyncModal from '../sync/SyncModal';
 import PassportSyncModal from '../sync/PassportSyncModal';
 import SelectionConfigModal from '../selection/SelectionConfigModal';
 import { IconLink, IconFolder } from '../common/Icons';
+import { useModals } from '../../hooks/useModals';
 
 export default function ProfileModal({ user, onClose, onUpdated }) {
     const { dark, toggle, setDark } = useTheme();
+    const { showConfirm, modals } = useModals();
     const [prefs, setPrefs] = useState(null);
     const [presets, setPresets] = useState([]);
     const [saving, setSaving] = useState(false);
@@ -22,10 +24,6 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     const [pushing, setPushing] = useState(false);
     const [pushResult, setPushResult] = useState(null);
     const [pushTaskId, setPushTaskId] = useState(null);
-    const [syncingPrices, setSyncingPrices] = useState(false);
-    const [syncPricesResult, setSyncPricesResult] = useState(null);
-    const [syncingCatalog, setSyncingCatalog] = useState(false);
-    const [syncCatalogResult, setSyncCatalogResult] = useState(null);
     const [syncModal, setSyncModal] = useState(null);
     const [selectionConfigOpen, setSelectionConfigOpen] = useState(false);
     const [passportSyncOpen, setPassportSyncOpen] = useState(false);
@@ -75,58 +73,19 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
         });
     }, []);
 
-    const handlePushToSite = async () => {
-        if (!confirm('Отправить все товары на внешний сайт?')) return;
-        setPushing(true);
-        setPushResult(null);
-        const { ok, data } = await externalApi.pushToSite();
-        if (ok && data.success) {
-            setPushTaskId(data.data.task_id);
-            setPushResult({ ok: true, message: `Запущено (${data.data.total} товаров)...` });
-        } else {
-            setPushing(false);
-            setPushResult({ ok: false, message: data.error || 'Ошибка' });
-        }
-    };
-
-    const handleSyncPrices = async () => {
-        if (!confirm('Синхронизировать цены из 1С?')) return;
-        setSyncingPrices(true);
-        setSyncPricesResult(null);
-        const { ok, data } = await externalApi.syncPrices();
-        setSyncingPrices(false);
-        if (ok && data.success) {
-            setSyncPricesResult({
-                ok: true,
-                message: `Запущено (${data.data.configs_count} конфигов)...`,
-            });
-        } else {
-            setSyncPricesResult({
-                ok: false,
-                message: data.error || 'Ошибка',
-            });
-        }
-        setTimeout(() => setSyncPricesResult(null), 5000);
-    };
-
-    const handleSyncCatalog = async () => {
-        if (!confirm('Запустить полную синхронизацию каталога из 1С? Это займёт около минуты.')) return;
-        setSyncingCatalog(true);
-        setSyncCatalogResult(null);
-        const { ok, data } = await externalApi.syncCatalog();
-        setSyncingCatalog(false);
-        if (ok && data.success) {
-            setSyncCatalogResult({
-                ok: true,
-                message: `Запущено (${data.data.configs_count} конфигов)...`,
-            });
-        } else {
-            setSyncCatalogResult({
-                ok: false,
-                message: data.error || 'Ошибка',
-            });
-        }
-        setTimeout(() => setSyncCatalogResult(null), 5000);
+    const handlePushToSite = () => {
+        showConfirm('Отправить все товары на внешний сайт?', async () => {
+            setPushing(true);
+            setPushResult(null);
+            const { ok, data } = await externalApi.pushToSite();
+            if (ok && data.success) {
+                setPushTaskId(data.data.task_id);
+                setPushResult({ ok: true, message: `Запущено (${data.data.total} товаров)...` });
+            } else {
+                setPushing(false);
+                setPushResult({ ok: false, message: data.error || 'Ошибка' });
+            }
+        });
     };
 
     const handleThemeChange = async (theme) => {
@@ -574,6 +533,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                     />
                 )}
             </div>
+            {modals}
         </div>
     );
 }

@@ -173,29 +173,29 @@ describe('VariantEditorPage — "Заполнить имена"', () => {
     return user;
   };
 
-  it('confirm() отклонён — запрос не отправляется', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('отмена в модалке подтверждения — запрос не отправляется', async () => {
     const user = await gotoWithType();
     await user.click(screen.getByText('Заполнить имена'));
+    await user.click(await screen.findByText('Отмена'));
     expect(catalogApi.variantFillExternalNames).not.toHaveBeenCalled();
   });
 
   it('успех — флеш с числом обновлённых, релоад родителей', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     catalogApi.variantFillExternalNames.mockResolvedValue(ok({ success: true, data: { updated: 4 } }));
     const user = await gotoWithType();
     catalogApi.variantParents.mockClear();
     await user.click(screen.getByText('Заполнить имена'));
+    await user.click(await screen.findByText('Подтвердить'));
 
     expect(await screen.findByText('✓ Обновлено: 4')).toBeInTheDocument();
     await waitFor(() => expect(catalogApi.variantParents).toHaveBeenCalled());
   });
 
   it('ошибка — флеш с data.error', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     catalogApi.variantFillExternalNames.mockResolvedValue({ ok: true, data: { success: false, error: 'Нет прав' } });
     const user = await gotoWithType();
     await user.click(screen.getByText('Заполнить имена'));
+    await user.click(await screen.findByText('Подтвердить'));
     expect(await screen.findByText('Нет прав')).toBeInTheDocument();
   });
 });

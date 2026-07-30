@@ -4,6 +4,7 @@ import Modal from '../../components/common/Modal';
 import { parseError } from '../../utils';
 import { inputCls } from '../../utils/styles';
 import { API } from '../../hooks/useStaff';
+import { useModals } from '../../hooks/useModals';
 
 // ── Форма назначения роли ─────────────────────────────────────────────────
 
@@ -94,13 +95,15 @@ export default function UserCard({ user, departments, roles, onUpdate }) {
     const [expanded, setExpanded] = useState(false);
     const [modal, setModal] = useState(false);
     const [removing, setRemoving] = useState(null);
+    const { showConfirm, modals } = useModals();
 
-    const handleRemoveRole = async (roleId) => {
-        if (!confirm('Снять роль?')) return;
-        setRemoving(roleId);
-        await apiFetch(`${API}/user-roles/${roleId}/`, { method: 'DELETE' });
-        setRemoving(null);
-        onUpdate();
+    const handleRemoveRole = (roleId) => {
+        showConfirm('Снять роль?', async () => {
+            setRemoving(roleId);
+            await apiFetch(`${API}/user-roles/${roleId}/`, { method: 'DELETE' });
+            setRemoving(null);
+            onUpdate();
+        });
     };
 
     const deptRoles = user.department_roles || [];
@@ -226,6 +229,7 @@ export default function UserCard({ user, departments, roles, onUpdate }) {
                     />
                 </Modal>
             )}
+            {modals}
         </div>
     );
 }

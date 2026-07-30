@@ -4,12 +4,14 @@ import { apiFetch, authApi } from '../../api/auth';
 import { IconEye } from '../common/Icons';
 import { inputCls } from '../../utils/styles';
 import Modal from '../common/Modal';
+import { useModals } from '../../hooks/useModals';
 
 export default function AccessTokenModal({ product, docType, onClose }) {
     const [tokens, setTokens] = useState([]);
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [showForm, setShowForm] = useState(false);
+    const { showAlert, modals } = useModals();
 
     // Форма создания токена
     const [form, setForm] = useState({
@@ -44,7 +46,7 @@ export default function AccessTokenModal({ product, docType, onClose }) {
     const handleCreate = async (e) => {
         e.preventDefault();
         if (!form.granted_to_user_id && !form.granted_to_department_id) {
-            alert('Укажите получателя — пользователя или подразделение');
+            showAlert('Укажите получателя — пользователя или подразделение');
             return;
         }
 
@@ -78,6 +80,7 @@ export default function AccessTokenModal({ product, docType, onClose }) {
         "bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
 
     return (
+        <>
         <Modal title="Доступ к документам" subtitle={`${product.name} · ${docType.name}`}
             onClose={onClose} scrollBody forceDark>
 
@@ -247,5 +250,7 @@ export default function AccessTokenModal({ product, docType, onClose }) {
                     )}
                 </div>
         </Modal>
+        {modals}
+        </>
     );
 }
