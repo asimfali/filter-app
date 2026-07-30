@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { tokenStorage } from '../api/auth';
+import { apiFetch } from '../api/auth';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -26,12 +26,8 @@ export function useEditableSpecs(onSaved) {
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await fetch(`${API_BASE}/product-specs/${spec.id}/`, {
+      const res = await apiFetch(`${API_BASE}/product-specs/${spec.id}/`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tokenStorage.getAccess()}`,
-        },
         body: JSON.stringify({ value: editValue }),
       });
       const data = await res.json();

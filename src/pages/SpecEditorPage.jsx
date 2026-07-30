@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { tokenStorage } from '../api/auth';
+import { apiFetch } from '../api/auth';
 import { sessionsApi } from '../api/sessions';
 import { useAuth } from '../contexts/AuthContext';
 import { can } from '../utils/permissions';
@@ -218,12 +218,8 @@ export default function SpecEditorPage({
         setPushResult(null);
 
         try {
-            const res = await fetch(`${API_BASE}/products/push-to-1c/`, {
+            const res = await apiFetch(`${API_BASE}/products/push-to-1c/`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${tokenStorage.getAccess()}`,
-                },
                 body: JSON.stringify({ product_ids: productIds }),
             });
             const json = await res.json();

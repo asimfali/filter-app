@@ -7,9 +7,6 @@ import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
 
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
-vi.mock('../../api/auth', () => ({
-  tokenStorage: { getAccess: vi.fn(() => 'fake-token') },
-}));
 vi.mock('../../api/sessions', () => ({
   sessionsApi: {
     create: vi.fn(),

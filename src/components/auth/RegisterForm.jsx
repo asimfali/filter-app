@@ -19,9 +19,8 @@ export default function RegisterForm({ onSuccess }) {
 
   // Загружаем справочники при монтировании
   useEffect(() => {
-    fetch('/api/v1/auth/departments/?root_only=true')
-      .then(r => r.json())
-      .then(data => setDepartments(Array.isArray(data) ? data : (data.results || [])))
+    authApi.departments(true)
+      .then(({ data }) => setDepartments(Array.isArray(data) ? data : (data.results || [])))
       .catch(() => { });
 
     authApi.roles()

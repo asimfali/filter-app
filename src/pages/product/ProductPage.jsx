@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { tokenStorage } from '../../api/auth';
+import { apiFetch } from '../../api/auth';
 import { mediaApi } from '../../api/media';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
@@ -40,9 +40,7 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
         setLoading(true);
         setError(null);
 
-        fetch(`${API_BASE}/products/${productId}/card/`, {
-            headers: { Authorization: `Bearer ${tokenStorage.getAccess()}` },
-        })
+        apiFetch(`${API_BASE}/products/${productId}/card/`)
             .then(r => r.json())
             .then(data => {
                 if (data.success) setProduct(data.data);

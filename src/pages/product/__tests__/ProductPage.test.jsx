@@ -8,7 +8,6 @@ import { getThreadsByProduct } from '../../../api/issues.js';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useCart } from '../../../contexts/CartContext';
 
-vi.mock('../../../api/auth', () => ({ tokenStorage: { getAccess: vi.fn(() => 'token') } }));
 vi.mock('../../../api/media', () => ({
     mediaApi: {
         getFormData: vi.fn(),
