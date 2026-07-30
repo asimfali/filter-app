@@ -2,8 +2,7 @@ import { useState, useRef } from 'react';
 import { mediaApi } from '../../api/media';
 import { canPreview3D } from '../../utils/fileUtils';
 import { useCommonDocUpload } from '../../hooks/useDocUpload';
-import { IconImage, IconFile, IconVideo } from '../../components/common/Icons';
-import { PdfIcon } from './icons';
+import { IconImage, IconFile, IconVideo, IconPdf as PdfIcon } from '../../components/common/Icons';
 
 export function DropZone({ docTypeId, externalId, onUploaded }) {
   const [draggingOver, setDraggingOver] = useState(false);

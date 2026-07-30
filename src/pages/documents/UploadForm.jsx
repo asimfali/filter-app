@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { mediaApi } from '../../api/media';
 import { SELECT_CLS } from './constants';
-import { PdfIcon } from './icons';
+import { IconPdf as PdfIcon } from '../../components/common/Icons';
 
 export default function UploadForm({ docTypes, onUploaded }) {
   const [form, setForm] = useState({ doc_type_id: '', external_id: '' });

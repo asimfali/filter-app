@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useDeptPermissions, useAllPermissions } from '../../hooks/useStaff';
-import CreatePermissionModal from './CreatePermissionModal';
+import CreatePermissionModal, { RESOURCE_TYPES } from './CreatePermissionModal';
+import PermissionToggleCell from './PermissionToggleCell';
+
+const RESOURCE_LABELS = Object.fromEntries(RESOURCE_TYPES.map(r => [r.value, r.label]));
 
 export default function DeptPermissionsTab({ deptId, roles }) {
     const { perms, loading, add, remove } = useDeptPermissions(deptId);
@@ -41,15 +44,6 @@ export default function DeptPermissionsTab({ deptId, roles }) {
         const q = search.toLowerCase();
         return !q || p.code.toLowerCase().includes(q) || p.name?.toLowerCase().includes(q);
     });
-
-    const RESOURCE_LABELS = {
-        product:   'Товар',
-        parameter: 'Параметр',
-        category:  'Категория',
-        document:  'Документ',
-        user:      'Пользователь',
-        spec:      'Характеристика',
-    };
 
     const grouped = filtered.reduce((acc, perm) => {
         const group = perm.resource_type || 'other';
@@ -137,25 +131,11 @@ export default function DeptPermissionsTab({ deptId, roles }) {
                                             </td>
                                             {roles.map(role => {
                                                 const key = `${role.id}-${perm.id}`;
-                                                const enabled = isEnabled(role.id, perm.id);
-                                                const isBusy = busy === key;
                                                 return (
-                                                    <td key={role.id}
-                                                        className="px-2 py-1.5 text-center border-b
-                                                                   border-gray-100 dark:border-gray-800">
-                                                        <button
-                                                            onClick={() => toggle(role.id, perm.id)}
-                                                            disabled={isBusy}
-                                                            className={`w-5 h-5 rounded transition-colors mx-auto
-                                                                        flex items-center justify-center
-                                                                        ${isBusy ? 'opacity-40' : ''}
-                                                                        ${enabled
-                                                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                                                    : 'border-2 border-gray-300 dark:border-gray-600 hover:border-blue-400'
-                                                                }`}>
-                                                            {isBusy ? '·' : enabled ? '✓' : ''}
-                                                        </button>
-                                                    </td>
+                                                    <PermissionToggleCell key={role.id}
+                                                        enabled={isEnabled(role.id, perm.id)}
+                                                        busy={busy === key}
+                                                        onToggle={() => toggle(role.id, perm.id)} />
                                                 );
                                             })}
                                         </tr>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
 import { can } from '../../utils/permissions';
+import { useMultiSelect } from '../../hooks/useMultiSelect';
 import BatchCreateForm from '../../components/plm/BatchCreateForm';
 
 // ── Вкладка: Изделия (поиск + индивидуальные стадии) ─────────────────────
@@ -12,7 +13,7 @@ export default function ProductsTab({ onOpenProduct }) {
     const [loading, setLoading] = useState(false);
     const [query, setQuery] = useState('');
     const [searched, setSearched] = useState(false);
-    const [selectedProducts, setSelectedProducts] = useState(new Set());
+    const { selected: selectedProducts, setSelected: setSelectedProducts, toggle: toggleProduct, selectAll, clearAll: deselectAll } = useMultiSelect(products);
     const [showBatchCreate, setShowBatchCreate] = useState(false);
 
     const canCreate = can(user, 'plm.stage.manage');
@@ -28,18 +29,6 @@ export default function ProductsTab({ onOpenProduct }) {
         setLoading(false);
         setSearched(true);
     };
-
-    const toggleProduct = (id) => {
-        setSelectedProducts(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
-    };
-
-    const selectAll = () => setSelectedProducts(new Set(products.map(p => p.id)));
-    const deselectAll = () => setSelectedProducts(new Set());
 
     return (
         <div className="space-y-4">

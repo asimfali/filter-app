@@ -1,4 +1,5 @@
 import { useSpecMatrix } from '../../hooks/useStaff';
+import PermissionToggleCell from './PermissionToggleCell';
 
 // ── Вкладка прав подразделения ────────────────────────────────────────────
 
@@ -54,25 +55,11 @@ export default function SpecPermissionsTab({ deptId }) {
                             </td>
                             {roles.map(role => {
                                 const key = `${role.id}-${spec.spec_id}`;
-                                const enabled = spec.roles[String(role.id)] != null;
-                                const isBusy = busy === key;
                                 return (
-                                    <td key={role.id}
-                                        className="px-2 py-1.5 text-center border-b
-                                                   border-gray-100 dark:border-gray-800">
-                                        <button
-                                            onClick={() => toggle(role.id, spec.spec_id)}
-                                            disabled={isBusy}
-                                            className={`w-5 h-5 rounded transition-colors mx-auto flex
-                                                        items-center justify-center
-                                                        ${isBusy ? 'opacity-40' : ''}
-                                                        ${enabled
-                                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                                    : 'border-2 border-gray-300 dark:border-gray-600 hover:border-blue-400'
-                                                }`}>
-                                            {isBusy ? '·' : enabled ? '✓' : ''}
-                                        </button>
-                                    </td>
+                                    <PermissionToggleCell key={role.id}
+                                        enabled={spec.roles[String(role.id)] != null}
+                                        busy={busy === key}
+                                        onToggle={() => toggle(role.id, spec.spec_id)} />
                                 );
                             })}
                         </tr>

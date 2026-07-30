@@ -7,7 +7,7 @@ import { API } from '../../hooks/useStaff';
 
 // ── Форма создания права ──────────────────────────────────────────────────
 
-const RESOURCE_TYPES = [
+export const RESOURCE_TYPES = [
     { value: 'product',   label: 'Товар' },
     { value: 'parameter', label: 'Параметр' },
     { value: 'category',  label: 'Категория' },
