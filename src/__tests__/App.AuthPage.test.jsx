@@ -65,8 +65,8 @@ vi.mock('../components/auth/PasswordResetForm', () => ({
 vi.mock('../components/configurator/FilterTree', () => ({ default: () => null }));
 vi.mock('../pages/ParameterEditorPage', () => ({ default: () => null }));
 vi.mock('../pages/StaffPage', () => ({ default: () => null }));
-vi.mock('../pages/DocumentsPage', () => ({ default: () => null }));
-vi.mock('../pages/ProductPage', () => ({ default: () => null }));
+vi.mock('../pages/documents/DocumentsPage', () => ({ default: () => null }));
+vi.mock('../pages/product/ProductPage', () => ({ default: () => null }));
 vi.mock('../pages/SpecEditorPage', () => ({ default: () => null }));
 vi.mock('../pages/IssuesPage.jsx', () => ({ default: () => null }));
 vi.mock('../pages/IssueThreadPage.jsx', () => ({ default: () => null }));
@@ -83,7 +83,7 @@ vi.mock('../pages/CartPage', () => ({ default: () => null }));
 vi.mock('../pages/CartKPPage', () => ({ default: () => null }));
 vi.mock('../pages/VariantEditorPage', () => ({ default: () => null }));
 vi.mock('../pages/SelectionPage', () => ({ default: () => null }));
-vi.mock('../pages/FanChartPage', () => ({ default: () => null }));
+vi.mock('../pages/fanchart/FanChartPage', () => ({ default: () => null }));
 vi.mock('../components/layout/Header', () => ({ default: () => null }));
 
 useAuth.mockReturnValue({

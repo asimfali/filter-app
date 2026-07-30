@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ProductPage from '../ProductPage';
-import { mediaApi } from '../../api/media';
-import { plmApi } from '../../api/plm';
-import { getThreadsByProduct } from '../../api/issues.js';
-import { useAuth } from '../../contexts/AuthContext';
-import { useCart } from '../../contexts/CartContext';
+import { mediaApi } from '../../../api/media';
+import { plmApi } from '../../../api/plm';
+import { getThreadsByProduct } from '../../../api/issues.js';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useCart } from '../../../contexts/CartContext';
 
-vi.mock('../../api/auth', () => ({ tokenStorage: { getAccess: vi.fn(() => 'token') } }));
-vi.mock('../../api/media', () => ({
+vi.mock('../../../api/auth', () => ({ tokenStorage: { getAccess: vi.fn(() => 'token') } }));
+vi.mock('../../../api/media', () => ({
     mediaApi: {
         getFormData: vi.fn(),
         uploadProductDocument: vi.fn(),
@@ -17,18 +17,18 @@ vi.mock('../../api/media', () => ({
         downloadFile: vi.fn(),
     },
 }));
-vi.mock('../../api/plm', () => ({ plmApi: { getStages: vi.fn() } }));
-vi.mock('../../api/issues.js', () => ({ getThreadsByProduct: vi.fn() }));
-vi.mock('../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
-vi.mock('../../contexts/CartContext', () => ({ useCart: vi.fn() }));
-vi.mock('../../components/plm/ProductStages', () => ({
+vi.mock('../../../api/plm', () => ({ plmApi: { getStages: vi.fn() } }));
+vi.mock('../../../api/issues.js', () => ({ getThreadsByProduct: vi.fn() }));
+vi.mock('../../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
+vi.mock('../../../contexts/CartContext', () => ({ useCart: vi.fn() }));
+vi.mock('../../../components/plm/ProductStages', () => ({
     default: ({ stages, onStageChange }) => (
         <div data-testid="product-stages-stub">
             <button onClick={() => onStageChange([{ ...stages[0], status: 'active' }])}>advance-stage</button>
         </div>
     ),
 }));
-vi.mock('../../components/plm/LiteraSelector', () => ({
+vi.mock('../../../components/plm/LiteraSelector', () => ({
     default: ({ stages, selected, onChange }) => (
         <div data-testid="litera-selector-stub">
             {stages.map(s => (
@@ -39,12 +39,12 @@ vi.mock('../../components/plm/LiteraSelector', () => ({
         </div>
     ),
 }));
-vi.mock('../../components/media/AccessTokenModal', () => ({
+vi.mock('../../../components/media/AccessTokenModal', () => ({
     default: ({ onClose }) => (
         <div data-testid="access-token-modal-stub"><button onClick={onClose}>close-access</button></div>
     ),
 }));
-vi.mock('../../components/media/DocTypeSelector', () => ({
+vi.mock('../../../components/media/DocTypeSelector', () => ({
     default: ({ docTypes, activeDocType, onSelect }) => (
         <div data-testid="doc-type-selector-stub">
             {docTypes.map(dt => (

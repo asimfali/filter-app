@@ -13,7 +13,7 @@ import FilterTreeGraph from './components/configurator/FilterTree';
 import ParameterEditorPage from './pages/ParameterEditorPage';
 import StaffPage from './pages/StaffPage';
 import DocumentsPage from './pages/documents/DocumentsPage';
-import ProductPage from './pages/ProductPage';
+import ProductPage from './pages/product/ProductPage';
 import SpecEditorPage from './pages/SpecEditorPage';
 import IssuesPage from './pages/IssuesPage.jsx';
 import IssueThreadPage from './pages/IssueThreadPage.jsx';

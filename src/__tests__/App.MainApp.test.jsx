@@ -51,7 +51,7 @@ vi.mock('../components/configurator/FilterTree', () => ({
   ),
 }));
 
-vi.mock('../pages/ProductPage', () => ({
+vi.mock('../pages/product/ProductPage', () => ({
   default: ({ productId, onBack, onOpenThread, onOpenViewer }) => (
     <div data-testid="page-product" data-product-id={productId}>
       <button onClick={onBack}>product-back</button>
@@ -152,7 +152,7 @@ vi.mock('../pages/HeatExchangersPage', () => ({ default: () => <div data-testid=
 vi.mock('../pages/AccessoryKitsPage', () => ({ default: () => <div data-testid="page-accessory-kits" /> }));
 vi.mock('../pages/DefectActPage', () => ({ default: () => <div data-testid="page-defect-acts" /> }));
 vi.mock('../pages/SelectionPage', () => ({ default: () => <div data-testid="page-selection" /> }));
-vi.mock('../pages/FanChartPage', () => ({ default: () => <div data-testid="page-fan-charts" /> }));
+vi.mock('../pages/fanchart/FanChartPage', () => ({ default: () => <div data-testid="page-fan-charts" /> }));
 vi.mock('../pages/PartEditorPage', () => ({ default: () => <div data-testid="page-part-editor" /> }));
 
 const baseUser = { id: 1, email: 'user@example.com', is_confirmed: true, permissions: [] };
