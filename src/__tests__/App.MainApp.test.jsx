@@ -119,7 +119,7 @@ vi.mock('../pages/CartPage', () => ({
   ),
 }));
 
-vi.mock('../pages/ModelViewerPage', () => ({
+vi.mock('../pages/model-viewer/ModelViewerPage', () => ({
   default: ({ relPath, fname, mtlPath, onBack }) => (
     <div data-testid="page-model-viewer" data-rel-path={relPath} data-fname={fname} data-mtl-path={mtlPath ?? ''}>
       <button onClick={onBack}>back</button>

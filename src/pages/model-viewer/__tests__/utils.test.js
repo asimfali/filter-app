@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getExt, downloadUrl, buildTree } from '../ModelViewerPage.jsx';
+import { getExt, downloadUrl, buildTree } from '../utils';
 
 describe('getExt', () => {
     it('возвращает расширение в нижнем регистре', () => {
