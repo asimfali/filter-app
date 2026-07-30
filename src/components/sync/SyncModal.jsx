@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { externalApi } from '../../api/external';
 import { mediaApi } from '../../api/media';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { selectionApi } from '../../api/selection';
 import { IconLink, IconClock } from '../common/Icons';
 import Modal from '../common/Modal';
@@ -12,7 +12,7 @@ const MODE_CONFIG = {
     prices: {
         title: 'Обновить цены',
         btnColor: 'bg-blue-600 hover:bg-blue-700',
-        permission: 'external.sync_prices',
+        permission: PERM.EXTERNAL_SYNC_PRICES,
         loadItems: () => externalApi.getSyncConfigs(),
         runItem: (id) => externalApi.syncPrices(id),
         isAsync: true, // возвращает task_id
@@ -23,7 +23,7 @@ const MODE_CONFIG = {
     catalog: {
         title: 'Синхронизировать каталог',
         btnColor: 'bg-violet-600 hover:bg-violet-700',
-        permission: 'external.sync_catalog',
+        permission: PERM.EXTERNAL_SYNC_CATALOG,
         loadItems: () => externalApi.getSyncConfigs(),
         runItem: (id) => externalApi.syncCatalog(id),
         isAsync: true,
@@ -34,7 +34,7 @@ const MODE_CONFIG = {
     variants: {
         title: <><IconLink className="w-4 h-4 inline mr-1" />Группировка исполнений</>,
         btnColor: 'bg-amber-600 hover:bg-amber-700',
-        permission: 'external.manage_variants',
+        permission: PERM.EXTERNAL_MANAGE_VARIANTS,
         loadItems: () => externalApi.getVariantRules(),
         runItem: (id, opts) => externalApi.applyVariantRules(id, opts?.resetFirst ?? true),
         isAsync: false, // синхронный — результат сразу
@@ -56,7 +56,7 @@ const MODE_CONFIG = {
     rsync: {
         title: 'Rsync медиафайлов',
         btnColor: 'bg-teal-600 hover:bg-teal-700',
-        permission: 'external.rsync_media',
+        permission: PERM.EXTERNAL_RSYNC_MEDIA,
         loadItems: () => externalApi.getRsyncFolders(),
         runItem: (id, opts) => externalApi.rsyncMedia(id, opts?.syncDocuments ?? true),
         isAsync: true,
@@ -76,7 +76,7 @@ const MODE_CONFIG = {
     fan_charts: {
         title: 'Синхронизировать графики',
         btnColor: 'bg-indigo-600 hover:bg-indigo-700',
-        permission: 'external.push_to_site',
+        permission: PERM.EXTERNAL_PUSH_TO_SITE,
         loadItems: async () => ({
             ok: true,
             data: {
@@ -93,7 +93,7 @@ const MODE_CONFIG = {
     dxf_import: {
         title: 'Импорт DXF (аэродинамика)',
         btnColor: 'bg-violet-600 hover:bg-violet-700',
-        permission: 'portal.chart.write',
+        permission: PERM.PORTAL_CHART_WRITE,
         // Статический список — один пункт "Загрузить файлы"
         loadItems: async () => ({
             ok: true,
@@ -108,7 +108,7 @@ const MODE_CONFIG = {
     extract: {
         title: 'Импорт характеристик из PDF',
         btnColor: 'bg-blue-600 hover:bg-blue-700',
-        permission: 'pdf.spec.write',
+        permission: PERM.PDF_SPEC_WRITE,
         loadItems: async () => ({
             ok: true,
             data: {
@@ -122,14 +122,14 @@ const MODE_CONFIG = {
     s3_media: {
         title: 'Медиа → S3',
         btnColor: 'bg-sky-600 hover:bg-sky-700',
-        permission: 'portal.s3.upload',  // ← гейт на вход в модалку
+        permission: PERM.PORTAL_S3_UPLOAD,  // ← гейт на вход в модалку
         loadItems: async () => ({
             ok: true,
             data: {
                 success: true,
                 data: [
-                    { id: 'gallery', name: 'Галерея (полная синхронизация)', permission: 'portal.gallery.upload' },
-                    { id: 'hero_video', name: 'Hero-видео (полная синхронизация)', permission: 'portal.video.upload' },
+                    { id: 'gallery', name: 'Галерея (полная синхронизация)', permission: PERM.PORTAL_GALLERY_UPLOAD },
+                    { id: 'hero_video', name: 'Hero-видео (полная синхронизация)', permission: PERM.PORTAL_VIDEO_UPLOAD },
                 ],
             },
         }),

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { mediaApi } from '../api/media';
-import { can } from '../utils/permissions';
+import { can, PERM } from '../utils/permissions';
 import CreateFilterModal from '../components/media/CreateFilterModal.jsx';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
 import FiltersPanel from '../components/media/FiltersPanel';
@@ -512,7 +512,7 @@ function HeatExchangerCard({ item, canWrite, axes, drawingDocTypeId, onUpdated, 
 
 export default function HeatExchangersPage() {
     const { user } = useAuth();
-    const canWrite = can(user, 'portal.heat_exchanger.write');
+    const canWrite = can(user, PERM.PORTAL_HEAT_EXCHANGER_WRITE);
     const { items, loading, error, reload } = useHeatExchangers();
     const [showCreate, setShowCreate] = useState(false);
     const [search, setSearch] = useState('');

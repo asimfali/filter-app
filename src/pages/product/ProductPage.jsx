@@ -3,7 +3,7 @@ import { apiFetch } from '../../api/auth';
 import { mediaApi } from '../../api/media';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { useDocTypes } from '../../hooks/useDocUpload';
 import DocTypeSelector from '../../components/media/DocTypeSelector';
 import ImageSlider from '../../components/media/ImageSlider';
@@ -31,7 +31,7 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
     const { docTypes, activeDocType: activeUploadDocType, setActiveDocType: setActiveUploadDocType } = useDocTypes(user);
 
     const { activeCartId, addToCart } = useCart();
-    const canSales = can(user, 'sales.cart.write');
+    const canSales = can(user, PERM.SALES_CART_WRITE);
     const [addingToCart, setAddingToCart] = useState(false);
     const [addedToCart, setAddedToCart] = useState(false);
 

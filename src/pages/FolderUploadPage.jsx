@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { mediaApi } from '../api/media';
 import { catalogApi } from '../api/catalog';
 import { useAuth } from '../contexts/AuthContext';
-import { can } from '../utils/permissions';
+import { can, PERM } from '../utils/permissions';
 import { filterLatestPassports } from '../utils/filterLatestPassports';
 import SmartSelect from '../components/common/SmartSelect';
 import { sessionsApi } from '../api/sessions';
@@ -433,7 +433,7 @@ export default function FolderUploadPage({ onBack }) {
 
     if (!user) return null;
 
-    if (!can(user, 'portal.documents.upload')) {
+    if (!can(user, PERM.PORTAL_DOCUMENTS_UPLOAD)) {
         return (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
                 <div className="text-4xl"><IconLock /></div>

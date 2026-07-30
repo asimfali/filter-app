@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { mediaApi } from '../api/media';
 import { catalogApi } from '../api/catalog';
-import { can } from '../utils/permissions';
+import { can, PERM } from '../utils/permissions';
 import FiltersPanel from '../components/media/FiltersPanel';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
 
@@ -796,7 +796,7 @@ function AccessoryKitCard({ item, canWrite, axes, onDeleted }) {
 
 export default function AccessoryKitsPage() {
     const { user } = useAuth();
-    const canWrite = can(user, 'catalog.accessory.write');
+    const canWrite = can(user, PERM.CATALOG_ACCESSORY_WRITE);
     const { items, loading, error, reload } = useAccessoryKits();
     const { axes } = useFormData();
     const [showCreate, setShowCreate] = useState(false);

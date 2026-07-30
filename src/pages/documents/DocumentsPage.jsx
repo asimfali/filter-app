@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { useDocuments, useFormData } from '../../hooks/useDocuments';
 import { IconFolder } from '../../components/common/Icons';
 import { DocumentGroup, declDocs } from './DocumentCard';
@@ -9,9 +9,9 @@ import UploadForm from './UploadForm';
 
 export default function DocumentsPage({ onOpenViewer, onFolderUpload }) {
   const { user } = useAuth();
-  const canUpload = can(user, 'portal.documents.upload');
-  const canDelete = can(user, 'portal.documents.delete');
-  const canManageFilters = can(user, 'portal.documents.upload');
+  const canUpload = can(user, PERM.PORTAL_DOCUMENTS_UPLOAD);
+  const canDelete = can(user, PERM.PORTAL_DOCUMENTS_DELETE);
+  const canManageFilters = can(user, PERM.PORTAL_DOCUMENTS_UPLOAD);
   const [uploadMode, setUploadMode] = useState('single');
 
   // ← сначала search

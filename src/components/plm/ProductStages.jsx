@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { plmApi } from '../../api/plm';
 import { useAuth } from '../../contexts/AuthContext';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { STAGE_STATUS_LABEL, STAGE_STATUS_COLOR, DECISION_ICON, DECISION_COLOR } from './constants';
 
 export default function ProductStages({ stages, productId, onStageChange }) {
@@ -11,7 +11,7 @@ export default function ProductStages({ stages, productId, onStageChange }) {
     const [loading, setLoading] = useState({});
     const [actionError, setActionError] = useState({});
 
-    const canApprove = can(user, 'plm.stage.manage'); // временно — нужен отдельный code
+    const canApprove = can(user, PERM.PLM_STAGE_MANAGE); // временно — нужен отдельный code
 
     const toggleStage = async (stageId) => {
         setExpanded(prev => ({ ...prev, [stageId]: !prev[stageId] }));

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDepartments, useRoles, useUsers, useStaffRequests } from '../../hooks/useStaff';
 import UsersPanel from './UsersPanel';
@@ -20,9 +20,9 @@ export default function StaffPage() {
     const pendingCount = requests.filter(r => r.status === 'pending').length;
 
     const ALL_TABS = [
-        { id: 'users', label: 'Сотрудники', code: 'portal.staff.users' },
-        { id: 'requests', label: 'Заявки', code: 'portal.staff.requests', badge: pendingCount },
-        { id: 'departments', label: 'Подразделения', code: 'portal.staff.departments' },
+        { id: 'users', label: 'Сотрудники', code: PERM.PORTAL_STAFF_USERS },
+        { id: 'requests', label: 'Заявки', code: PERM.PORTAL_STAFF_REQUESTS, badge: pendingCount },
+        { id: 'departments', label: 'Подразделения', code: PERM.PORTAL_STAFF_DEPARTMENTS },
     ];
 
     const visibleTabs = ALL_TABS.filter(t => can(user, t.code));

@@ -5,7 +5,7 @@ import ProductBindingPanel, { ChainProductsPanel } from './ProductBindingPanel.j
 import BindingGraph from './BindingGraph.jsx';
 import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { useChainSearch } from '../../hooks/useChainSearch';
 import { IconEye, IconLock } from '../common/Icons.jsx';
 
@@ -24,9 +24,9 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
   const cyRef = useRef(null);
   const cyInstanceRef = useRef(null);
   const { user, loading: authLoading } = useAuth();
-  const canViewBinding = !authLoading && can(user, 'portal.page.binding');
-  const canEditBindings = !authLoading && can(user, 'catalog.binding.write');
-  const canEditSpecs = !authLoading && can(user, 'catalog.spec.write');
+  const canViewBinding = !authLoading && can(user, PERM.PORTAL_PAGE_BINDING);
+  const canEditBindings = !authLoading && can(user, PERM.CATALOG_BINDING_WRITE);
+  const canEditSpecs = !authLoading && can(user, PERM.CATALOG_SPEC_WRITE);
   const [partialSearch, setPartialSearch] = useState(true);
   const [dragMissingAxes, setDragMissingAxes] = useState([]);
 

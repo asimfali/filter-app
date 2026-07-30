@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { plmApi } from '../../api/plm';
 import { authApi } from '../../api/auth';
 import { useAuth } from '../../contexts/AuthContext';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { useBatchStages } from '../../hooks/useBatchStages';
 import { useModals } from '../../hooks/useModals';
 import BatchCreateForm from './BatchCreateForm';
@@ -379,7 +379,7 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts, result, on
 
 export default function PLMSidePanel({ productIds, products, onClose, selectedLitera }) {
     const { user } = useAuth();
-    const canManage = can(user, 'plm.stage.manage');
+    const canManage = can(user, PERM.PLM_STAGE_MANAGE);
     const { stagesByProduct, loading, reload } = useBatchStages(productIds);
     const [showCreate, setShowCreate] = useState(false);
     const [presets, setPresets] = useState([]);

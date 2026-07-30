@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { useMultiSelect } from '../../hooks/useMultiSelect';
 import BatchCreateForm from '../../components/plm/BatchCreateForm';
 
@@ -16,7 +16,7 @@ export default function ProductsTab({ onOpenProduct }) {
     const { selected: selectedProducts, setSelected: setSelectedProducts, toggle: toggleProduct, selectAll, clearAll: deselectAll } = useMultiSelect(products);
     const [showBatchCreate, setShowBatchCreate] = useState(false);
 
-    const canCreate = can(user, 'plm.stage.manage');
+    const canCreate = can(user, PERM.PLM_STAGE_MANAGE);
 
     const handleSearch = async (e) => {
         e.preventDefault();

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { plmApi } from '../../api/plm';
 import { useAuth } from '../../contexts/AuthContext';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { useModals } from '../../hooks/useModals';
 import { STAGE_STATUS_LABEL, STAGE_STATUS_COLOR } from '../../components/plm/constants';
 import StageRowInGroup from './StageRowInGroup';
@@ -22,7 +22,7 @@ export default function GroupsTab({ onOpenProduct, refData }) {
     const [batchDept, setBatchDept] = useState('');
     const { showConfirm, modals } = useModals();
 
-    const canManage = can(user, 'plm.stage.manage');
+    const canManage = can(user, PERM.PLM_STAGE_MANAGE);
 
     const loadGroups = useCallback(async () => {
         setLoading(true);

@@ -2,13 +2,13 @@
 import React, { useState, useRef } from 'react';
 import SmartSelect from '../common/SmartSelect';
 import { mediaApi } from '../../api/media';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { IconClock, IconFile } from '../common/Icons';
 import Modal from '../common/Modal';
 
 export default function PassportSyncModal({ user, onClose }) {
-    const canImport = can(user, 'passport.documents.upload');
-    const canExport = can(user, 'passport.documents.update');
+    const canImport = can(user, PERM.PASSPORT_DOCUMENTS_UPLOAD);
+    const canExport = can(user, PERM.PASSPORT_DOCUMENTS_UPDATE);
 
     const [document_, setDocument] = useState(null);
     const [file, setFile] = useState(null);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { apiFetch } from '../api/auth';
 import { sessionsApi } from '../api/sessions';
 import { useAuth } from '../contexts/AuthContext';
-import { can } from '../utils/permissions';
+import { can, PERM } from '../utils/permissions';
 import { catalogApi } from '../api/catalog';
 import { IconSave } from '../components/common/Icons';
 import { useModals } from '../hooks/useModals';
@@ -18,7 +18,7 @@ export default function SpecEditorPage({
     onSessionSaved,     // ← callback с id созданной/обновлённой сессии
 }) {
     const { user } = useAuth();
-    const canPushTo1C = can(user, 'catalog.push_to_1c');
+    const canPushTo1C = can(user, PERM.CATALOG_PUSH_TO_1C);
     const { showConfirm, modals } = useModals();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
