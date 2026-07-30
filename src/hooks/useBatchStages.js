@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { plmApi } from '../api/plm';
 import { authApi } from '../api/auth';
+import { unwrapList } from '../utils';
 
 /**
  * Загрузка стадий для списка изделий.
@@ -77,7 +78,7 @@ export function useRefData() {
         plmApi.getPresets().then(({ data }) => data.success && setPresets(data.data));
         // Подразделения для batch approve
         authApi.departments().then(({ ok, data }) => {
-            if (ok) setDepts(Array.isArray(data) ? data : (data.results || []));
+            if (ok) setDepts(unwrapList(data));
         }).catch(() => { });
     }, []);
 

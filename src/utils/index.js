@@ -9,3 +9,8 @@ export function parseError(data, status) {
 export function formatApiError(error) {
     return typeof error === 'string' ? error : JSON.stringify(error);
 }
+
+// Список из ответа API: либо сразу массив, либо пагинированный {results: [...]}
+export function unwrapList(data) {
+    return Array.isArray(data) ? data : (data?.results ?? []);
+}

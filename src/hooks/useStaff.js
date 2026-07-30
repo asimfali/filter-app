@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch, authApi } from '../api/auth';
+import { unwrapList } from '../utils';
 
 export const API = '/api/v1/auth';
 
@@ -23,7 +24,7 @@ export function useDepartments() {
     const load = useCallback(async () => {
         const res = await apiFetch(`${API}/departments/?root_only=true`);
         const data = await res.json();
-        setDepartments(Array.isArray(data) ? data : (data.results || []));
+        setDepartments(unwrapList(data));
     }, []);
     useEffect(() => { load(); }, [load]);
 
@@ -38,7 +39,7 @@ export function useRoles() {
     useEffect(() => {
         apiFetch(`${API}/roles/`)
             .then(r => r.json())
-            .then(data => setRoles(Array.isArray(data) ? data : (data.results || [])));
+            .then(data => setRoles(unwrapList(data)));
     }, []);
     return roles;
 }
@@ -52,7 +53,7 @@ export function useUsers(search = '') {
         const q = search ? `?search=${encodeURIComponent(search)}` : '';
         const res = await apiFetch(`${API}/users-list/${q}`);
         const data = await res.json();
-        setUsers(Array.isArray(data) ? data : (data.results || []));
+        setUsers(unwrapList(data));
         setLoading(false);
     }, [search]);
 
@@ -73,7 +74,7 @@ export function useStaffRequests() {
         try {
             const res = await apiFetch(`${API}/staff-requests/?status=${status}`);
             const data = await res.json();
-            setRequests(Array.isArray(data) ? data : (data.results || []));
+            setRequests(unwrapList(data));
         } finally {
             setLoading(false);
         }
@@ -146,7 +147,7 @@ export function useDeptPermissions(deptId) {
         try {
             const res = await apiFetch(`${API}/departments/${deptId}/permissions/`);
             const data = await res.json();
-            setPerms(Array.isArray(data) ? data : (data.results || []));
+            setPerms(unwrapList(data));
         } finally {
             setLoading(false);
         }
@@ -181,7 +182,7 @@ export function useAllPermissions() {
     useEffect(() => {
         apiFetch(`${API}/permissions/`)
             .then(r => r.json())
-            .then(data => setPermissions(Array.isArray(data) ? data : (data.results || [])));
+            .then(data => setPermissions(unwrapList(data)));
     }, []);
     return permissions;
 }
