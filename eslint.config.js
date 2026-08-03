@@ -35,4 +35,11 @@ export default [
       ],
     },
   },
+  {
+    files: ['**/__tests__/**/*.{js,jsx}', '**/*.test.{js,jsx}'],
+    rules: {
+      // Harness-компоненты в тестах не переиспользуются — PropTypes для них boilerplate.
+      'react/prop-types': 'off',
+    },
+  },
 ]

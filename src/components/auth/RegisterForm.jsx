@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { authApi } from '../../api/auth';
 import EyeIcon from './EyeIcon';
+import { authInputCls } from '../../utils/styles';
 
 export default function RegisterForm({ onSuccess }) {
   const [form, setForm] = useState({
@@ -18,14 +19,12 @@ export default function RegisterForm({ onSuccess }) {
 
   // Загружаем справочники при монтировании
   useEffect(() => {
-    fetch('/api/v1/auth/departments/?root_only=true')
-      .then(r => r.json())
-      .then(data => setDepartments(Array.isArray(data) ? data : (data.results || [])))
+    authApi.departments(true)
+      .then(({ data }) => setDepartments(Array.isArray(data) ? data : (data.results || [])))
       .catch(() => { });
 
-    fetch('/api/v1/auth/roles/')
-      .then(r => r.json())
-      .then(data => setRoles(Array.isArray(data) ? data : (data.results || [])))
+    authApi.roles()
+      .then(({ data }) => setRoles(Array.isArray(data) ? data : (data.results || [])))
       .catch(() => { });
   }, []);
 
@@ -57,9 +56,6 @@ export default function RegisterForm({ onSuccess }) {
     setError(Array.isArray(firstError) ? firstError[0] : String(firstError));
   };
 
-  const inputClass = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm \
-focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:text-white";
-
   // Рекурсивно строим плоский список с отступами для вложенных подразделений
   const flatDepts = (items, depth = 0) => items.flatMap(d => [
     { id: d.id, label: '\u00a0'.repeat(depth * 3) + d.name },
@@ -74,12 +70,12 @@ focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:tex
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Имя</label>
           <input type="text" value={form.first_name} onChange={set('first_name')}
-            placeholder="Иван" autoComplete="given-name" className={inputClass} />
+            placeholder="Иван" autoComplete="given-name" className={authInputCls} />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Фамилия</label>
           <input type="text" value={form.last_name} onChange={set('last_name')}
-            placeholder="Иванов" autoComplete="family-name" className={inputClass} />
+            placeholder="Иванов" autoComplete="family-name" className={authInputCls} />
         </div>
       </div>
 
@@ -89,7 +85,7 @@ focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:tex
           Email <span className="text-red-500">*</span>
         </label>
         <input type="email" required value={form.email} onChange={set('email')}
-          placeholder="you@teplomash.ru" autoComplete="email" className={inputClass} />
+          placeholder="you@teplomash.ru" autoComplete="email" className={authInputCls} />
       </div>
 
       {/* Подразделение */}
@@ -97,7 +93,7 @@ focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:tex
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Подразделение <span className="text-red-500">*</span>
         </label>
-        <select required value={form.department_id} onChange={set('department_id')} className={inputClass}>
+        <select required value={form.department_id} onChange={set('department_id')} className={authInputCls}>
           <option value="">— Выберите подразделение —</option>
           {flatDepts(departments).map(d => (
             <option key={d.id} value={d.id}>{d.label}</option>
@@ -110,7 +106,7 @@ focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:tex
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Роль <span className="text-red-500">*</span>
         </label>
-        <select required value={form.role_id} onChange={set('role_id')} className={inputClass}>
+        <select required value={form.role_id} onChange={set('role_id')} className={authInputCls}>
           <option value="">— Выберите роль —</option>
           {roles.map(r => (
             <option key={r.id} value={r.id}>{r.name}</option>
@@ -126,7 +122,7 @@ focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:tex
         <div className="relative">
           <input type={showPassword ? 'text' : 'password'} required value={form.password}
             onChange={set('password')} placeholder="Минимум 8 символов"
-            autoComplete="new-password" className={`${inputClass} pr-9`} />
+            autoComplete="new-password" className={`${authInputCls} pr-9`} />
           <EyeIcon show={showPassword} onToggle={() => setShowPassword(v => !v)} />
         </div>
       </div>
@@ -141,7 +137,7 @@ focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-800 dark:tex
             type={showPassword2 ? 'text' : 'password'} required
             value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)}
             placeholder="Повторите пароль" autoComplete="new-password"
-            className={`${inputClass} pr-9 ${passwordMismatch ? 'border-red-400 focus:ring-red-400' :
+            className={`${authInputCls} pr-9 ${passwordMismatch ? 'border-red-400 focus:ring-red-400' :
               passwordMatch ? 'border-green-400 focus:ring-green-400' : ''}`}
           />
           <EyeIcon show={showPassword2} onToggle={() => setShowPassword2(v => !v)} />

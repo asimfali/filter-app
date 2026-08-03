@@ -4,6 +4,7 @@ import { useExcelImport } from '../../hooks/useExcelImport';
 import FileDropZone from '../common/FileDropZone';
 import ModalFooter from '../common/ModalFooter';
 import WarningsList from '../common/WarningsList';
+import Modal from '../common/Modal';
 
 export default function ImportExcelModal({ onClose, onImported }) {
     const { file, handleFile, loading, error, warnings, run } = useExcelImport(
@@ -29,14 +30,8 @@ export default function ImportExcelModal({ onClose, onImported }) {
     );
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                        Импорт маршрутной карты
-                    </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
-                </div>
+        <Modal title="Импорт маршрутной карты" onClose={onClose}>
+            <div className="space-y-4">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                     Поддерживаются файлы формата .xlsx. Спецификация будет создана в статусе «Черновик».
                 </p>
@@ -45,6 +40,6 @@ export default function ImportExcelModal({ onClose, onImported }) {
                 <ModalFooter onClose={onClose} onConfirm={run} loading={loading} disabled={!file}
                     confirmLabel="Импортировать" />
             </div>
-        </div>
+        </Modal>
     );
 }

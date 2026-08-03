@@ -4,7 +4,7 @@ import { mediaApi } from '../api/media';
 import { useAuth } from '../contexts/AuthContext';
 import PLMSidePanel from '../components/plm/PLMSidePanel';
 import { useCart } from '../contexts/CartContext';
-import { can } from '../utils/permissions';
+import { can, PERM } from '../utils/permissions';
 import { useDocTypes } from '../hooks/useDocUpload';
 import DocTypeSelector from '../components/media/DocTypeSelector';
 import { canPreview3D } from '../utils/fileUtils';
@@ -56,10 +56,10 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
     const [selectedLitera, setSelectedLitera] = useState('none');
 
     const [showPLM, setShowPLM] = useState(false);
-    const canPLM = can(user, 'plm.stage.view');
+    const canPLM = can(user, PERM.PLM_STAGE_VIEW);
 
     const { activeCartId, addToCart, carts } = useCart();
-    const canSales = can(user, 'sales.cart.write');
+    const canSales = can(user, PERM.SALES_CART_WRITE);
 
     const handleLiteraChange = async (litera) => {
         setSelectedLitera(litera);
@@ -204,7 +204,7 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                             )}
                         </div>
 
-                        {onOpenEditor && can(user, 'catalog.spec.write') && (
+                        {onOpenEditor && can(user, PERM.CATALOG_SPEC_WRITE) && (
                             <button
                                 onClick={() => onOpenEditor(productIds)}
                                 className="px-4 py-2 text-sm font-medium rounded-lg

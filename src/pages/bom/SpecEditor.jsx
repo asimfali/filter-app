@@ -4,26 +4,11 @@ import { useModals } from '../../hooks/useModals';
 import ValidationReport from '../../components/bom/ValidationReport';
 import MergeExcelModal from '../../components/bom/MergeExcelModal';
 import ImportJsonModal from '../../components/bom/ImportJsonModal';
-import CreateDetailsModal from '../../components/bom/CreateDetailsModal';
 import SpecHeaderForm from './SpecHeaderForm';
 import MaterialsPanel from './MaterialsPanel';
 import { inputCls } from '../../utils/styles';
-
-const STATUS_LABEL = {
-    draft: 'Черновик',
-    ready: 'Готова к загрузке',
-    pushing: 'Загружается...',
-    pushed: 'Загружена в 1С',
-    push_error: 'Ошибка загрузки',
-};
-
-const STATUS_COLOR = {
-    draft: 'text-gray-500 dark:text-gray-400',
-    ready: 'text-emerald-600 dark:text-emerald-400',
-    pushing: 'text-blue-500 dark:text-blue-400',
-    pushed: 'text-emerald-700 dark:text-emerald-300',
-    push_error: 'text-red-600 dark:text-red-400',
-};
+import { SPEC_STATUS_LABEL, SPEC_STATUS_COLOR } from './constants';
+import Modal from '../../components/common/Modal';
 
 export default function SpecEditor({ spec: initialSpec, onClose, onSaved, canWrite, canPush, canView }) {
     const [spec, setSpec] = useState(initialSpec);
@@ -90,15 +75,6 @@ export default function SpecEditor({ spec: initialSpec, onClose, onSaved, canWri
         setValidating(false);
     };
 
-    const handlePush = async () => {
-        setPushing(true);
-        setValidation(null);
-        const { ok, data } = await bomApi.pushSpec(spec.id);
-        if (data.data && !data.data.success) setValidation(data.data);
-        await reload();
-        setPushing(false);
-    };
-
     const handleCreateDetails = async () => {
         setPushing(true);
         setValidation(null);
@@ -161,8 +137,8 @@ export default function SpecEditor({ spec: initialSpec, onClose, onSaved, canWri
                             {spec.onec_name}
                         </h1>
                         <div className="flex items-center gap-2 mt-0.5">
-                            <span className={`text-xs font-medium ${STATUS_COLOR[spec.status]}`}>
-                                {STATUS_LABEL[spec.status]}
+                            <span className={`text-xs font-medium ${SPEC_STATUS_COLOR[spec.status]}`}>
+                                {SPEC_STATUS_LABEL[spec.status]}
                             </span>
                             {spec.onec_status && (
                                 <span className="text-xs text-gray-400">
@@ -184,13 +160,8 @@ export default function SpecEditor({ spec: initialSpec, onClose, onSaved, canWri
                     )}
 
                     {cloneOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
-                                            border border-gray-200 dark:border-gray-700
-                                            w-full max-w-md p-6 space-y-4">
-                                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                                    Копировать спецификацию
-                                </h2>
+                        <Modal title="Копировать спецификацию" onClose={() => setCloneOpen(false)}>
+                            <div className="space-y-4">
                                 <input
                                     value={cloneName}
                                     onChange={e => setCloneName(e.target.value)}
@@ -214,7 +185,7 @@ export default function SpecEditor({ spec: initialSpec, onClose, onSaved, canWri
                                     </button>
                                 </div>
                             </div>
-                        </div>
+                        </Modal>
                     )}
                     {canWrite && (
                         <button

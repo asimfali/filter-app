@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { sessionsApi } from '../api/sessions';
 import { bomApi } from '../api/bom';
 import { useAuth } from '../contexts/AuthContext';
-import { can } from '../utils/permissions';
+import { can, PERM } from '../utils/permissions';
 import SpecList from './bom/SpecList';
 import SpecEditor from './bom/SpecEditor';
 import FolderPicker from '../components/bom/FolderPicker';
@@ -50,23 +50,6 @@ function debounce(fn, ms) {
         timer = setTimeout(() => fn(...args), ms);
     };
 }
-// ─── Константы ───────────────────────────────────────────────────────────────
-
-const STATUS_LABEL = {
-    draft: 'Черновик',
-    ready: 'Готова к загрузке',
-    pushing: 'Загружается...',
-    pushed: 'Загружена в 1С',
-    push_error: 'Ошибка загрузки',
-};
-
-const STATUS_COLOR = {
-    draft: 'text-gray-500 dark:text-gray-400',
-    ready: 'text-emerald-600 dark:text-emerald-400',
-    pushing: 'text-blue-500 dark:text-blue-400',
-    pushed: 'text-emerald-700 dark:text-emerald-300',
-    push_error: 'text-red-600 dark:text-red-400',
-};
 
 const PROCESS_TYPES = [
     'Сборка',
@@ -80,9 +63,9 @@ const PROCESS_TYPES = [
 
 export default function PartEditorPage() {
     const { user } = useAuth();
-    const canView = can(user, 'bom.spec.view');
-    const canWrite = can(user, 'bom.spec.write');
-    const canPush = can(user, 'bom.spec.push');
+    const canView = can(user, PERM.BOM_SPEC_VIEW);
+    const canWrite = can(user, PERM.BOM_SPEC_WRITE);
+    const canPush = can(user, PERM.BOM_SPEC_PUSH);
 
     const [view, setView] = useState('list'); // list | editor
     const [specs, setSpecs] = useState([]);

@@ -1,33 +1,8 @@
 import React, { useState } from 'react';
 import { plmApi } from '../../api/plm';
 import { useAuth } from '../../contexts/AuthContext';
-import { can } from '../../utils/permissions';
-
-const STATUS_LABEL = {
-    draft:            'Черновик',
-    pending_approval: 'На согласовании',
-    active:           'Активна',
-    archived:         'В архиве',
-};
-
-const STATUS_COLOR = {
-    draft:            'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
-    pending_approval: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    active:           'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    archived:         'bg-neutral-100 text-gray-400 dark:bg-neutral-800 dark:text-gray-500',
-};
-
-const DECISION_COLOR = {
-    pending:  'text-gray-400',
-    approved: 'text-emerald-500',
-    rejected: 'text-red-500',
-};
-
-const DECISION_ICON = {
-    pending:  '○',
-    approved: '✓',
-    rejected: '✗',
-};
+import { can, PERM } from '../../utils/permissions';
+import { STAGE_STATUS_LABEL, STAGE_STATUS_COLOR, DECISION_ICON, DECISION_COLOR } from './constants';
 
 export default function ProductStages({ stages, productId, onStageChange }) {
     const { user } = useAuth();
@@ -36,7 +11,7 @@ export default function ProductStages({ stages, productId, onStageChange }) {
     const [loading, setLoading] = useState({});
     const [actionError, setActionError] = useState({});
 
-    const canApprove = can(user, 'plm.stage.manage'); // временно — нужен отдельный code
+    const canApprove = can(user, PERM.PLM_STAGE_MANAGE); // временно — нужен отдельный code
 
     const toggleStage = async (stageId) => {
         setExpanded(prev => ({ ...prev, [stageId]: !prev[stageId] }));
@@ -116,8 +91,8 @@ export default function ProductStages({ stages, productId, onStageChange }) {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium
-                                                      ${STATUS_COLOR[stage.status]}`}>
-                                        {STATUS_LABEL[stage.status]}
+                                                      ${STAGE_STATUS_COLOR[stage.status]}`}>
+                                        {STAGE_STATUS_LABEL[stage.status]}
                                     </span>
                                     <span className="text-gray-300 dark:text-gray-600 text-xs">
                                         {isExpanded ? '▲' : '▼'}

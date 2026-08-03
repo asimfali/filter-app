@@ -87,13 +87,6 @@ export function IssuesProvider({ children }) {
         socket.loadIssueMessages(issueId);
     }, [socket]);
 
-    // ─── Уведомления ────────────────────────────────────────────────────────
-
-    const dismissNotifications = useCallback(() => {
-        socket.clearNotifications();
-        issuesApi.markAllNotificationsRead().catch(() => { });
-    }, [socket]);
-
     const value = {
         // Состояние сокета
         connected: socket.connected,
@@ -122,10 +115,6 @@ export function IssuesProvider({ children }) {
         // Сообщения
         sendMessage,
         markRead,
-
-        // Уведомления
-        notifications: socket.notifications,
-        dismissNotifications,
 
         error,
     };

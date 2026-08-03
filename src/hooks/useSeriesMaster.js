@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { catalogApi } from '../api/catalog';
+import { formatApiError } from '../utils';
 
 /**
  * Универсальный мастер создания серии изделий.
@@ -458,7 +459,7 @@ export function useSeriesMaster() {
                 const payload = buildPayload();
                 const { ok, data } = await catalogApi.createSeriesTemplate(payload);
                 if (!ok || !data.success) {
-                    setError(typeof data.error === 'string' ? data.error : JSON.stringify(data.error));
+                    setError(formatApiError(data.error));
                     setSaving(false);
                     return;
                 }

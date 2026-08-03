@@ -68,21 +68,7 @@ export const closeThread = (threadId) =>
 export const getThreadsByProduct = (externalId) =>
     apiFetch(`${API_BASE}/threads/?product_external_id=${externalId}`);
 
-/**
- * Переоткрыть тред.
- * POST /api/v1/issues/threads/{id}/reopen/
- */
-export const reopenThread = (threadId) =>
-  apiFetch(`${API_BASE}/threads/${threadId}/reopen/`, { method: 'POST' });
-
 // ─── Замечания (Issues) ───────────────────────────────────────────────────────
-
-/**
- * Получить список замечаний треда.
- * GET /api/v1/issues/threads/{threadId}/issues/
- */
-export const getIssues = (threadId) =>
-  apiFetch(`${API_BASE}/threads/${threadId}/issues/`);
 
 /**
  * Создать замечание в треде.
@@ -97,57 +83,6 @@ export const createIssue = (threadId, payload) =>
     method: 'POST',
     body: JSON.stringify(payload),
   });
-
-/**
- * Получить допустимые переходы статуса для замечания.
- * GET /api/v1/issues/threads/{threadId}/issues/{issueId}/allowed_statuses/
- */
-export const getAllowedStatuses = (threadId, issueId) =>
-  apiFetch(`${API_BASE}/threads/${threadId}/issues/${issueId}/allowed_statuses/`);
-
-/**
- * Сменить статус замечания.
- * POST /api/v1/issues/threads/{threadId}/issues/{issueId}/change_status/
- * @param {'in_progress'|'resolved'|'verified'|'rejected'} newStatus
- */
-export const changeIssueStatus = (threadId, issueId, newStatus) =>
-  apiFetch(`${API_BASE}/threads/${threadId}/issues/${issueId}/change_status/`, {
-    method: 'POST',
-    body: JSON.stringify({ status: newStatus }),
-  });
-
-// ─── Сообщения ────────────────────────────────────────────────────────────────
-
-/**
- * Получить историю сообщений замечания (fallback без WS).
- * GET /api/v1/issues/threads/{threadId}/issues/{issueId}/messages/
- */
-export const getMessages = (threadId, issueId) =>
-  apiFetch(`${API_BASE}/threads/${threadId}/issues/${issueId}/messages/`);
-
-/**
- * Отправить сообщение через REST (fallback без WS).
- * POST /api/v1/issues/threads/{threadId}/issues/{issueId}/messages/
- */
-export const sendMessage = (threadId, issueId, text) =>
-  apiFetch(`${API_BASE}/threads/${threadId}/issues/${issueId}/messages/`, {
-    method: 'POST',
-    body: JSON.stringify({ text }),
-  });
-
-/**
- * Отметить сообщения прочитанными.
- * POST /api/v1/issues/threads/{threadId}/issues/{issueId}/messages/mark_read/
- * @param {string[]} messageIds
- */
-export const markMessagesRead = (threadId, issueId, messageIds) =>
-  apiFetch(
-    `${API_BASE}/threads/${threadId}/issues/${issueId}/messages/mark_read/`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ message_ids: messageIds }),
-    }
-  );
 
 // ─── Уведомления ─────────────────────────────────────────────────────────────
 

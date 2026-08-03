@@ -1,31 +1,13 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { plmApi } from '../../api/plm';
+import { authApi } from '../../api/auth';
 import { useAuth } from '../../contexts/AuthContext';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { useBatchStages } from '../../hooks/useBatchStages';
+import { useModals } from '../../hooks/useModals';
 import BatchCreateForm from './BatchCreateForm';
 import StageTransferPanel from './StageTransferPanel';
-
-const STATUS_LABEL = {
-    draft: 'Черновик',
-    pending_approval: 'На согласовании',
-    active: 'Активна',
-    archived: 'В архиве',
-};
-
-const STATUS_COLOR = {
-    draft: 'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
-    pending_approval: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    archived: 'bg-neutral-100 text-gray-400 dark:bg-neutral-800 dark:text-gray-500',
-};
-
-const DECISION_ICON = { pending: '○', approved: '✓', rejected: '✗' };
-const DECISION_COLOR = {
-    pending: 'text-gray-400',
-    approved: 'text-emerald-500',
-    rejected: 'text-red-500',
-};
+import { STAGE_STATUS_LABEL, STAGE_STATUS_COLOR, DECISION_ICON, DECISION_COLOR } from './constants';
 
 // ── Строка изделия со стадиями ────────────────────────────────────────────
 
@@ -35,6 +17,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
     const [loading, setLoading] = useState(false);
     // transfer: null | { stage } — какую стадию переносим
     const [transfer, setTransfer] = useState(null);
+    const { showConfirm, showAlert, modals } = useModals();
 
     const visibleStages = stages.filter(s => {
         if (!selectedLitera || selectedLitera === 'none') return false;
@@ -69,38 +52,40 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
         setLoading(false);
     };
 
-    const handlePromote = async (stage) => {
-        if (!window.confirm(
+    const handlePromote = (stage) => {
+        showConfirm(
             `Перевести в следующую литеру?\n` +
             `Лит.${stage.litera_code} → следующая\n` +
-            `Характеристики будут скопированы. Текущая стадия архивируется.`
-        )) return;
-
-        setLoading(true);
-        const { ok, data } = await plmApi.promote(stage.id);
-        if (ok && data.success) {
-            onReload();
-        } else {
-            alert(data.error || 'Ошибка перехода');
-        }
-        setLoading(false);
+            `Характеристики будут скопированы. Текущая стадия архивируется.`,
+            async () => {
+                setLoading(true);
+                const { ok, data } = await plmApi.promote(stage.id);
+                if (ok && data.success) {
+                    onReload();
+                } else {
+                    showAlert(data.error || 'Ошибка перехода');
+                }
+                setLoading(false);
+            }
+        );
     };
 
-    const handleRollback = async (stage) => {
-        if (!window.confirm(
+    const handleRollback = (stage) => {
+        showConfirm(
             `Откатить Лит.${stage.litera_code}?\n` +
             `Стадия и её характеристики будут УДАЛЕНЫ.\n` +
-            `Используйте только если под этим номером выпускается новое изделие.`
-        )) return;
-
-        setLoading(true);
-        const { ok, data } = await plmApi.rollback(stage.id);
-        if (ok && data.success) {
-            onReload();
-        } else {
-            alert(data.error || 'Ошибка отката');
-        }
-        setLoading(false);
+            `Используйте только если под этим номером выпускается новое изделие.`,
+            async () => {
+                setLoading(true);
+                const { ok, data } = await plmApi.rollback(stage.id);
+                if (ok && data.success) {
+                    onReload();
+                } else {
+                    showAlert(data.error || 'Ошибка отката');
+                }
+                setLoading(false);
+            }
+        );
     };
 
     // Панель переноса поверх строки
@@ -122,6 +107,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
 
     return (
         <div className="border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden">
+            {modals}
             {/* Шапка */}
             <div
                 className="flex items-center justify-between px-3 py-2
@@ -143,7 +129,7 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
                         visibleStages.map(s => (
                             <span key={s.id}
                                 className={`text-xs px-1.5 py-0.5 rounded-full font-medium
-                                    ${STATUS_COLOR[s.status]}`}>
+                                    ${STAGE_STATUS_COLOR[s.status]}`}>
                                 Лит.{s.litera_code}
                             </span>
                         ))
@@ -163,8 +149,8 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
                             Лит.{stage.litera_code} — {stage.litera_name}
                         </span>
                         <div className="flex items-center gap-2">
-                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${STATUS_COLOR[stage.status]}`}>
-                                {STATUS_LABEL[stage.status]}
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${STAGE_STATUS_COLOR[stage.status]}`}>
+                                {STAGE_STATUS_LABEL[stage.status]}
                             </span>
                             {/* Кнопка переноса — только для ACTIVE и пользователей с manage */}
                             {stage.status === 'active' && canManage && (
@@ -247,11 +233,11 @@ function ProductStageRow({ productId, productName, stages, onReload, canManage, 
 }
 // ── Панель batch действий ─────────────────────────────────────────────────
 
-function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
+function BatchActionsBar({ stagesByProduct, onReload, presets, depts, result, onResult }) {
     const [batchPreset, setBatchPreset] = useState('');
     const [batchDept, setBatchDept] = useState('');
     const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState(null);
+    const { showConfirm, modals } = useModals();
 
     // Собираем все stage_ids по статусу
     const allStages = Object.values(stagesByProduct).flat();
@@ -264,44 +250,48 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
         setLoading(true);
         const { ok, data } = await plmApi.batchSubmit(draftIds, batchPreset || null);
         if (ok && data.success) {
-            setResult(`Отправлено: ${data.data.submitted}`);
+            onResult(`Отправлено: ${data.data.submitted}`);
             onReload();
         }
         setLoading(false);
-        setTimeout(() => setResult(null), 3000);
+        setTimeout(() => onResult(null), 3000);
     };
 
-    const handleBatchPromote = async () => {
+    const handleBatchPromote = () => {
         if (!activeIds.length) return;
-        if (!window.confirm(
+        showConfirm(
             `Перевести ${activeIds.length} изделий в следующую литеру?\n` +
-            `Характеристики будут скопированы. Текущие стадии архивируются.`
-        )) return;
-        setLoading(true);
-        const { ok, data } = await plmApi.batchPromote(activeIds);
-        if (ok && data.success) {
-            setResult(`Переведено: ${data.data.promoted}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
-            onReload();
-        }
-        setLoading(false);
-        setTimeout(() => setResult(null), 4000);
+            `Характеристики будут скопированы. Текущие стадии архивируются.`,
+            async () => {
+                setLoading(true);
+                const { ok, data } = await plmApi.batchPromote(activeIds);
+                if (ok && data.success) {
+                    onResult(`Переведено: ${data.data.promoted}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
+                    onReload();
+                }
+                setLoading(false);
+                setTimeout(() => onResult(null), 4000);
+            }
+        );
     };
 
-    const handleBatchRollback = async () => {
+    const handleBatchRollback = () => {
         if (!activeIds.length) return;
-        if (!window.confirm(
+        showConfirm(
             `Откатить ${activeIds.length} изделий на предыдущую литеру?\n` +
             `Стадии и их характеристики будут УДАЛЕНЫ.\n` +
-            `Используйте только если выпускается новое изделие под старым номером.`
-        )) return;
-        setLoading(true);
-        const { ok, data } = await plmApi.batchRollback(activeIds);
-        if (ok && data.success) {
-            setResult(`Откатано: ${data.data.rolled_back}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
-            onReload();
-        }
-        setLoading(false);
-        setTimeout(() => setResult(null), 4000);
+            `Используйте только если выпускается новое изделие под старым номером.`,
+            async () => {
+                setLoading(true);
+                const { ok, data } = await plmApi.batchRollback(activeIds);
+                if (ok && data.success) {
+                    onResult(`Откатано: ${data.data.rolled_back}${data.data.skipped ? `, пропущено: ${data.data.skipped}` : ''}`);
+                    onReload();
+                }
+                setLoading(false);
+                setTimeout(() => onResult(null), 4000);
+            }
+        );
     };
 
     const handleApprove = async () => {
@@ -309,17 +299,18 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
         setLoading(true);
         const { ok, data } = await plmApi.batchApprove(pendingIds, Number(batchDept));
         if (ok && data.success) {
-            setResult(`Одобрено: ${data.data.approved}`);
+            onResult(`Одобрено: ${data.data.approved}`);
             onReload();
         }
         setLoading(false);
-        setTimeout(() => setResult(null), 3000);
+        setTimeout(() => onResult(null), 3000);
     };
 
     if (!draftIds.length && !pendingIds.length && !activeIds.length) return null;
 
     return (
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-3 space-y-2">
+            {modals}
             <div className="text-xs font-medium text-gray-600 dark:text-gray-400">
                 Пакетные действия
             </div>
@@ -388,19 +379,21 @@ function BatchActionsBar({ stagesByProduct, onReload, presets, depts }) {
 
 export default function PLMSidePanel({ productIds, products, onClose, selectedLitera }) {
     const { user } = useAuth();
-    const canManage = can(user, 'plm.stage.manage');
+    const canManage = can(user, PERM.PLM_STAGE_MANAGE);
     const { stagesByProduct, loading, reload } = useBatchStages(productIds);
     const [showCreate, setShowCreate] = useState(false);
     const [presets, setPresets] = useState([]);
     const [depts, setDepts] = useState([]);
+    // Хранится здесь (не внутри BatchActionsBar) — onReload сразу ставит loading=true на этом
+    // компоненте, из-за чего BatchActionsBar размонтируется/монтируется заново в том же батче
+    // обновлений; локальный result сбрасывался бы при каждом remount, так и не будучи показан.
+    const [batchResult, setBatchResult] = useState(null);
 
     // Загружаем справочники для batch действий
-    useState(() => {
+    useEffect(() => {
         plmApi.getPresets().then(({ data }) => data.success && setPresets(data.data));
-        fetch('/api/v1/auth/departments/?root_only=false', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
-        }).then(r => r.json()).then(data => {
-            setDepts(Array.isArray(data) ? data : (data.results || []));
+        authApi.departments().then(({ ok, data }) => {
+            if (ok) setDepts(Array.isArray(data) ? data : (data.results || []));
         }).catch(() => { });
     }, []);
 
@@ -442,6 +435,8 @@ export default function PLMSidePanel({ productIds, products, onClose, selectedLi
                         onReload={reload}
                         presets={presets}
                         depts={depts}
+                        result={batchResult}
+                        onResult={setBatchResult}
                     />
                 )}
 

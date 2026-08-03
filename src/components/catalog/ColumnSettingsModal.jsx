@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Modal from '../common/Modal';
 
 const TYPE_LABEL = { axis: 'Параметр', spec: 'Характеристика', docs: 'Документы' };
 const TYPE_COLOR = {
@@ -19,25 +20,15 @@ export default function ColumnSettingsModal({ columns, onToggle, onReorder, onCl
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-            onClick={onClose}>
-            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl
-                            border border-gray-200 dark:border-gray-700 w-80 max-h-[80vh]
-                            flex flex-col"
-                onClick={e => e.stopPropagation()}>
-
-                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800
-                                flex items-center justify-between">
-                    <span className="font-medium text-gray-900 dark:text-white text-sm">
-                        Настройка колонок
-                    </span>
-                    <button onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg leading-none">
-                        ×
-                    </button>
-                </div>
-
-                <div className="overflow-y-auto flex-1 px-2 py-2 space-y-0.5">
+        <Modal title="Настройка колонок" onClose={onClose} maxWidth="xs" scrollBody closeOnBackdropClick
+            footer={
+                <button onClick={onClose}
+                    className="w-full text-xs text-gray-400 hover:text-gray-600
+                               dark:hover:text-gray-300 transition-colors">
+                    Готово
+                </button>
+            }>
+                <div className="space-y-0.5">
                     {columns.map((col, i) => (
                         <div
                             key={col.type + ':' + col.id}
@@ -85,15 +76,6 @@ export default function ColumnSettingsModal({ columns, onToggle, onReorder, onCl
                         </div>
                     ))}
                 </div>
-
-                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
-                    <button onClick={onClose}
-                        className="w-full text-xs text-gray-400 hover:text-gray-600
-                                   dark:hover:text-gray-300 transition-colors">
-                        Готово
-                    </button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

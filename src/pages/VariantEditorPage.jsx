@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { catalogApi } from '../api/catalog';
 import { useAuth } from '../contexts/AuthContext';
 import SmartSelect from '../components/common/SmartSelect';
+import { useModals } from '../hooks/useModals';
 
 // ─── Хук пагинированного списка ───────────────────────────────────────────
 
@@ -175,6 +176,7 @@ function useFlash() {
 export default function VariantEditorPage({ onBack }) {
     const [productTypes, setProductTypes] = useState([]);
     const [filling, setFilling] = useState(false);
+    const { showConfirm, modals } = useModals();
     useEffect(() => {
         catalogApi.productTypes().then(({ ok, data }) => {
             if (ok) setProductTypes(Array.isArray(data) ? data : (data.data ?? []));
@@ -211,18 +213,19 @@ export default function VariantEditorPage({ onBack }) {
         parents.changeProductType(id);
     };
 
-    const handleFillExternalNames = async () => {
+    const handleFillExternalNames = () => {
         if (!globalTypeId) return;
-        if (!confirm('Заполнить external_name для всех родителей без имени?')) return;
-        setFilling(true);
-        const { ok, data } = await catalogApi.variantFillExternalNames(globalTypeId);
-        if (ok && data.success) {
-            flash(`✓ Обновлено: ${data.data.updated}`);
-            parents.load();
-        } else {
-            flash(data.error || 'Ошибка', false);
-        }
-        setFilling(false);
+        showConfirm('Заполнить external_name для всех родителей без имени?', async () => {
+            setFilling(true);
+            const { ok, data } = await catalogApi.variantFillExternalNames(globalTypeId);
+            if (ok && data.success) {
+                flash(`✓ Обновлено: ${data.data.updated}`);
+                parents.load();
+            } else {
+                flash(data.error || 'Ошибка', false);
+            }
+            setFilling(false);
+        });
     };
 
     const loadVariants = useCallback(async (parent) => {
@@ -603,6 +606,7 @@ export default function VariantEditorPage({ onBack }) {
                     ))}
                 </Panel>
             </div>
+            {modals}
         </div>
     );
 }

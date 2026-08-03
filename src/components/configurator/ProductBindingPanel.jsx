@@ -1,12 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { apiFetch } from '../../api/auth';
+import { useState, useEffect } from 'react';
 import { catalogApi } from '../../api/catalog';
 import { useMultiSelect } from '../../hooks/useMultiSelect';
 
-const API = '/api/v1/catalog';
-
-
-export function ChainProductsPanel({ products, partialProducts = [], loading, filters, onDrop, onDetach, 
+export function ChainProductsPanel({ products, partialProducts = [], loading, filters, onDrop, onDetach,
     onPartialDragStart,onDetachAxis, availableAxes = [], }) {
     const [isDragOver, setIsDragOver] = useState(false);
     const [showDetachMenu, setShowDetachMenu] = useState(false);
@@ -16,9 +12,9 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
     // Del — удаление выделенных
     useEffect(() => {
         const handleKey = (e) => {
-            if (e.key === 'Delete' && selected.size > 0) {
-                onDetach?.([...selected]);
-                setSelected(new Set());
+            if (e.key === 'Delete' && fullSelect.selected.size > 0) {
+                onDetach?.([...fullSelect.selected]);
+                fullSelect.setSelected(new Set());
             }
         };
         window.addEventListener('keydown', handleKey);
@@ -270,13 +266,6 @@ export default function ProductBindingPanel({
             selectAll();
             onSelectionChange?.([...products.map(p => p.id)]);
         }
-    };
-
-    const handleClickWithCallback = (e, productId, idx) => {
-        if (readOnly) return;
-        handleClick(e, productId, idx);
-        // selected обновится асинхронно — используем setTimeout
-        setTimeout(() => onSelectionChange?.([...selected]), 0);
     };
 
     // ── Drag ───────────────────────────────────────────────────────────────

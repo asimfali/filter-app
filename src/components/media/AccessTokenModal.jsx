@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { mediaApi } from '../../api/media';
-import { apiFetch } from '../../api/auth';
+import { apiFetch, authApi } from '../../api/auth';
 import { IconEye } from '../common/Icons';
+import { inputCls } from '../../utils/styles';
+import Modal from '../common/Modal';
+import { useModals } from '../../hooks/useModals';
 
 export default function AccessTokenModal({ product, docType, onClose }) {
     const [tokens, setTokens] = useState([]);
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [showForm, setShowForm] = useState(false);
+    const { showAlert, modals } = useModals();
 
     // Форма создания токена
     const [form, setForm] = useState({
@@ -27,8 +31,8 @@ export default function AccessTokenModal({ product, docType, onClose }) {
         apiFetch('/api/v1/auth/users-list/').then(r => r.json()).then(d => {
             setUsers(d.results || d || []);
         });
-        apiFetch('/api/v1/auth/departments/?root_only=false').then(r => r.json()).then(d => {
-            setDepartments(Array.isArray(d) ? d : (d.results || []));
+        authApi.departments().then(({ data }) => {
+            setDepartments(Array.isArray(data) ? data : (data.results || []));
         });
     }, []);
 
@@ -42,7 +46,7 @@ export default function AccessTokenModal({ product, docType, onClose }) {
     const handleCreate = async (e) => {
         e.preventDefault();
         if (!form.granted_to_user_id && !form.granted_to_department_id) {
-            alert('Укажите получателя — пользователя или подразделение');
+            showAlert('Укажите получателя — пользователя или подразделение');
             return;
         }
 
@@ -76,29 +80,12 @@ export default function AccessTokenModal({ product, docType, onClose }) {
         "bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-neutral-900 rounded-xl shadow-xl border border-gray-700
-                            w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
-
-                {/* Шапка */}
-                <div className="flex items-center justify-between px-5 py-4
-                                border-b border-gray-700 shrink-0">
-                    <div>
-                        <div className="text-sm font-semibold text-white">
-                            Доступ к документам
-                        </div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                            {product.name} · {docType.name}
-                        </div>
-                    </div>
-                    <button onClick={onClose}
-                        className="text-gray-400 hover:text-white transition-colors">
-                        ✕
-                    </button>
-                </div>
+        <>
+        <Modal title="Доступ к документам" subtitle={`${product.name} · ${docType.name}`}
+            onClose={onClose} scrollBody forceDark>
 
                 {/* Контент */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                <div className="space-y-4">
 
                     {/* Активные токены */}
                     {loading ? (
@@ -262,7 +249,8 @@ export default function AccessTokenModal({ product, docType, onClose }) {
                         </button>
                     )}
                 </div>
-            </div>
-        </div>
+        </Modal>
+        {modals}
+        </>
     );
 }

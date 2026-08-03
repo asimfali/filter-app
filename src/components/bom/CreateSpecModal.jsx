@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { bomApi } from '../../api/bom';
 import { inputCls } from '../../utils/styles';
+import Modal from '../common/Modal';
 
 export default function CreateSpecModal({ onClose, onCreated }) {
     const [partSearch, setPartSearch] = useState('');
@@ -65,21 +66,8 @@ export default function CreateSpecModal({ onClose, onCreated }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center
-                        bg-black/40 dark:bg-black/60">
-            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
-                            border border-gray-200 dark:border-gray-700
-                            w-full max-w-md p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                        Новая спецификация
-                    </h2>
-                    <button onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 text-xl leading-none">
-                        ×
-                    </button>
-                </div>
-
+        <Modal title="Новая спецификация" onClose={onClose}>
+            <div className="space-y-4">
                 {/* Поиск изделия */}
                 <div className="relative">
                     <label className="block text-xs font-medium
@@ -161,6 +149,6 @@ export default function CreateSpecModal({ onClose, onCreated }) {
                     </button>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 }

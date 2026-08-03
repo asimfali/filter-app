@@ -5,18 +5,28 @@ import ProductBindingPanel, { ChainProductsPanel } from './ProductBindingPanel.j
 import BindingGraph from './BindingGraph.jsx';
 import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { useChainSearch } from '../../hooks/useChainSearch';
 import { IconEye, IconLock } from '../common/Icons.jsx';
 
+export const byNumericValue = (a, b) => {
+  const na = parseFloat(String(a.label).replace(',', '.'));
+  const nb = parseFloat(String(b.label).replace(',', '.'));
+  const aNum = !Number.isNaN(na);
+  const bNum = !Number.isNaN(nb);
+  if (aNum && bNum) return na - nb;
+  if (aNum) return -1;
+  if (bNum) return 1;
+  return String(a.label).localeCompare(b.label, 'ru');
+};
 
 const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, savedState, onSaveState }) => {
   const cyRef = useRef(null);
   const cyInstanceRef = useRef(null);
   const { user, loading: authLoading } = useAuth();
-  const canViewBinding = !authLoading && can(user, 'portal.page.binding');
-  const canEditBindings = !authLoading && can(user, 'catalog.binding.write');
-  const canEditSpecs = !authLoading && can(user, 'catalog.spec.write');
+  const canViewBinding = !authLoading && can(user, PERM.PORTAL_PAGE_BINDING);
+  const canEditBindings = !authLoading && can(user, PERM.CATALOG_BINDING_WRITE);
+  const canEditSpecs = !authLoading && can(user, PERM.CATALOG_SPEC_WRITE);
   const [partialSearch, setPartialSearch] = useState(true);
   const [dragMissingAxes, setDragMissingAxes] = useState([]);
 
@@ -885,7 +895,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                   {axis_name}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {tags.map(tag => {
+                  {[...tags].sort(byNumericValue).map(tag => {
                     const isSelected = selectedTags.includes(tag.id);
                     return (
                       <button
@@ -1096,7 +1106,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                     {axis_name}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {tags.map(tag => {
+                    {[...tags].sort(byNumericValue).map(tag => {
                       const isSelected = bindingTags.includes(tag.id);
                       return (
                         <button

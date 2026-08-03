@@ -5,7 +5,6 @@ const initialState = {
     connected: false,
     error: null,
     threads: {},
-    notifications: [],
 };
 
 function reducer(state, action) {
@@ -91,8 +90,6 @@ function reducer(state, action) {
                 },
             };
         }
-        case 'NOTIFICATION':
-            return { ...state, notifications: [action.payload, ...state.notifications] };
         case 'ISSUE_MESSAGES_LOADED': {
             const { issue_id, messages } = action.payload;
             // Найти thread_id по issue_id — ищем в существующих threads
@@ -117,8 +114,6 @@ function reducer(state, action) {
                 },
             };
         }
-        case 'CLEAR_NOTIFICATIONS':
-            return { ...state, notifications: [] };
         default:
             return state;
     }
@@ -248,7 +243,6 @@ export function useIssuesSocket({ onNotification } = {}) {
     const sendMessage = useCallback((issueId, text) => send({ action: 'send_message', issue_id: issueId, text }), [send]);
     const changeStatus = useCallback((issueId, status) => send({ action: 'change_status', issue_id: issueId, status }), [send]);
     const markRead = useCallback((messageIds) => send({ action: 'mark_read', message_ids: messageIds }), [send]);
-    const clearNotifications = useCallback(() => dispatch({ type: 'CLEAR_NOTIFICATIONS' }), []);
     const loadIssueMessages = useCallback(
         (issueId) => send({ action: 'load_issue_messages', issue_id: issueId }),
         [send]
@@ -258,13 +252,11 @@ export function useIssuesSocket({ onNotification } = {}) {
         connected: state.connected,
         error: state.error,
         threads: state.threads,
-        notifications: state.notifications,
         joinThread,
         leaveThread,
         sendMessage,
         changeStatus,
         markRead,
-        clearNotifications,
         loadIssueMessages,
     };
 }

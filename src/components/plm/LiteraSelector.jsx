@@ -1,18 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-
-const STATUS_COLOR = {
-    draft: 'bg-neutral-100 text-gray-500 dark:bg-neutral-800 dark:text-gray-400',
-    pending_approval: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    archived: 'bg-neutral-100 text-gray-400 dark:bg-neutral-800 dark:text-gray-500',
-};
-
-const STATUS_LABEL = {
-    draft: 'Черновик',
-    pending_approval: 'На согласовании',
-    active: 'Активна',
-    archived: 'В архиве',
-};
+import { STAGE_STATUS_LABEL, STAGE_STATUS_COLOR } from './constants';
 
 export default function LiteraSelector({ stages, selected, onChange, showAll = true }) {
     const [open, setOpen] = useState(false);
@@ -31,7 +18,7 @@ export default function LiteraSelector({ stages, selected, onChange, showAll = t
     if (stages.length === 1 && !showAll) {
         const s = stages[0];
         return (
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[s.status]}`}>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STAGE_STATUS_COLOR[s.status]}`}>
                 Лит.{s.litera_code}
             </span>
         );
@@ -51,7 +38,7 @@ export default function LiteraSelector({ stages, selected, onChange, showAll = t
                 className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full
                             font-medium border transition-colors
                             ${selected && selected !== 'none'
-                                ? `${STATUS_COLOR[selected.status]} border-transparent`
+                                ? `${STAGE_STATUS_COLOR[selected.status]} border-transparent`
                                 : 'bg-white dark:bg-neutral-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
                             }`}
             >
@@ -114,8 +101,8 @@ export default function LiteraSelector({ stages, selected, onChange, showAll = t
                                         {stage.litera_name}
                                     </span>
                                 </div>
-                                <span className={`px-1.5 py-0.5 rounded-full ${STATUS_COLOR[stage.status]}`}>
-                                    {STATUS_LABEL[stage.status]}
+                                <span className={`px-1.5 py-0.5 rounded-full ${STAGE_STATUS_COLOR[stage.status]}`}>
+                                    {STAGE_STATUS_LABEL[stage.status]}
                                 </span>
                             </div>
                         </button>

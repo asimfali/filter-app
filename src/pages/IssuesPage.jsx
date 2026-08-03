@@ -1,22 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useIssues } from '../contexts/IssuesContext.jsx';
 
-const STATUS_LABEL = {
-  open: 'Открыто',
-  in_progress: 'В работе',
-  resolved: 'Решено',
-  verified: 'Подтверждено',
-  rejected: 'Отклонено',
-};
-
-const STATUS_COLOR = {
-  open: 'bg-neutral-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-400',
-  in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  resolved: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-  verified: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-  rejected: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-};
-
 function ThreadCard({ thread, onOpen }) {
   const openCount = thread.open_issues_count ?? 0;
   const totalCount = thread.issues_count ?? 0;

@@ -125,8 +125,8 @@ export const authApi = {
     tokenStorage.clear();
   },
 
-  async departments() {
-    const res = await apiFetch(`${BASE}/departments/?root_only=false`);
+  async departments(rootOnly = false) {
+    const res = await apiFetch(`${BASE}/departments/?root_only=${rootOnly}`);
     return { ok: res.ok, data: await res.json() };
   },
 

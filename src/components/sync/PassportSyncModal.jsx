@@ -2,12 +2,13 @@
 import React, { useState, useRef } from 'react';
 import SmartSelect from '../common/SmartSelect';
 import { mediaApi } from '../../api/media';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { IconClock, IconFile } from '../common/Icons';
+import Modal from '../common/Modal';
 
 export default function PassportSyncModal({ user, onClose }) {
-    const canImport = can(user, 'passport.documents.upload');
-    const canExport = can(user, 'passport.documents.update');
+    const canImport = can(user, PERM.PASSPORT_DOCUMENTS_UPLOAD);
+    const canExport = can(user, PERM.PASSPORT_DOCUMENTS_UPDATE);
 
     const [document_, setDocument] = useState(null);
     const [file, setFile] = useState(null);
@@ -74,25 +75,66 @@ export default function PassportSyncModal({ user, onClose }) {
     if (!canImport && !canExport) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-             onClick={onClose}>
-            <div className="w-[640px] max-h-[85vh] flex flex-col bg-white dark:bg-neutral-900
-                            rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700
-                            overflow-hidden"
-                 onClick={e => e.stopPropagation()}>
+        <Modal title="Синхронизация паспортов" onClose={onClose} maxWidth="2xl" scrollBody closeOnBackdropClick
+            footer={
+                <div className="flex gap-2">
+                    {canImport && stage === 'idle' && (
+                        <button
+                            onClick={handlePreview}
+                            disabled={!document_ || !file}
+                            className="flex-1 px-3 py-2 text-sm font-medium rounded-lg
+                                       bg-blue-600 hover:bg-blue-700 disabled:opacity-40
+                                       text-white transition-colors">
+                            Проверить
+                        </button>
+                    )}
+                    {canImport && stage === 'preview' && report && (
+                        <button
+                            onClick={handleApply}
+                            className="flex-1 px-3 py-2 text-sm font-medium rounded-lg
+                                       bg-emerald-600 hover:bg-emerald-700
+                                       text-white transition-colors">
+                            Применить
+                        </button>
+                    )}
+                    {canImport && stage === 'applying' && (
+                        <button disabled
+                                className="flex-1 px-3 py-2 text-sm font-medium rounded-lg
+                                           bg-emerald-600 opacity-60 text-white flex items-center
+                                           justify-center gap-2">
+                            <IconClock className="w-4 h-4" /> Применение...
+                        </button>
+                    )}
+                    {canImport && stage === 'done' && (
+                        <span className="flex-1 px-3 py-2 text-sm font-medium rounded-lg
+                                         bg-emerald-50 dark:bg-emerald-900/20
+                                         text-emerald-600 dark:text-emerald-400 text-center">
+                            ✓ Применено
+                        </span>
+                    )}
 
-                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800
-                                flex items-center justify-between shrink-0">
-                    <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                        Синхронизация паспортов
-                    </h2>
+                    {canExport && (
+                        <button
+                            onClick={handleExport}
+                            disabled={!document_ || !file || exporting}
+                            className="px-3 py-2 text-sm font-medium rounded-lg
+                                       bg-violet-600 hover:bg-violet-700 disabled:opacity-40
+                                       text-white transition-colors">
+                            {exporting ? 'Подготовка...' : 'Обновить паспорт'}
+                        </button>
+                    )}
+
                     <button onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg">
-                        ×
+                            className="px-3 py-2 text-sm rounded-lg
+                                       bg-neutral-100 dark:bg-neutral-800
+                                       text-gray-600 dark:text-gray-400
+                                       hover:bg-neutral-200 dark:hover:bg-neutral-700
+                                       transition-colors">
+                        Закрыть
                     </button>
                 </div>
-
-                <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+            }>
+                <div className="space-y-4">
 
                     <div>
                         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -181,65 +223,6 @@ export default function PassportSyncModal({ user, onClose }) {
                         </div>
                     )}
                 </div>
-
-                <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800
-                                flex gap-2 shrink-0">
-                    {canImport && stage === 'idle' && (
-                        <button
-                            onClick={handlePreview}
-                            disabled={!document_ || !file}
-                            className="flex-1 px-3 py-2 text-sm font-medium rounded-lg
-                                       bg-blue-600 hover:bg-blue-700 disabled:opacity-40
-                                       text-white transition-colors">
-                            Проверить
-                        </button>
-                    )}
-                    {canImport && stage === 'preview' && report && (
-                        <button
-                            onClick={handleApply}
-                            className="flex-1 px-3 py-2 text-sm font-medium rounded-lg
-                                       bg-emerald-600 hover:bg-emerald-700
-                                       text-white transition-colors">
-                            Применить
-                        </button>
-                    )}
-                    {canImport && stage === 'applying' && (
-                        <button disabled
-                                className="flex-1 px-3 py-2 text-sm font-medium rounded-lg
-                                           bg-emerald-600 opacity-60 text-white flex items-center
-                                           justify-center gap-2">
-                            <IconClock className="w-4 h-4" /> Применение...
-                        </button>
-                    )}
-                    {canImport && stage === 'done' && (
-                        <span className="flex-1 px-3 py-2 text-sm font-medium rounded-lg
-                                         bg-emerald-50 dark:bg-emerald-900/20
-                                         text-emerald-600 dark:text-emerald-400 text-center">
-                            ✓ Применено
-                        </span>
-                    )}
-
-                    {canExport && (
-                        <button
-                            onClick={handleExport}
-                            disabled={!document_ || !file || exporting}
-                            className="px-3 py-2 text-sm font-medium rounded-lg
-                                       bg-violet-600 hover:bg-violet-700 disabled:opacity-40
-                                       text-white transition-colors">
-                            {exporting ? 'Подготовка...' : 'Обновить паспорт'}
-                        </button>
-                    )}
-
-                    <button onClick={onClose}
-                            className="px-3 py-2 text-sm rounded-lg
-                                       bg-neutral-100 dark:bg-neutral-800
-                                       text-gray-600 dark:text-gray-400
-                                       hover:bg-neutral-200 dark:hover:bg-neutral-700
-                                       transition-colors">
-                        Закрыть
-                    </button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

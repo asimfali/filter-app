@@ -137,6 +137,7 @@ export default function FolderPicker({ value, onChange, folderType = 'nomenclatu
         // Для spec — показать все при фокусе если query пустой
         if (folderType === 'spec' && !query.trim()) {
             setResults(allFolders.slice(0, 30));
+            setOpen(true);
         }
     };
 

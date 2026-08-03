@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { catalogApi } from '../../api/catalog';
 import SmartSelect from '../common/SmartSelect';
 
 // Цвета для значений оси heating

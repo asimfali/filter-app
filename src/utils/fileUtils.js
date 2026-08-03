@@ -1,6 +1,7 @@
+export const getExt = (fname) => (fname || '').split('.').pop().toLowerCase();
+
 export const canPreview3D = (fname) => {
-    const ext = (fname || '').split('.').pop().toLowerCase();
-    return ['glb', 'gltf', 'stl', 'obj'].includes(ext);
+    return ['glb', 'gltf', 'stl', 'obj'].includes(getExt(fname));
 };
 
 export const is3DModelType = (docTypeCode) => docTypeCode === 'models';

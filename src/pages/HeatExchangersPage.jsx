@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { mediaApi } from '../api/media';
-import { can } from '../utils/permissions';
+import { can, PERM } from '../utils/permissions';
 import CreateFilterModal from '../components/media/CreateFilterModal.jsx';
 import DirectProductsPanel from '../components/media/DirectProductsPanel';
 import FiltersPanel from '../components/media/FiltersPanel';
@@ -271,27 +271,7 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
     const [draggingOver, setDraggingOver] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [uploadMsg, setUploadMsg] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-    const [searching, setSearching] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
-
-    // Поиск существующих документов типа heart_exchanger
-    useEffect(() => {
-        if (!drawingDocTypeId || searchQuery.length < 2) {
-            setSearchResults([]);
-            return;
-        }
-        const t = setTimeout(async () => {
-            setSearching(true);
-            const { ok, data } = await mediaApi.searchDocuments(
-                String(drawingDocTypeId), searchQuery
-            );
-            if (ok) setSearchResults(data.results || []);
-            setSearching(false);
-        }, 300);
-        return () => clearTimeout(t);
-    }, [searchQuery, drawingDocTypeId]);
 
     const handleDrop = async (e) => {
         e.preventDefault();
@@ -344,7 +324,6 @@ function DrawingPanel({ item, canWrite, drawingDocTypeId }) {
                 if (updated) setDrawingFiles(updated.drawing_files || []);
             }
             setShowSearch(false);
-            setSearchQuery('');
             setUploadMsg({ ok: true, text: `✓ Привязан: ${doc.external_id}` });
         }
     };
@@ -533,7 +512,7 @@ function HeatExchangerCard({ item, canWrite, axes, drawingDocTypeId, onUpdated, 
 
 export default function HeatExchangersPage() {
     const { user } = useAuth();
-    const canWrite = can(user, 'portal.heat_exchanger.write');
+    const canWrite = can(user, PERM.PORTAL_HEAT_EXCHANGER_WRITE);
     const { items, loading, error, reload } = useHeatExchangers();
     const [showCreate, setShowCreate] = useState(false);
     const [search, setSearch] = useState('');
