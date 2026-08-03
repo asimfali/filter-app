@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext.jsx';
 import { useCart } from '../../contexts/CartContext';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import SmartSelect from '../common/SmartSelect';
 import ProfileModal from '../auth/ProfileModal';
 import {
@@ -206,21 +206,21 @@ export default function Header({ currentPage, onNavigate }) {
           <nav className="flex gap-1">
             {(() => {
               const ALL_PAGES = [
-                { id: 'configurator',  label: 'Конфигуратор',     code: null,                        icon: IconGrid },
-                { id: 'sales',         label: 'Продажи',           code: 'sales.cart.write',          icon: IconSales },
-                { id: 'parameters',    label: 'Параметры',         code: 'portal.page.parameters',    icon: IconFilter },
-                { id: 'series-master', label: 'Мастер серий',      code: 'catalog.series.manage',     icon: IconBox },
-                { id: 'staff',         label: 'Персонал',          code: 'portal.page.staff',         icon: IconUsers },
-                { id: 'documents',     label: 'Документы',         code: 'portal.page.documents',     icon: IconDocument },
-                { id: 'issues',        label: 'Замечания',         code: 'portal.page.issues',        icon: IconFlag },
-                { id: 'plm',           label: 'PLM',               code: 'plm.stage.manage',          icon: IconLifecycle },
-                { id: 'part-editor',   label: 'Спецификации',      code: 'bom.spec.view',             icon: IconClipboard },
-                { id: 'heat-exchangers', label: 'Теплообменники',  code: 'portal.heat_exchanger.view',icon: IconThermometer },
-                { id: 'accessory-kits',  label: 'Комплектующие',   code: 'catalog.accessory.write',   icon: IconPuzzle },
-                { id: 'defect-acts',   label: 'Ведомость дефектов',code: 'bom.defect.view',           icon: IconFile },
-                { id: 'variant-editor',label: 'Исполнения',        code: 'product.variant.view',      icon: IconText },
-                { id: 'selection',     label: 'Подбор',            code: 'portal.page.selection',     icon: IconFilter },
-                { id: 'fan-charts',    label: 'Графики',           code: 'page.graph.read',     icon: IconChartBar },
+                { id: 'configurator',  label: 'Конфигуратор',     code: null,                             icon: IconGrid },
+                { id: 'sales',         label: 'Продажи',           code: PERM.SALES_CART_WRITE,           icon: IconSales },
+                { id: 'parameters',    label: 'Параметры',         code: PERM.PORTAL_PAGE_PARAMETERS,     icon: IconFilter },
+                { id: 'series-master', label: 'Мастер серий',      code: PERM.CATALOG_SERIES_MANAGE,      icon: IconBox },
+                { id: 'staff',         label: 'Персонал',          code: PERM.PORTAL_PAGE_STAFF,          icon: IconUsers },
+                { id: 'documents',     label: 'Документы',         code: PERM.PORTAL_PAGE_DOCUMENTS,      icon: IconDocument },
+                { id: 'issues',        label: 'Замечания',         code: PERM.PORTAL_PAGE_ISSUES,         icon: IconFlag },
+                { id: 'plm',           label: 'PLM',               code: PERM.PLM_STAGE_MANAGE,           icon: IconLifecycle },
+                { id: 'part-editor',   label: 'Спецификации',      code: PERM.BOM_SPEC_VIEW,              icon: IconClipboard },
+                { id: 'heat-exchangers', label: 'Теплообменники',  code: PERM.PORTAL_HEAT_EXCHANGER_VIEW, icon: IconThermometer },
+                { id: 'accessory-kits',  label: 'Комплектующие',   code: PERM.CATALOG_ACCESSORY_WRITE,    icon: IconPuzzle },
+                { id: 'defect-acts',   label: 'Ведомость дефектов',code: PERM.BOM_DEFECT_VIEW,            icon: IconFile },
+                { id: 'variant-editor',label: 'Исполнения',        code: PERM.PRODUCT_VARIANT_VIEW,       icon: IconText },
+                { id: 'selection',     label: 'Подбор',            code: PERM.PORTAL_PAGE_SELECTION,      icon: IconFilter },
+                { id: 'fan-charts',    label: 'Графики',           code: PERM.PAGE_GRAPH_READ,            icon: IconChartBar },
               ]
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [
@@ -282,7 +282,7 @@ export default function Header({ currentPage, onNavigate }) {
         {/* Колокольчик */}
         {user && <NotificationBell onNavigate={onNavigate} />}
 
-        {user && can(user, 'sales.cart.write') && (
+        {user && can(user, PERM.SALES_CART_WRITE) && (
           <button
             onClick={() => onNavigate('sales')}
             className="relative w-9 h-9 flex items-center justify-center rounded-lg

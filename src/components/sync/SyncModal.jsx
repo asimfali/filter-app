@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { externalApi } from '../../api/external';
 import { mediaApi } from '../../api/media';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import { selectionApi } from '../../api/selection';
 import { IconLink, IconClock } from '../common/Icons';
+import Modal from '../common/Modal';
 
 // ─── Конфигурация режимов ─────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ const MODE_CONFIG = {
     prices: {
         title: 'Обновить цены',
         btnColor: 'bg-blue-600 hover:bg-blue-700',
-        permission: 'external.sync_prices',
+        permission: PERM.EXTERNAL_SYNC_PRICES,
         loadItems: () => externalApi.getSyncConfigs(),
         runItem: (id) => externalApi.syncPrices(id),
         isAsync: true, // возвращает task_id
@@ -22,7 +23,7 @@ const MODE_CONFIG = {
     catalog: {
         title: 'Синхронизировать каталог',
         btnColor: 'bg-violet-600 hover:bg-violet-700',
-        permission: 'external.sync_catalog',
+        permission: PERM.EXTERNAL_SYNC_CATALOG,
         loadItems: () => externalApi.getSyncConfigs(),
         runItem: (id) => externalApi.syncCatalog(id),
         isAsync: true,
@@ -33,7 +34,7 @@ const MODE_CONFIG = {
     variants: {
         title: <><IconLink className="w-4 h-4 inline mr-1" />Группировка исполнений</>,
         btnColor: 'bg-amber-600 hover:bg-amber-700',
-        permission: 'external.manage_variants',
+        permission: PERM.EXTERNAL_MANAGE_VARIANTS,
         loadItems: () => externalApi.getVariantRules(),
         runItem: (id, opts) => externalApi.applyVariantRules(id, opts?.resetFirst ?? true),
         isAsync: false, // синхронный — результат сразу
@@ -55,7 +56,7 @@ const MODE_CONFIG = {
     rsync: {
         title: 'Rsync медиафайлов',
         btnColor: 'bg-teal-600 hover:bg-teal-700',
-        permission: 'external.rsync_media',
+        permission: PERM.EXTERNAL_RSYNC_MEDIA,
         loadItems: () => externalApi.getRsyncFolders(),
         runItem: (id, opts) => externalApi.rsyncMedia(id, opts?.syncDocuments ?? true),
         isAsync: true,
@@ -75,7 +76,7 @@ const MODE_CONFIG = {
     fan_charts: {
         title: 'Синхронизировать графики',
         btnColor: 'bg-indigo-600 hover:bg-indigo-700',
-        permission: 'external.push_to_site',
+        permission: PERM.EXTERNAL_PUSH_TO_SITE,
         loadItems: async () => ({
             ok: true,
             data: {
@@ -92,7 +93,7 @@ const MODE_CONFIG = {
     dxf_import: {
         title: 'Импорт DXF (аэродинамика)',
         btnColor: 'bg-violet-600 hover:bg-violet-700',
-        permission: 'portal.chart.write',
+        permission: PERM.PORTAL_CHART_WRITE,
         // Статический список — один пункт "Загрузить файлы"
         loadItems: async () => ({
             ok: true,
@@ -107,7 +108,7 @@ const MODE_CONFIG = {
     extract: {
         title: 'Импорт характеристик из PDF',
         btnColor: 'bg-blue-600 hover:bg-blue-700',
-        permission: 'pdf.spec.write',
+        permission: PERM.PDF_SPEC_WRITE,
         loadItems: async () => ({
             ok: true,
             data: {
@@ -121,14 +122,14 @@ const MODE_CONFIG = {
     s3_media: {
         title: 'Медиа → S3',
         btnColor: 'bg-sky-600 hover:bg-sky-700',
-        permission: 'portal.s3.upload',  // ← гейт на вход в модалку
+        permission: PERM.PORTAL_S3_UPLOAD,  // ← гейт на вход в модалку
         loadItems: async () => ({
             ok: true,
             data: {
                 success: true,
                 data: [
-                    { id: 'gallery', name: 'Галерея (полная синхронизация)', permission: 'portal.gallery.upload' },
-                    { id: 'hero_video', name: 'Hero-видео (полная синхронизация)', permission: 'portal.video.upload' },
+                    { id: 'gallery', name: 'Галерея (полная синхронизация)', permission: PERM.PORTAL_GALLERY_UPLOAD },
+                    { id: 'hero_video', name: 'Hero-видео (полная синхронизация)', permission: PERM.PORTAL_VIDEO_UPLOAD },
                 ],
             },
         }),
@@ -210,7 +211,12 @@ export default function SyncModal({ user, onClose, mode }) {
 
                     setResults(prev => ({
                         ...prev,
-                        [itemId]: { loading: false, ok: !isFailed, message: msg },
+                        [itemId]: {
+                            loading: false,
+                            ok: !isFailed,
+                            message: msg,
+                            ...(mode === 'extract' && !isFailed ? { taskId } : {}),
+                        },
                     }));
                     setTaskIds(prev => { const n = { ...prev }; delete n[itemId]; return n; });
                 }
@@ -249,6 +255,7 @@ export default function SyncModal({ user, onClose, mode }) {
     const runDxfImport = async (itemId, merge) => {
         const fileList = files[itemId];
         const configFile = dxfConfig[itemId]
+        const product = dxfProduct.trim() || fileList[0].name.replace('.dxf', '');
         setResults(prev => ({
             ...prev,
             [itemId]: { loading: true, ok: null, message: 'Запуск...' },
@@ -256,7 +263,7 @@ export default function SyncModal({ user, onClose, mode }) {
 
         const { ok, data } = await selectionApi.dxfImportUpload(
             Array.from(fileList),
-            dxfProduct.trim(),
+            product,
             20.0,
             true,
             merge,
@@ -310,7 +317,7 @@ export default function SyncModal({ user, onClose, mode }) {
             const { selectionApi } = await import('../../api/selection');
             ({ ok, data } = await selectionApi.dxfImportUpload(
                 Array.from(fileList),
-                dxfProduct.trim(),
+                dxfProduct.trim() || fileList[0].name.replace('.dxf', ''),
                 20.0,
                 true,
                 dxfMerge,
@@ -358,36 +365,37 @@ export default function SyncModal({ user, onClose, mode }) {
     const anyLoading = Object.values(results).some(r => r.loading);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-            onClick={onClose}>
-            <div className="w-96 bg-white dark:bg-neutral-900
-                            rounded-xl shadow-2xl
-                            border border-gray-200 dark:border-gray-700
-                            overflow-hidden"
-                onClick={e => e.stopPropagation()}>
-
-                {/* Шапка */}
-                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800
-                                flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {config.title}
-                    </h2>
-                    <button onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600
-                                       dark:hover:text-gray-300 text-lg">
-                        ×
+        <Modal title={config.title} onClose={onClose} maxWidth="sm" scrollBody closeOnBackdropClick
+            footer={
+                <div className="flex gap-2">
+                    <button
+                        onClick={runAll}
+                        disabled={runningAll || anyLoading || items.length === 0}
+                        className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg
+                                    text-white transition-colors disabled:opacity-40
+                                    ${config.btnColor}`}>
+                        {runningAll ? 'Запуск всех...' : 'Запустить все'}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-3 py-2 text-sm rounded-lg
+                                   bg-neutral-100 dark:bg-neutral-800
+                                   text-gray-600 dark:text-gray-400
+                                   hover:bg-neutral-200 dark:hover:bg-neutral-700
+                                   transition-colors">
+                        Закрыть
                     </button>
                 </div>
-
+            }>
                 {/* Доп. контролы (если есть) */}
                 {config.extraControls && (
-                    <div className="px-5 pt-3">
+                    <div className="mb-3">
                         {config.extraControls(opts, setOpts)}
                     </div>
                 )}
 
                 {/* Список */}
-                <div className="px-5 py-4 space-y-2 max-h-72 overflow-y-auto">
+                <div className="space-y-2">
                     {items.length === 0 && (
                         <p className="text-sm text-gray-400 text-center py-4">
                             Загрузка...
@@ -602,31 +610,6 @@ export default function SyncModal({ user, onClose, mode }) {
                         );
                     })}
                 </div>
-
-
-
-                {/* Футер */}
-                <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800
-                                flex gap-2">
-                    <button
-                        onClick={runAll}
-                        disabled={runningAll || anyLoading || items.length === 0}
-                        className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg
-                                    text-white transition-colors disabled:opacity-40
-                                    ${config.btnColor}`}>
-                        {runningAll ? 'Запуск всех...' : 'Запустить все'}
-                    </button>
-                    <button
-                        onClick={onClose}
-                        className="px-3 py-2 text-sm rounded-lg
-                                   bg-neutral-100 dark:bg-neutral-800
-                                   text-gray-600 dark:text-gray-400
-                                   hover:bg-neutral-200 dark:hover:bg-neutral-700
-                                   transition-colors">
-                        Закрыть
-                    </button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

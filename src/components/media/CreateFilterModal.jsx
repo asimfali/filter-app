@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { mediaApi } from '../../api/media';
+import Modal from '../common/Modal';
 
 export default function CreateFilterModal({ docId, heId, kitId, axes, currentFilterIds = [], onCreated, onClose }) {
     const [mode, setMode] = useState('existing'); // 'existing' | 'new'
@@ -97,8 +98,6 @@ export default function CreateFilterModal({ docId, heId, kitId, axes, currentFil
         }
     };
 
-    const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
-
     // ── Группировка существующих фильтров по оси ─────────────────────────
 
     const filtersByAxis = allFilters.reduce((acc, f) => {
@@ -111,59 +110,48 @@ export default function CreateFilterModal({ docId, heId, kitId, axes, currentFil
     // ── Render ────────────────────────────────────────────────────────────
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center
-                        bg-black/40 backdrop-blur-sm"
-            onClick={handleBackdrop}
-        >
-            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-md
-                            mx-4 flex flex-col max-h-[80vh]">
-
-                {/* Шапка */}
-                <div className="flex items-center justify-between px-5 py-4
-                                border-b border-gray-100 dark:border-gray-700 shrink-0">
-                    <div>
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                            Добавить фильтр
-                        </h3>
-                        {mode === 'new' && step === 'values' && (
-                            <p className="text-xs text-gray-400 mt-0.5">{selectedAxisName}</p>
-                        )}
-                    </div>
+        <Modal title="Добавить фильтр" onClose={onClose} closeOnBackdropClick scrollBody
+            subtitle={mode === 'new' && step === 'values' ? selectedAxisName : undefined}
+            footer={mode === 'new' && step === 'values' && !loadingValues && (
+                <div className="flex justify-end gap-2">
                     <button onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300
-                                   transition-colors text-lg leading-none">
-                        ×
+                        className="text-sm text-gray-500 hover:text-gray-700
+                                   dark:hover:text-gray-300 px-3 py-2 transition-colors">
+                        Отмена
+                    </button>
+                    <button
+                        onClick={handleCreate}
+                        disabled={!selectedValueIds.length || saving}
+                        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50
+                                   text-white text-sm font-medium px-4 py-2
+                                   rounded-lg transition-colors">
+                        {saving ? 'Создание...' : 'Создать фильтр'}
+                    </button>
+                </div>
+            )}>
+
+                {/* Переключатель режимов */}
+                <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg w-fit mb-4">
+                    <button
+                        onClick={() => setMode('existing')}
+                        className={`px-3 py-1.5 rounded text-xs transition-colors ${mode === 'existing'
+                            ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}>
+                        Выбрать существующий
+                    </button>
+                    <button
+                        onClick={() => { setMode('new'); setStep('axis'); setSelectedAxisId(null); }}
+                        className={`px-3 py-1.5 rounded text-xs transition-colors ${mode === 'new'
+                            ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
+                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}>
+                        + Создать новый
                     </button>
                 </div>
 
-                {/* Переключатель режимов */}
-                <div className="px-5 pt-3 shrink-0">
-                    <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg w-fit">
-                        <button
-                            onClick={() => setMode('existing')}
-                            className={`px-3 py-1.5 rounded text-xs transition-colors ${mode === 'existing'
-                                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}>
-                            Выбрать существующий
-                        </button>
-                        <button
-                            onClick={() => { setMode('new'); setStep('axis'); setSelectedAxisId(null); }}
-                            className={`px-3 py-1.5 rounded text-xs transition-colors ${mode === 'new'
-                                ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-white shadow-sm font-medium'
-                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}>
-                            + Создать новый
-                        </button>
-                    </div>
-                </div>
-
-                {/* Тело — скроллируемое */}
-                <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0">
-
-                    {/* ── Режим: существующие ── */}
-                    {mode === 'existing' && (
+                {/* ── Режим: существующие ── */}
+                {mode === 'existing' && (
                         <>
                             {loadingFilters ? (
                                 <p className="text-sm text-gray-400 text-center py-6">Загрузка...</p>
@@ -314,31 +302,9 @@ export default function CreateFilterModal({ docId, heId, kitId, axes, currentFil
                         </div>
                     )}
 
-                    {error && (
-                        <p className="text-xs text-red-500 mt-3">{error}</p>
-                    )}
-                </div>
-
-                {/* Футер — только для режима "новый", шаг "значения" */}
-                {mode === 'new' && step === 'values' && !loadingValues && (
-                    <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700
-                                    flex justify-end gap-2 shrink-0">
-                        <button onClick={onClose}
-                            className="text-sm text-gray-500 hover:text-gray-700
-                                       dark:hover:text-gray-300 px-3 py-2 transition-colors">
-                            Отмена
-                        </button>
-                        <button
-                            onClick={handleCreate}
-                            disabled={!selectedValueIds.length || saving}
-                            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50
-                                       text-white text-sm font-medium px-4 py-2
-                                       rounded-lg transition-colors">
-                            {saving ? 'Создание...' : 'Создать фильтр'}
-                        </button>
-                    </div>
+                {error && (
+                    <p className="text-xs text-red-500 mt-3">{error}</p>
                 )}
-            </div>
-        </div>
+        </Modal>
     );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useIssues } from '../../contexts/IssuesContext.jsx';
-import { tokenStorage } from '../../api/auth.js';
+import { authApi } from '../../api/auth.js';
+import Modal from '../common/Modal.jsx';
 
 export default function CreateThreadModal({ productIds, graphContext, onClose, onCreated }) {
     const { createThread } = useIssues();
@@ -15,14 +16,9 @@ export default function CreateThreadModal({ productIds, graphContext, onClose, o
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        const token = tokenStorage.getAccess();
-        fetch('/api/v1/auth/departments/?root_only=false', {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then(r => r.json())
-            .then(data => {
-                const list = Array.isArray(data) ? data : (data.results ?? []);
-                setDepartments(list);
+        authApi.departments()
+            .then(({ ok, data }) => {
+                if (ok) setDepartments(Array.isArray(data) ? data : (data.results ?? []));
             })
             .catch(() => {})
             .finally(() => setDeptsLoading(false));
@@ -53,29 +49,11 @@ export default function CreateThreadModal({ productIds, graphContext, onClose, o
     };
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-        >
-            <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
-
-                <div className="flex items-center justify-between px-6 py-4
-                        border-b border-gray-100 dark:border-gray-800">
-                    <div>
-                        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                            Создать тред
-                        </h2>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                            {productIds.length} изделий
-                        </p>
-                    </div>
-                    <button onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                        ✕
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="px-6 py-4 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+        <Modal title="Создать тред" onClose={onClose} maxWidth="lg" scrollBody closeOnBackdropClick>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <p className="text-xs text-gray-400 dark:text-gray-500 -mt-2">
+                    {productIds.length} изделий
+                </p>
 
                     {/* Заголовок */}
                     <div>
@@ -199,8 +177,7 @@ export default function CreateThreadModal({ productIds, graphContext, onClose, o
                             {loading ? 'Создание...' : 'Создать тред'}
                         </button>
                     </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </Modal>
     );
 }

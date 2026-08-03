@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
 import tailwindcss from '@tailwindcss/vite'
@@ -12,6 +12,11 @@ export default defineConfig({
       additionalLegacyPolyfills: ['regenerator-runtime/runtime'],
     }),
   ],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/setupTests.js'],
+    css: false,
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

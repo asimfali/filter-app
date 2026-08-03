@@ -3,14 +3,16 @@ import { authApi } from '../../api/auth';
 import { bomApi } from '../../api/bom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { externalApi } from '../../api/external';
-import { can } from '../../utils/permissions';
+import { can, PERM } from '../../utils/permissions';
 import SyncModal from '../sync/SyncModal';
 import PassportSyncModal from '../sync/PassportSyncModal';
 import SelectionConfigModal from '../selection/SelectionConfigModal';
 import { IconLink, IconFolder } from '../common/Icons';
+import { useModals } from '../../hooks/useModals';
 
 export default function ProfileModal({ user, onClose, onUpdated }) {
     const { dark, toggle, setDark } = useTheme();
+    const { showConfirm, modals } = useModals();
     const [prefs, setPrefs] = useState(null);
     const [presets, setPresets] = useState([]);
     const [saving, setSaving] = useState(false);
@@ -22,10 +24,6 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     const [pushing, setPushing] = useState(false);
     const [pushResult, setPushResult] = useState(null);
     const [pushTaskId, setPushTaskId] = useState(null);
-    const [syncingPrices, setSyncingPrices] = useState(false);
-    const [syncPricesResult, setSyncPricesResult] = useState(null);
-    const [syncingCatalog, setSyncingCatalog] = useState(false);
-    const [syncCatalogResult, setSyncCatalogResult] = useState(null);
     const [syncModal, setSyncModal] = useState(null);
     const [selectionConfigOpen, setSelectionConfigOpen] = useState(false);
     const [passportSyncOpen, setPassportSyncOpen] = useState(false);
@@ -75,58 +73,19 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
         });
     }, []);
 
-    const handlePushToSite = async () => {
-        if (!confirm('Отправить все товары на внешний сайт?')) return;
-        setPushing(true);
-        setPushResult(null);
-        const { ok, data } = await externalApi.pushToSite();
-        if (ok && data.success) {
-            setPushTaskId(data.data.task_id);
-            setPushResult({ ok: true, message: `Запущено (${data.data.total} товаров)...` });
-        } else {
-            setPushing(false);
-            setPushResult({ ok: false, message: data.error || 'Ошибка' });
-        }
-    };
-
-    const handleSyncPrices = async () => {
-        if (!confirm('Синхронизировать цены из 1С?')) return;
-        setSyncingPrices(true);
-        setSyncPricesResult(null);
-        const { ok, data } = await externalApi.syncPrices();
-        setSyncingPrices(false);
-        if (ok && data.success) {
-            setSyncPricesResult({
-                ok: true,
-                message: `Запущено (${data.data.configs_count} конфигов)...`,
-            });
-        } else {
-            setSyncPricesResult({
-                ok: false,
-                message: data.error || 'Ошибка',
-            });
-        }
-        setTimeout(() => setSyncPricesResult(null), 5000);
-    };
-
-    const handleSyncCatalog = async () => {
-        if (!confirm('Запустить полную синхронизацию каталога из 1С? Это займёт около минуты.')) return;
-        setSyncingCatalog(true);
-        setSyncCatalogResult(null);
-        const { ok, data } = await externalApi.syncCatalog();
-        setSyncingCatalog(false);
-        if (ok && data.success) {
-            setSyncCatalogResult({
-                ok: true,
-                message: `Запущено (${data.data.configs_count} конфигов)...`,
-            });
-        } else {
-            setSyncCatalogResult({
-                ok: false,
-                message: data.error || 'Ошибка',
-            });
-        }
-        setTimeout(() => setSyncCatalogResult(null), 5000);
+    const handlePushToSite = () => {
+        showConfirm('Отправить все товары на внешний сайт?', async () => {
+            setPushing(true);
+            setPushResult(null);
+            const { ok, data } = await externalApi.pushToSite();
+            if (ok && data.success) {
+                setPushTaskId(data.data.task_id);
+                setPushResult({ ok: true, message: `Запущено (${data.data.total} товаров)...` });
+            } else {
+                setPushing(false);
+                setPushResult({ ok: false, message: data.error || 'Ошибка' });
+            }
+        });
     };
 
     const handleThemeChange = async (theme) => {
@@ -277,7 +236,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                     )}
 
                     {/* Синхронизация с внешним сайтом */}
-                    {can(user, 'external.push_to_site') && (
+                    {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
                         <div>
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400
                       uppercase tracking-wide mb-2">
@@ -291,7 +250,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                        disabled:opacity-40 text-white transition-colors">
                                 {pushing ? 'Отправка...' : 'Синхронизировать сайт'}
                             </button>
-                            {can(user, 'external.push_to_site') && (
+                            {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
                                 <button
                                     onClick={() => setSyncModal('fan_charts')}
                                     className="w-full px-3 py-2 text-sm font-medium rounded-lg
@@ -300,7 +259,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                     Синхронизировать графики
                                 </button>
                             )}
-                            {can(user, 'external.manage_variants') && (
+                            {can(user, PERM.EXTERNAL_MANAGE_VARIANTS) && (
                                 <button
                                     onClick={() => setSyncModal('variants')}
                                     className="w-full px-3 py-2 text-sm font-medium rounded-lg
@@ -309,7 +268,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                     <IconLink className="w-4 h-4 inline mr-1 align-middle" /> Группировка исполнений
                                 </button>
                             )}
-                            {can(user, 'external.rsync_media') && (
+                            {can(user, PERM.EXTERNAL_RSYNC_MEDIA) && (
                                 <button
                                     onClick={() => setSyncModal('rsync')}
                                     className="w-full px-3 py-2 text-sm font-medium rounded-lg
@@ -318,7 +277,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                     Rsync медиафайлов
                                 </button>
                             )}
-                            {can(user, 'portal.s3.upload') && (
+                            {can(user, PERM.PORTAL_S3_UPLOAD) && (
                                 <button
                                     onClick={() => setSyncModal('s3_media')}
                                     className="w-full px-3 py-2 text-sm font-medium rounded-lg
@@ -337,14 +296,14 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         </div>
                     )}
 
-                    {(can(user, 'external.sync_prices') || can(user, 'external.sync_catalog')) && (
+                    {(can(user, PERM.EXTERNAL_SYNC_PRICES) || can(user, PERM.EXTERNAL_SYNC_CATALOG)) && (
                         <div>
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400
                       uppercase tracking-wide mb-2">
                                 Синхронизация с 1С
                             </p>
                             <div className="space-y-2">
-                                {can(user, 'external.sync_prices') && (
+                                {can(user, PERM.EXTERNAL_SYNC_PRICES) && (
                                     <button
                                         onClick={() => setSyncModal('prices')}
                                         className="w-full px-3 py-2 text-sm font-medium rounded-lg
@@ -353,7 +312,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                         Обновить цены
                                     </button>
                                 )}
-                                {can(user, 'external.sync_catalog') && (
+                                {can(user, PERM.EXTERNAL_SYNC_CATALOG) && (
                                     <button
                                         onClick={() => setSyncModal('catalog')}
                                         className="w-full px-3 py-2 text-sm font-medium rounded-lg
@@ -375,7 +334,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         />
                     )}
 
-                    {can(user, 'pdf.spec.write') && (
+                    {can(user, PERM.PDF_SPEC_WRITE) && (
                         <button
                             onClick={() => setSyncModal('extract')}
                             className="w-full px-3 py-2 text-sm font-medium rounded-lg
@@ -385,7 +344,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         </button>
                     )}
 
-                    {(can(user, 'passport.documents.upload') || can(user, 'passport.documents.update')) && (
+                    {(can(user, PERM.PASSPORT_DOCUMENTS_UPLOAD) || can(user, PERM.PASSPORT_DOCUMENTS_UPDATE)) && (
                         <button
                             onClick={() => setPassportSyncOpen(true)}
                             className="w-full px-3 py-2 text-sm font-medium rounded-lg
@@ -395,7 +354,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         </button>
                     )}
 
-                    {can(user, 'portal.chart.write') && (
+                    {can(user, PERM.PORTAL_CHART_WRITE) && (
                         <button
                             onClick={() => setSyncModal('dxf_import')}
                             className="w-full px-3 py-2 text-sm font-medium rounded-lg
@@ -445,7 +404,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                     </div>
 
                     {/* Пресет этапов */}
-                    {can(user, 'bom.spec.push') && presets.length > 0 && (
+                    {can(user, PERM.BOM_SPEC_PUSH) && presets.length > 0 && (
                         <div>
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400
                                       uppercase tracking-wide mb-2">
@@ -486,7 +445,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                             )}
                         </div>
                     )}
-                    {can(user, 'bom.spec.push') && specFolders.length > 0 && (
+                    {can(user, PERM.BOM_SPEC_PUSH) && specFolders.length > 0 && (
                         <div>
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400
                       uppercase tracking-wide mb-2">
@@ -525,7 +484,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         </div>
                     )}
                     {/* Вид номенклатуры деталей */}
-                    {can(user, 'bom.spec.push') && (
+                    {can(user, PERM.BOM_SPEC_PUSH) && (
                         <div>
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400
                   uppercase tracking-wide mb-2">
@@ -574,6 +533,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                     />
                 )}
             </div>
+            {modals}
         </div>
     );
 }

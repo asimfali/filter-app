@@ -6,11 +6,12 @@ export function useMultiSelect(items) {
     const lastClickedIdx = useRef(null);
 
     const handleClick = (e, itemId, idx) => {
+        const prevIdx = lastClickedIdx.current;
         setSelected(prev => {
             const next = new Set(prev);
-            if (e.shiftKey && lastClickedIdx.current !== null) {
-                const from = Math.min(lastClickedIdx.current, idx);
-                const to = Math.max(lastClickedIdx.current, idx);
+            if (e.shiftKey && prevIdx !== null) {
+                const from = Math.min(prevIdx, idx);
+                const to = Math.max(prevIdx, idx);
                 for (let i = from; i <= to; i++) {
                     next.add(items[i].id);
                 }

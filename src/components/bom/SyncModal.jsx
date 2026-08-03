@@ -3,6 +3,7 @@ import { bomApi } from '../../api/bom';
 import { useModals } from '../../hooks/useModals';
 import { inputCls } from '../../utils/styles';
 import { IconFolder, IconFactory, IconText, IconBox} from '../common/Icons';
+import Modal from '../common/Modal';
 
 // Вспомогательный компонент кнопки
 function SyncButton({ label, description, icon, onClick, loading, variant = 'secondary', status, message }) {
@@ -60,18 +61,32 @@ export default function SyncModal({ onClose, onRefresh }) {
     }, []);
 
     const pollTaskStatus = (taskId, configId, label) => {
+        // 'global' — псевдо-configId для действий верхнего уровня (handleSyncAction):
+        // их статус/сообщение живут в globalStatus/globalMessage, а не в statuses/messages
+        const isGlobal = configId === 'global';
         const interval = setInterval(async () => {
             const { ok, data } = await bomApi.getTaskStatus(taskId);
             if (ok && data.success) {
                 if (data.data.ready) {
                     clearInterval(interval);
-                    setStatuses(s => ({ ...s, [configId]: 'success' }));
-                    setMessages(m => ({ ...m, [configId]: `✓ Завершено` }));
+                    if (isGlobal) {
+                        setGlobalStatus('success');
+                        setGlobalMessage(`${label} завершена`);
+                        setTimeout(() => { setGlobalStatus(''); setGlobalMessage(''); }, 2000);
+                    } else {
+                        setStatuses(s => ({ ...s, [configId]: 'success' }));
+                        setMessages(m => ({ ...m, [configId]: `✓ Завершено` }));
+                    }
                     onRefresh();
                 } else if (data.data.status === 'FAILURE') {
                     clearInterval(interval);
-                    setStatuses(s => ({ ...s, [configId]: 'error' }));
-                    setMessages(m => ({ ...m, [configId]: 'Ошибка выполнения' }));
+                    if (isGlobal) {
+                        setGlobalStatus('error');
+                        setGlobalMessage('Ошибка выполнения');
+                    } else {
+                        setStatuses(s => ({ ...s, [configId]: 'error' }));
+                        setMessages(m => ({ ...m, [configId]: 'Ошибка выполнения' }));
+                    }
                 }
             }
         }, 2000);
@@ -136,14 +151,17 @@ export default function SyncModal({ onClose, onRefresh }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-neutral-50/50 dark:bg-neutral-800/50">
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">Синхронизация данных 1С</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+        <Modal title="Синхронизация данных 1С" onClose={onClose} scrollBody
+            footer={globalMessage && (
+                <div className={`-mx-5 -my-4 px-6 py-3 text-xs font-medium flex items-center gap-2
+                    ${globalStatus === 'success' ? 'bg-emerald-50 text-emerald-700' :
+                        globalStatus === 'error' ? 'bg-red-50 text-red-700' :
+                            'bg-blue-50 text-blue-700 animate-pulse'}`}>
+                    {globalStatus === 'pending' && <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />}
+                    {globalMessage}
                 </div>
-
-                <div className="p-6 space-y-3 max-h-[70vh] overflow-y-auto">
+            )}>
+                <div className="space-y-3">
                     {/* Базовые синхронизации */}
                     <SyncButton
                         label="Номенклатура (Детали/Материалы)"
@@ -199,17 +217,6 @@ export default function SyncModal({ onClose, onRefresh }) {
                         onClick={() => handleSyncAction('all_bom', 'Полная синхронизация')}
                     />
                 </div>
-
-                {globalMessage && (
-                    <div className={`px-6 py-3 text-xs font-medium border-t flex items-center gap-2
-                        ${globalStatus === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                            globalStatus === 'error' ? 'bg-red-50 text-red-700 border-red-100' :
-                                'bg-blue-50 text-blue-700 border-blue-100 animate-pulse'}`}>
-                        {globalStatus === 'pending' && <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />}
-                        {globalMessage}
-                    </div>
-                )}
-            </div>
-        </div>
+        </Modal>
     );
 }

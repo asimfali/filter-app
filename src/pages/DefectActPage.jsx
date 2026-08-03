@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { bomApi } from '../api/bom';
-import { can } from '../utils/permissions';
+import { can, PERM } from '../utils/permissions';
 import SmartSelect from '../components/common/SmartSelect';
 
 // ── Константы ─────────────────────────────────────────────────────────────
@@ -327,7 +327,7 @@ function ActRow({ act, canWrite, onEdit, onDelete }) {
 
 export default function DefectActPage() {
     const { user } = useAuth();
-    const canWrite = can(user, 'bom.defect.write');
+    const canWrite = can(user, PERM.BOM_DEFECT_WRITE);
 
     // Фильтры
     const currentMonth = new Date().toISOString().slice(0, 7);

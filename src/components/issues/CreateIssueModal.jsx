@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useIssues } from '../../contexts/IssuesContext.jsx';
+import Modal from '../common/Modal.jsx';
 
 export default function CreateIssueModal({ thread, onClose }) {
   const { createIssue } = useIssues();
@@ -29,55 +30,32 @@ export default function CreateIssueModal({ thread, onClose }) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center
-                 bg-black/40 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl
-                      w-full max-w-md mx-4 overflow-hidden">
+    <Modal title="Новое замечание" onClose={onClose} closeOnBackdropClick>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <p className="text-xs text-gray-400 dark:text-gray-500 -mt-2">
+          Исполнитель: {thread.assigned_to_department?.name ?? '—'}
+        </p>
 
-        <div className="flex items-center justify-between px-6 py-4
-                        border-b border-gray-100 dark:border-gray-800">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-              Новое замечание
-            </h2>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-              Исполнитель: {thread.assigned_to_department?.name ?? '—'}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200
-                       transition-colors text-lg leading-none"
-          >
-            ✕
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="px-6 py-4 flex flex-col gap-4">
-
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Заголовок <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Кратко опишите замечание"
-              autoFocus
-              className="w-full px-3 py-2 text-sm rounded-lg
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+            Заголовок <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Кратко опишите замечание"
+            autoFocus
+            className="w-full px-3 py-2 text-sm rounded-lg
                          bg-neutral-50 dark:bg-neutral-800
                          border border-gray-200 dark:border-gray-700
                          text-gray-900 dark:text-gray-100
                          placeholder-gray-300 dark:placeholder-gray-600
                          focus:outline-none focus:border-blue-500 transition-colors"
-            />
-          </div>
+          />
+        </div>
 
-          <div>
+        <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
               Описание
             </label>
@@ -120,7 +98,6 @@ export default function CreateIssueModal({ thread, onClose }) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

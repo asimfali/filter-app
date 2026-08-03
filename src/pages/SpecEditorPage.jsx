@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { tokenStorage } from '../api/auth';
+import { apiFetch } from '../api/auth';
 import { sessionsApi } from '../api/sessions';
 import { useAuth } from '../contexts/AuthContext';
-import { can } from '../utils/permissions';
+import { can, PERM } from '../utils/permissions';
 import { catalogApi } from '../api/catalog';
 import { IconSave } from '../components/common/Icons';
+import { useModals } from '../hooks/useModals';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -17,7 +18,8 @@ export default function SpecEditorPage({
     onSessionSaved,     // ← callback с id созданной/обновлённой сессии
 }) {
     const { user } = useAuth();
-    const canPushTo1C = can(user, 'catalog.push_to_1c');
+    const canPushTo1C = can(user, PERM.CATALOG_PUSH_TO_1C);
+    const { showConfirm, modals } = useModals();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -54,16 +56,8 @@ export default function SpecEditorPage({
         setLoading(true);
         setError(null);
 
-        fetch(`${API_BASE}/products/specs-bulk/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${tokenStorage.getAccess()}`,
-            },
-            body: JSON.stringify({ product_ids: productIds }),
-        })
-            .then(r => r.json())
-            .then(json => {
+        catalogApi.specsBulk(productIds)
+            .then(({ data: json }) => {
                 if (json.success) setData(json.data);
                 else setError(json.error || 'Ошибка загрузки');
             })
@@ -124,60 +118,52 @@ export default function SpecEditorPage({
 
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (!selection.length || !data) return;
+            if (!selection.length || !data || !anchorCell.current) return;
             // Не перехватываем если фокус в input
             if (document.activeElement?.tagName === 'INPUT') return;
 
-            const { defId, startRow, endRow } = selection;
-            const defIdx = definitions.indexOf(definitions.find(d => d.id === defId));
-            const currentEnd = endRow;
+            const anchor = anchorCell.current;
+            const defIdx = definitions.findIndex(d => d.id === anchor.defId);
             const rowCount = data.products.length;
             const defCount = definitions.length;
 
-            if (e.key === 'ArrowDown') {
+            // "Дальний" конец текущего диапазона в колонке anchor — точка отсчёта для
+            // Shift-расширения и для перемещения курсора без Shift (как в handleCellClick).
+            const colRows = selection.filter(s => s.defId === anchor.defId).map(s => s.rowIdx);
+            const maxRow = Math.max(anchor.rowIdx, ...colRows);
+            const minRow = Math.min(anchor.rowIdx, ...colRows);
+            const farRow = maxRow !== anchor.rowIdx ? maxRow : minRow;
+
+            const rangeTo = (from, to) => {
+                const [lo, hi] = from <= to ? [from, to] : [to, from];
+                const cells = [];
+                for (let i = lo; i <= hi; i++) cells.push({ defId: anchor.defId, rowIdx: i });
+                return cells;
+            };
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
+                const next = e.key === 'ArrowDown'
+                    ? Math.min(farRow + 1, rowCount - 1)
+                    : Math.max(farRow - 1, 0);
                 if (e.shiftKey) {
-                    // Shift+↓ — расширяем вниз
-                    setSelection(prev => ({
-                        ...prev,
-                        endRow: Math.min(currentEnd + 1, rowCount - 1),
-                    }));
+                    // Shift+↑/↓ — расширяем диапазон от anchor до новой границы
+                    setSelection(rangeTo(anchor.rowIdx, next));
                 } else {
-                    // ↓ — перемещаем курсор
-                    const next = Math.min(currentEnd + 1, rowCount - 1);
-                    anchorCell.current = { defId, rowIdx: next };
-                    setSelection({ defId, startRow: next, endRow: next });
+                    // ↑/↓ — перемещаем курсор, схлопывая диапазон в одну ячейку
+                    anchorCell.current = { defId: anchor.defId, rowIdx: next };
+                    setSelection([{ defId: anchor.defId, rowIdx: next }]);
                 }
-            } else if (e.key === 'ArrowUp') {
+            } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
                 e.preventDefault();
-                if (e.shiftKey) {
-                    setSelection(prev => ({
-                        ...prev,
-                        endRow: Math.max(currentEnd - 1, 0),
-                    }));
-                } else {
-                    const next = Math.max(currentEnd - 1, 0);
-                    anchorCell.current = { defId, rowIdx: next };
-                    setSelection({ defId, startRow: next, endRow: next });
-                }
-            } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                if (defIdx < defCount - 1) {
-                    const nextDef = definitions[defIdx + 1];
-                    const row = e.shiftKey ? endRow : Math.min(startRow, endRow);
-                    anchorCell.current = { defId: nextDef.id, rowIdx: row };
-                    setSelection({ defId: nextDef.id, startRow: row, endRow: row });
-                }
-            } else if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                if (defIdx > 0) {
-                    const nextDef = definitions[defIdx - 1];
-                    const row = Math.min(startRow, endRow);
-                    anchorCell.current = { defId: nextDef.id, rowIdx: row };
-                    setSelection({ defId: nextDef.id, startRow: row, endRow: row });
-                }
+                const nextIdx = e.key === 'ArrowRight' ? defIdx + 1 : defIdx - 1;
+                if (nextIdx < 0 || nextIdx >= defCount) return;
+                const nextDef = definitions[nextIdx];
+                const row = e.shiftKey ? farRow : Math.min(anchor.rowIdx, farRow);
+                anchorCell.current = { defId: nextDef.id, rowIdx: row };
+                setSelection([{ defId: nextDef.id, rowIdx: row }]);
             } else if (e.key === 'Escape') {
-                setSelection(null);
+                setSelection([]);
                 anchorCell.current = null;
             }
         };
@@ -219,22 +205,21 @@ export default function SpecEditorPage({
     }, [pushTaskId]);
 
 
-    const handlePushTo1C = async () => {
-        if (!confirm(
+    const handlePushTo1C = () => {
+        showConfirm(
             `Отправить характеристики ${products.length} товаров в 1С?\n\n` +
-            `Это обновит дополнительные реквизиты номенклатуры. Действие нельзя отменить.`
-        )) return;
+            `Это обновит дополнительные реквизиты номенклатуры. Действие нельзя отменить.`,
+            doPushTo1C
+        );
+    };
 
+    const doPushTo1C = async () => {
         setPushing(true);
         setPushResult(null);
 
         try {
-            const res = await fetch(`${API_BASE}/products/push-to-1c/`, {
+            const res = await apiFetch(`${API_BASE}/products/push-to-1c/`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${tokenStorage.getAccess()}`,
-                },
                 body: JSON.stringify({ product_ids: productIds }),
             });
             const json = await res.json();
@@ -277,12 +262,13 @@ export default function SpecEditorPage({
         setSaveResult(null);
     };
 
-    const handleReset = async () => {
-        if (!confirm('Сбросить сессию и выйти из редактора?')) return;
-        if (draftSessionId) {
-            await sessionsApi.remove(draftSessionId);
-        }
-        onBack();
+    const handleReset = () => {
+        showConfirm('Сбросить сессию и выйти из редактора?', async () => {
+            if (draftSessionId) {
+                await sessionsApi.remove(draftSessionId);
+            }
+            onBack();
+        });
     };
 
     // ── Drag для выделения диапазона ─────────────────────────────────────────
@@ -393,18 +379,7 @@ export default function SpecEditorPage({
         setSaveResult(null);
 
         try {
-            const res = await fetch(`${API_BASE}/products/specs-bulk-save/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${tokenStorage.getAccess()}`,
-                },
-                body: JSON.stringify({
-                    product_type_id: data.product_type_id,
-                    changes: Object.values(changes),
-                }),
-            });
-            const json = await res.json();
+            const { data: json } = await catalogApi.specsBulkSave(data.product_type_id, Object.values(changes));
             if (json.success) {
                 setSaveResult(json.data);
                 setData(prev => {
@@ -724,6 +699,7 @@ export default function SpecEditorPage({
                 </table>
             </div>
 
+            {modals}
         </div>
     );
 }

@@ -12,7 +12,7 @@ const CURVE_COLORS = {
   TIP_SPEED: '#9333ea',  // фиолетовый
 }
 
-const CURVE_TYPE_LABELS = {
+export const CURVE_TYPE_LABELS = {
   PRESSURE: 'Давление Pv(Q)',
   EFFICIENCY: 'КПД η(Q)',
   POWER: 'Мощность Nu(Q)',

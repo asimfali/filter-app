@@ -11,15 +11,14 @@ import ActivateForm from './components/auth/ActivateForm';
 import TwoFAForm from './components/auth/TwoFAForm';
 import FilterTreeGraph from './components/configurator/FilterTree';
 import ParameterEditorPage from './pages/ParameterEditorPage';
-import StaffPage from './pages/StaffPage';
-import DocumentsPage from './pages/DocumentsPage';
-import ProductPage from './pages/ProductPage';
+import StaffPage from './pages/staff/StaffPage';
+import DocumentsPage from './pages/documents/DocumentsPage';
+import ProductPage from './pages/product/ProductPage';
 import SpecEditorPage from './pages/SpecEditorPage';
 import IssuesPage from './pages/IssuesPage.jsx';
 import IssueThreadPage from './pages/IssueThreadPage.jsx';
 import SpecPreviewPage from './pages/SpecPreviewPage';
-import ModelViewerPage from './pages/ModelViewerPage';
-import PLMPage from './pages/PLMPage';
+import PLMPage from './pages/plm/PLMPage';
 import PartEditorPage from './pages/PartEditorPage';
 import PasswordResetForm from './components/auth/PasswordResetForm';
 import HeatExchangersPage from './pages/HeatExchangersPage';
@@ -31,8 +30,20 @@ import CartPage from './pages/CartPage';
 import CartKPPage from './pages/CartKPPage';
 import VariantEditorPage from './pages/VariantEditorPage';
 import SelectionPage from './pages/SelectionPage';
-import FanChartPage from './pages/FanChartPage'
 import { IconClock } from './components/common/Icons.jsx';
+
+// Ленивая загрузка — тяжёлые страницы с крупными библиотеками (three.js,
+// @visx/d3), которые не нужны, пока пользователь на них не зашёл.
+const ModelViewerPage = React.lazy(() => import('./pages/model-viewer/ModelViewerPage'));
+const FanChartPage = React.lazy(() => import('./pages/fanchart/FanChartPage'));
+
+function PageLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center py-24 text-sm text-gray-400 dark:text-gray-500">
+      Загрузка...
+    </div>
+  );
+}
 
 
 // AuthPage без изменений — твой существующий код
@@ -279,12 +290,14 @@ function MainApp() {
   return (
     <>
       {page === 'model-viewer' && modelViewerFile ? (
-        <ModelViewerPage
-          relPath={modelViewerFile.relPath}
-          fname={modelViewerFile.fname}
-          mtlPath={modelViewerFile.mtlPath || null}
-          onBack={() => handleNavigate('documents')}
-        />
+        <React.Suspense fallback={<PageLoadingFallback />}>
+          <ModelViewerPage
+            relPath={modelViewerFile.relPath}
+            fname={modelViewerFile.fname}
+            mtlPath={modelViewerFile.mtlPath || null}
+            onBack={() => handleNavigate('documents')}
+          />
+        </React.Suspense>
       ) : (
         <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex flex-col">
           <Header currentPage={page} onNavigate={handleNavigate} />
@@ -384,7 +397,11 @@ function MainApp() {
                 {page === 'variant-editor' && (
                   <VariantEditorPage onBack={() => handleNavigate('configurator')} />
                 )}
-                {page === 'fan-charts' && <FanChartPage />}
+                {page === 'fan-charts' && (
+                  <React.Suspense fallback={<PageLoadingFallback />}>
+                    <FanChartPage />
+                  </React.Suspense>
+                )}
               </>
             )}
           </main>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { plmApi } from '../../api/plm';
+import { formatApiError } from '../../utils';
 
 export default function BatchCreateForm({ productIds, onCreated, onCancel }) {
     const [literas, setLiteras] = useState([]);
@@ -34,7 +35,7 @@ export default function BatchCreateForm({ productIds, onCreated, onCancel }) {
         if (ok && data.success) {
             onCreated(data.data);
         } else {
-            setError(typeof data.error === 'string' ? data.error : JSON.stringify(data.error));
+            setError(formatApiError(data.error));
         }
         setSaving(false);
     };
