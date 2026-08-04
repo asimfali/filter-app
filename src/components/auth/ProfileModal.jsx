@@ -10,6 +10,8 @@ import SelectionConfigModal from '../selection/SelectionConfigModal';
 import { IconLink, IconFolder } from '../common/Icons';
 import { useModals } from '../../hooks/useModals';
 
+const PUSH_TASK_ID_KEY = 'profilePushTaskId';
+
 export default function ProfileModal({ user, onClose, onUpdated }) {
     const { dark, toggle, setDark } = useTheme();
     const { showConfirm, modals } = useModals();
@@ -21,20 +23,26 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     const [successMsg, setSuccessMsg] = useState('');
     const fileInputRef = useRef(null);
     const [specFolders, setSpecFolders] = useState([]);
-    const [pushing, setPushing] = useState(false);
-    const [pushResult, setPushResult] = useState(null);
-    const [pushTaskId, setPushTaskId] = useState(null);
+    const [pushTaskId, setPushTaskId] = useState(() => sessionStorage.getItem(PUSH_TASK_ID_KEY));
+    const [pushing, setPushing] = useState(() => !!sessionStorage.getItem(PUSH_TASK_ID_KEY));
+    const [pushResult, setPushResult] = useState(() =>
+        sessionStorage.getItem(PUSH_TASK_ID_KEY) ? { ok: true, message: 'Отправка: 0%...' } : null);
     const [syncModal, setSyncModal] = useState(null);
     const [selectionConfigOpen, setSelectionConfigOpen] = useState(false);
     const [passportSyncOpen, setPassportSyncOpen] = useState(false);
+    // id задачи, подхваченной из sessionStorage при маунте — чтобы опросить
+    // её реальный прогресс сразу, а не показывать "0%" до первого тика интервала
+    const resumedTaskIdRef = useRef(sessionStorage.getItem(PUSH_TASK_ID_KEY));
 
     useEffect(() => {
         if (!pushTaskId) return;
-        const interval = setInterval(async () => {
+        let cancelled = false;
+        const poll = async () => {
             const { ok, data } = await externalApi.taskStatus(pushTaskId);
-            if (!ok || !data.success) return;
+            if (cancelled || !ok || !data.success) return;
             if (data.data.ready) {
                 clearInterval(interval);
+                sessionStorage.removeItem(PUSH_TASK_ID_KEY);
                 setPushTaskId(null);
                 setPushing(false);
                 const result = data.data.result;
@@ -50,8 +58,13 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                 const percent = total ? Math.round((current / total) * 100) : 0;
                 setPushResult({ ok: true, message: `Отправка: ${percent}%...` });
             }
-        }, 2000);
-        return () => clearInterval(interval);
+        };
+        if (resumedTaskIdRef.current === pushTaskId) {
+            resumedTaskIdRef.current = null;
+            poll();
+        }
+        const interval = setInterval(poll, 2000);
+        return () => { cancelled = true; clearInterval(interval); };
     }, [pushTaskId]);
 
     useEffect(() => {
@@ -83,6 +96,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
             setPushResult(null);
             const { ok, data } = await externalApi.pushToSite();
             if (ok && data.success) {
+                sessionStorage.setItem(PUSH_TASK_ID_KEY, data.data.task_id);
                 setPushTaskId(data.data.task_id);
                 setPushResult({ ok: true, message: 'Отправка: 0%...' });
             } else {
