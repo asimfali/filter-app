@@ -60,6 +60,7 @@ const okPrefs = (data) => ({ ok: true, data: { success: true, data } });
 
 beforeEach(() => {
   vi.clearAllMocks();
+  sessionStorage.clear();
   setDarkMock = vi.fn();
   useTheme.mockReturnValue({ dark: true, toggle: vi.fn(), setDark: setDarkMock });
   authApi.getPreferences.mockResolvedValue(okPrefs({ theme: 'dark', avatar_url: null }));
@@ -218,6 +219,36 @@ describe('ProfileModal — синхронизация с внешним сайт
 
     expect(screen.getByText('✓ Отправлено 42 товаров')).toBeInTheDocument();
     expect(screen.queryByText('Отправка...')).not.toBeInTheDocument();
+  });
+
+  it('закрытие и переоткрытие модалки во время отправки сохраняет прогресс и не даёт запустить повторно', async () => {
+    externalApi.pushToSite.mockResolvedValue({ ok: true, data: { success: true, data: { task_id: 't1', total: 42 } } });
+    externalApi.taskStatus.mockResolvedValue({
+      ok: true,
+      data: { success: true, data: { ready: false, info: { current: 21, total: 42, batch: 1, total_batches: 2, status: 'Батч 1/2...' } } },
+    });
+    const user = userEvent.setup();
+    const { unmount } = await renderProfile({ user: withPush });
+    await user.click(screen.getByText('Синхронизировать сайт'));
+    await user.click(await screen.findByText('Подтвердить'));
+    await flush();
+
+    expect(screen.getByText('Отправка: 0%...')).toBeInTheDocument();
+
+    // закрытие модалки (как в Header: {profileOpen && <ProfileModal .../>}) — размонтирование
+    unmount();
+
+    externalApi.taskStatus.mockClear();
+
+    // переоткрытие — новый маунт того же компонента должен подхватить незавершённую задачу
+    // и сразу опросить реальный прогресс (не ждать 2с до тика интервала, иначе виден
+    // ложный скачок с "0%" на актуальное значение)
+    await renderProfile({ user: withPush });
+
+    expect(externalApi.pushToSite).toHaveBeenCalledTimes(1); // повторного запуска не было
+    expect(externalApi.taskStatus).toHaveBeenCalledWith('t1');
+    expect(screen.getByRole('button', { name: 'Отправка...' })).toBeDisabled();
+    expect(screen.getByText('Отправка: 50%...')).toBeInTheDocument();
   });
 
   it('неудачный запуск сразу показывает ошибку без опроса', async () => {
