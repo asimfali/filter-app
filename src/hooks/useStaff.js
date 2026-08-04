@@ -161,15 +161,21 @@ export function useDeptPermissions(deptId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: roleId, permission: permissionId }),
         });
-        if (res.ok) await load();
+        // Оптимистичное обновление без перезагрузки — иначе loading размонтирует
+        // таблицу и сбрасывает scroll (см. useSpecMatrix.toggle)
+        if (res.ok) {
+            const created = await res.json();
+            setPerms(prev => [...prev, created]);
+        }
         return res;
     };
 
     const remove = async (id) => {
-        await apiFetch(`${API}/departments/${deptId}/permissions/${id}/`, {
+        const res = await apiFetch(`${API}/departments/${deptId}/permissions/${id}/`, {
             method: 'DELETE',
         });
-        await load();
+        if (res.ok) setPerms(prev => prev.filter(p => p.id !== id));
+        return res;
     };
 
     return { perms, loading, add, reload: load, remove };
