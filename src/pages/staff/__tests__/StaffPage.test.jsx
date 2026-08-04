@@ -670,6 +670,27 @@ describe('StaffPage — вкладка «Подразделения»', () => {
       ));
     });
 
+    it('toggle обновляет галочку оптимистично, без перезагрузки списка (не сбрасывает scroll)', async () => {
+      const user = await openPermissionsTab({
+        deptPerms: [{ id: 900, role: 10, permission: 501 }],
+        addPermission: () => resp({ id: 901, role: 11, permission: 501 }),
+      });
+      await screen.findByText('catalog.product.read');
+      const readRow = () => screen.getAllByRole('row').find(r => r.textContent.includes('catalog.product.read'));
+
+      apiFetch.mockClear();
+      await user.click(within(readRow()).getAllByRole('button')[1]);
+      await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
+        '/api/v1/auth/departments/1/permissions/', expect.objectContaining({ method: 'POST' })
+      ));
+
+      // список прав не перезапрашивался (GET без опций, как в useDeptPermissions.load) ->
+      // таблица не размонтировалась/не мигнула "Загрузка..."
+      expect(apiFetch).not.toHaveBeenCalledWith('/api/v1/auth/departments/1/permissions/');
+      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
+      expect(within(readRow()).getAllByRole('button')[1]).toHaveTextContent('✓');
+    });
+
     it('пустое состояние при отсутствии прав/ролей', async () => {
       await openPermissionsTab({ allPermissions: [] });
       expect(await screen.findByText('Нет данных')).toBeInTheDocument();

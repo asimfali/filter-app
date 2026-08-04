@@ -1,6 +1,7 @@
 export default function ConfirmModal({ message, onConfirm, onCancel, danger = true }) {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={e => e.stopPropagation()}>
             <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl
                             border border-gray-200 dark:border-gray-700
                             w-full max-w-sm p-6 space-y-4">
