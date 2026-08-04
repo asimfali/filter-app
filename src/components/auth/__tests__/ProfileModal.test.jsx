@@ -179,12 +179,17 @@ describe('ProfileModal — синхронизация с внешним сайт
     expect(externalApi.pushToSite).not.toHaveBeenCalled();
   });
 
-  it('подтверждение запускает pushToSite, показывает статус запуска и опрашивает taskStatus до готовности', async () => {
+  it('подтверждение запускает pushToSite, показывает прогресс в % и опрашивает taskStatus до готовности', async () => {
     externalApi.pushToSite.mockResolvedValue({ ok: true, data: { success: true, data: { task_id: 't1', total: 42 } } });
-    externalApi.taskStatus.mockResolvedValue({
-      ok: true,
-      data: { success: true, data: { ready: true, result: { success: true, pushed: 42 } } },
-    });
+    externalApi.taskStatus
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { success: true, data: { ready: false, info: { current: 21, total: 42, batch: 1, total_batches: 2, status: 'Батч 1/2...' } } },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { success: true, data: { ready: true, result: { success: true, pushed: 42 } } },
+      });
     const user = userEvent.setup();
     await renderProfile({ user: withPush });
     await user.click(screen.getByText('Синхронизировать сайт'));
@@ -200,12 +205,17 @@ describe('ProfileModal — синхронизация с внешним сайт
       await Promise.resolve();
     });
 
-    expect(screen.getByText('Запущено (42 товаров)...')).toBeInTheDocument();
+    expect(screen.getByText('Отправка: 0%...')).toBeInTheDocument();
     expect(screen.getByText('Отправка...')).toBeDisabled();
 
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
 
     expect(externalApi.taskStatus).toHaveBeenCalledWith('t1');
+    expect(screen.getByText('Отправка: 50%...')).toBeInTheDocument();
+    expect(screen.getByText('Отправка...')).toBeDisabled();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+
     expect(screen.getByText('✓ Отправлено 42 товаров')).toBeInTheDocument();
     expect(screen.queryByText('Отправка...')).not.toBeInTheDocument();
   });

@@ -45,6 +45,10 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                         : `✗ Ошибка: ${result.error}`,
                 });
                 setTimeout(() => setPushResult(null), 5000);
+            } else if (data.data.info) {
+                const { current, total } = data.data.info;
+                const percent = total ? Math.round((current / total) * 100) : 0;
+                setPushResult({ ok: true, message: `Отправка: ${percent}%...` });
             }
         }, 2000);
         return () => clearInterval(interval);
@@ -80,7 +84,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
             const { ok, data } = await externalApi.pushToSite();
             if (ok && data.success) {
                 setPushTaskId(data.data.task_id);
-                setPushResult({ ok: true, message: `Запущено (${data.data.total} товаров)...` });
+                setPushResult({ ok: true, message: 'Отправка: 0%...' });
             } else {
                 setPushing(false);
                 setPushResult({ ok: false, message: data.error || 'Ошибка' });
