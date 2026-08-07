@@ -8,7 +8,7 @@ import ProfileModal from '../auth/ProfileModal';
 import {
   IconBell, IconCart, IconSearch,
   IconGrid, IconUsers, IconDocument, IconFlag, IconLifecycle,
-  IconThermometer, IconPuzzle, IconClipboard, IconChartBar,
+  IconThermometer, IconPuzzle, IconClipboard, IconChartBar, IconPdf,
   IconFilter, IconBox, IconFile, IconText, IconSales,
 } from '../common/Icons'
 
@@ -18,6 +18,15 @@ import {
 const GRAPHS_URL = import.meta.env.DEV
   ? `${window.location.protocol}//${window.location.hostname}:5174/graphs/`
   : '/graphs/';
+
+// generator-doc-gost — отдельный репозиторий/сервис (~/develop/doc-generator, свой
+// Express-сервер на :3000), не наш код. В проде — тот же origin, nginx proxy_pass
+// на /docgen/. Своей проверки прав у него пока нет (осознанно, временно — см. разбор
+// в чате), поэтому и пункт меню без PERM-гейта: скрывать кнопку было бы имитацией
+// защиты, которой на самом деле нет — сам URL всё равно открыт всем.
+const DOCGEN_URL = import.meta.env.DEV
+  ? `${window.location.protocol}//${window.location.hostname}:3000/docgen/`
+  : '/docgen/';
 
 const NOTIFICATION_LABEL = {
   'issues.new_issue': 'Новое замечание',
@@ -230,6 +239,7 @@ export default function Header({ currentPage, onNavigate }) {
                 // Вынесено в отдельное приложение (filter-app-graphs) — не внутренняя
                 // страница портала, а ссылка на /graphs/ (тот же origin, тот же логин).
                 { id: 'fan-charts',    label: 'Графики',           code: PERM.PAGE_GRAPH_READ,            icon: IconChartBar, href: GRAPHS_URL },
+                { id: 'doc-generator', label: 'Генератор документов', code: null,                          icon: IconPdf,       href: DOCGEN_URL },
               ]
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [
