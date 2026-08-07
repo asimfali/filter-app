@@ -83,7 +83,6 @@ vi.mock('../pages/CartPage', () => ({ default: () => null }));
 vi.mock('../pages/CartKPPage', () => ({ default: () => null }));
 vi.mock('../pages/VariantEditorPage', () => ({ default: () => null }));
 vi.mock('../pages/SelectionPage', () => ({ default: () => null }));
-vi.mock('../pages/fanchart/FanChartPage', () => ({ default: () => null }));
 vi.mock('../components/layout/Header', () => ({ default: () => null }));
 
 useAuth.mockReturnValue({
