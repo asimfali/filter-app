@@ -64,75 +64,10 @@ export const selectionApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    // Fan Charts
-    async fanCharts(productExternalId = '') {
-        const url = productExternalId
-            ? `${BASE}/fan-charts/?product=${encodeURIComponent(productExternalId)}`
-            : `${BASE}/fan-charts/`
-        const res = await apiFetch(url)
-        return { ok: res.ok, data: await res.json() }
-    },
-
-    async fanChartDetail(chartId) {
-        const res = await apiFetch(`${BASE}/fan-charts/${chartId}/`);
-        return { ok: res.ok, data: await res.json() };
-    },
-
-    async fanChartCreate(payload) {
-        const res = await apiFetch(`${BASE}/fan-charts/`, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
-        return { ok: res.ok, data: await res.json() };
-    },
-
-    async fanChartSave(chartId, payload) {
-        const res = await apiFetch(`${BASE}/fan-charts/${chartId}/save/`, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
-        return { ok: res.ok, data: await res.json() };
-    },
-
-    async fanChartInterpolated(chartId, n = 100) {
-        const res = await apiFetch(`${BASE}/fan-charts/${chartId}/interpolated/?n=${n}`);
-        return { ok: res.ok, data: await res.json() };
-    },
-
-    async fanChartDelete(chartId) {
-        const res = await apiFetch(`${BASE}/fan-charts/${chartId}/`, { method: 'DELETE' });
-        return { ok: res.ok };
-    },
-
-    async fanChartOperatingPoint(chartId, qRef, pvRef, curveId = null) {
-        const body = { q_ref: qRef, pv_ref: pvRef };
-        if (curveId) body.curve_id = curveId;
-        const res = await apiFetch(`${BASE}/fan-charts/${chartId}/operating-point/`, {
-            method: 'POST',
-            body: JSON.stringify(body),
-        });
-        return { ok: res.ok, data: await res.json() };
-    },
-
-    async fanChartCombined(product) {
-        const res = await apiFetch(`${BASE}/fan-charts/combined/?product=${encodeURIComponent(product)}`);
-        return { ok: res.ok, data: await res.json() };
-    },
-
-    async fanChartSelect(qRef, pvRef, productFilter = '', nAbove = 3, nBelow = 0, qMax = null, pvMax = null) {
-        const res = await apiFetch(`${BASE}/fan-charts/select/`, {
-            method: 'POST',
-            body: JSON.stringify({
-                q_ref: qRef,
-                pv_ref: pvRef,
-                product_filter: productFilter,
-                n_above: nAbove,
-                n_below: nBelow,
-                include_curves: true,
-            }),
-        });
-        return { ok: res.ok, data: await res.json() };
-    },
+    // Fan Charts — редактор графиков вынесен в filter-app-graphs (/graphs/),
+    // см. src/status/FANCHART_EXTRACTION_PLAN.md. dxfCheckExists/dxfImportUpload/
+    // dxfImportStatus ниже — часть SyncModal (импорт кривых из DXF), не вынесены,
+    // остаются здесь.
 
     async proposal(params, combo) {
         const res = await apiFetch(`${BASE}/proposal/`, {
