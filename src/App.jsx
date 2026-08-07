@@ -35,7 +35,6 @@ import { IconClock } from './components/common/Icons.jsx';
 // Ленивая загрузка — тяжёлые страницы с крупными библиотеками (three.js,
 // @visx/d3), которые не нужны, пока пользователь на них не зашёл.
 const ModelViewerPage = React.lazy(() => import('./pages/model-viewer/ModelViewerPage'));
-const FanChartPage = React.lazy(() => import('./pages/fanchart/FanChartPage'));
 
 function PageLoadingFallback() {
   return (
@@ -396,11 +395,6 @@ function MainApp() {
                 {page === 'defect-acts' && <DefectActPage />}
                 {page === 'variant-editor' && (
                   <VariantEditorPage onBack={() => handleNavigate('configurator')} />
-                )}
-                {page === 'fan-charts' && (
-                  <React.Suspense fallback={<PageLoadingFallback />}>
-                    <FanChartPage />
-                  </React.Suspense>
                 )}
               </>
             )}

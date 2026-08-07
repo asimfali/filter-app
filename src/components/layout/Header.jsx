@@ -12,6 +12,13 @@ import {
   IconFilter, IconBox, IconFile, IconText, IconSales,
 } from '../common/Icons'
 
+// В проде filter-app-graphs раздаётся тем же nginx'ом на том же origin (/graphs/).
+// В dev это отдельный vite-сервер на :5174 — тот же host, другой порт (см.
+// filter-app/src/status/FANCHART_EXTRACTION_PLAN.md).
+const GRAPHS_URL = import.meta.env.DEV
+  ? `${window.location.protocol}//${window.location.hostname}:5174/graphs/`
+  : '/graphs/';
+
 const NOTIFICATION_LABEL = {
   'issues.new_issue': 'Новое замечание',
   'issues.new_message': 'Новое сообщение',
@@ -220,7 +227,9 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'defect-acts',   label: 'Ведомость дефектов',code: PERM.BOM_DEFECT_VIEW,            icon: IconFile },
                 { id: 'variant-editor',label: 'Исполнения',        code: PERM.PRODUCT_VARIANT_VIEW,       icon: IconText },
                 { id: 'selection',     label: 'Подбор',            code: PERM.PORTAL_PAGE_SELECTION,      icon: IconFilter },
-                { id: 'fan-charts',    label: 'Графики',           code: PERM.PAGE_GRAPH_READ,            icon: IconChartBar },
+                // Вынесено в отдельное приложение (filter-app-graphs) — не внутренняя
+                // страница портала, а ссылка на /graphs/ (тот же origin, тот же логин).
+                { id: 'fan-charts',    label: 'Графики',           code: PERM.PAGE_GRAPH_READ,            icon: IconChartBar, href: GRAPHS_URL },
               ]
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [
@@ -232,27 +241,46 @@ export default function Header({ currentPage, onNavigate }) {
               return navItems.map(item => {
                 const Icon = item.icon
                 const isActive = currentPage === item.id
+                const itemCls = `relative w-9 h-9 flex items-center justify-center rounded-lg
+                      transition-colors group
+                      ${isActive
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-gray-900 dark:hover:text-white'
+                      }`
+                const tooltip = (
+                  <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5
+                                   px-2 py-1 rounded text-xs whitespace-nowrap
+                                   bg-neutral-900 dark:bg-neutral-700 text-white
+                                   opacity-0 group-hover:opacity-100 pointer-events-none
+                                   transition-opacity z-50">
+                    {item.label}
+                  </span>
+                )
+                // href — отдельное приложение (другой origin/деплой), не внутренний page;
+                // та же вкладка — у него свой topbar со ссылкой назад в портал,
+                // ощущается единым целым, а не "ещё одна вкладка в никуда"
+                if (item.href) {
+                  return (
+                    <a
+                      key={item.id}
+                      href={item.href}
+                      title={item.label}
+                      className={itemCls}
+                    >
+                      {Icon && <Icon className="w-5 h-5" />}
+                      {tooltip}
+                    </a>
+                  )
+                }
                 return (
                   <button
                     key={item.id}
                     onClick={() => onNavigate(item.id)}
                     title={item.label}
-                    className={`relative w-9 h-9 flex items-center justify-center rounded-lg
-                      transition-colors group
-                      ${isActive
-                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                        : 'text-gray-500 dark:text-gray-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-gray-900 dark:hover:text-white'
-                      }`}
+                    className={itemCls}
                   >
                     {Icon && <Icon className="w-5 h-5" />}
-                    {/* Tooltip */}
-                    <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5
-                                     px-2 py-1 rounded text-xs whitespace-nowrap
-                                     bg-neutral-900 dark:bg-neutral-700 text-white
-                                     opacity-0 group-hover:opacity-100 pointer-events-none
-                                     transition-opacity z-50">
-                      {item.label}
-                    </span>
+                    {tooltip}
                   </button>
                 )
               })
