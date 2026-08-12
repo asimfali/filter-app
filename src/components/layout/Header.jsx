@@ -9,7 +9,7 @@ import {
   IconBell, IconCart, IconSearch,
   IconGrid, IconUsers, IconDocument, IconFlag, IconLifecycle,
   IconThermometer, IconPuzzle, IconClipboard, IconChartBar, IconPdf,
-  IconFilter, IconBox, IconFile, IconText, IconSales,
+  IconFilter, IconBox, IconFile, IconText, IconSales, IconHelp,
 } from '../common/Icons'
 
 // В проде filter-app-graphs раздаётся тем же nginx'ом на том же origin (/graphs/).
@@ -240,6 +240,7 @@ export default function Header({ currentPage, onNavigate }) {
                 // страница портала, а ссылка на /graphs/ (тот же origin, тот же логин).
                 { id: 'fan-charts',    label: 'Графики',           code: PERM.PAGE_GRAPH_READ,            icon: IconChartBar, href: GRAPHS_URL },
                 { id: 'doc-generator', label: 'Генератор документов', code: null,                          icon: IconPdf,       href: DOCGEN_URL },
+                { id: 'help',          label: 'Справка',           code: null,                             icon: IconHelp },
               ]
               const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
               const navItems = [
