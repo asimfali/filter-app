@@ -248,3 +248,11 @@ export const IconBell = ({ className = "w-5 h-5" }) => (
            a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   );
+
+  export const IconHelp = ({ className = "w-5 h-5" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className}
+         fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        d="M9.09 9a3 3 0 015.83 1c0 2-3 2-3 4m.09 4h.01M12 21a9 9 0 100-18 9 9 0 000 18z" />
+    </svg>
+  );
