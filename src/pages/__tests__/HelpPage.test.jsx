@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import HelpPage, { buildTopics } from '../HelpPage';
 
 const topics = buildTopics({
-  '../content/help/01-first.md': '# Первая статья\n\nТекст первой статьи.',
+  '../content/help/01-first.md':
+    '# Первая статья\n\nТекст первой статьи.\n\n[Ко второй](help:02-second)\n\n[Мимо](help:no-such-slug)',
   '../content/help/02-second.md': '# Вторая статья\n\nТекст второй статьи.',
 });
 
@@ -36,6 +37,25 @@ describe('HelpPage', () => {
 
     expect(screen.getByText('Текст второй статьи.')).toBeInTheDocument();
     expect(screen.queryByText('Текст первой статьи.')).not.toBeInTheDocument();
+  });
+
+  it('switches topic via a help: link inside the article content', async () => {
+    const user = userEvent.setup();
+    render(<HelpPage topics={topics} />);
+
+    await user.click(screen.getByRole('link', { name: 'Ко второй' }));
+
+    expect(screen.getByText('Текст второй статьи.')).toBeInTheDocument();
+    expect(screen.queryByText('Текст первой статьи.')).not.toBeInTheDocument();
+  });
+
+  it('ignores a help: link to an unknown slug', async () => {
+    const user = userEvent.setup();
+    render(<HelpPage topics={topics} />);
+
+    await user.click(screen.getByRole('link', { name: 'Мимо' }));
+
+    expect(screen.getByText('Текст первой статьи.')).toBeInTheDocument();
   });
 
   it('renders a placeholder when there are no topics', () => {

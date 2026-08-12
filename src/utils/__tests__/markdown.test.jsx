@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderMarkdown, extractTitle } from '../markdown.jsx';
 
 describe('renderMarkdown', () => {
@@ -44,6 +45,17 @@ describe('renderMarkdown', () => {
     expect(screen.getByText('Важное замечание')).toBeInTheDocument();
   });
 
+  it('renders a help: link as an in-page link that calls onNavigate instead of opening a new tab', async () => {
+    const user = userEvent.setup();
+    const onNavigate = vi.fn();
+    render(<div>{renderMarkdown('[Редактор привязок](help:03-editor)', { onNavigate })}</div>);
+
+    const link = screen.getByRole('link', { name: 'Редактор привязок' });
+    expect(link).not.toHaveAttribute('target');
+    await user.click(link);
+    expect(onNavigate).toHaveBeenCalledWith('03-editor');
+  });
+
   it('keeps a multi-paragraph blockquote as one note, split on the bare ">" line', () => {
     const { container } = render(
       <div>{renderMarkdown('> Первый абзац цитаты.\n>\n> Второй абзац цитаты.')}</div>
@@ -52,6 +64,26 @@ describe('renderMarkdown', () => {
     expect(screen.getByText('Второй абзац цитаты.')).toBeInTheDocument();
     // Оба абзаца — внутри одного блока-заметки, а не в двух разных
     expect(container.querySelectorAll('.border-l-4')).toHaveLength(1);
+  });
+});
+
+// Смоук-тест по реальным статьям справки (src/content/help) — а не по
+// синтетическим примерам выше: ловит именно то, что легко упустить руками
+// при написании статьи (например, "*" внутри **bold**/code-span рвёт
+// парсинг bold, и "**" остаётся как есть в тексте) и битые help:-ссылки
+// на несуществующие статьи.
+const realHelpFiles = import.meta.glob('../../content/help/*.md', { query: '?raw', import: 'default', eager: true });
+const realSlugs = Object.keys(realHelpFiles).map(p => p.split('/').pop().replace(/\.md$/, ''));
+
+describe('real help content (src/content/help)', () => {
+  it.each(Object.entries(realHelpFiles))('%s renders without stray "**" markers', (path, content) => {
+    const { container } = render(<div>{renderMarkdown(content)}</div>);
+    expect(container.textContent).not.toMatch(/\*\*/);
+  });
+
+  it.each(Object.entries(realHelpFiles))('%s only links to existing help: slugs', (path, content) => {
+    const targets = [...content.matchAll(/\]\(help:([^)]+)\)/g)].map(m => m[1]);
+    for (const slug of targets) expect(realSlugs).toContain(slug);
   });
 });
 

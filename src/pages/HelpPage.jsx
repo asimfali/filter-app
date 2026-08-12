@@ -22,6 +22,15 @@ export default function HelpPage({ topics = defaultTopics } = {}) {
   const [activeSlug, setActiveSlug] = useState(topics[0]?.slug);
   const active = useMemo(() => topics.find(t => t.slug === activeSlug) ?? topics[0], [activeSlug]);
 
+  // Переход по ссылке [text](help:slug) внутри статьи или клику по сайдбару —
+  // сбрасываем скролл, иначе после перехода из середины длинной статьи
+  // читатель окажется в середине следующей.
+  const goToTopic = (slug) => {
+    if (!topics.some(t => t.slug === slug)) return;
+    setActiveSlug(slug);
+    if (typeof window.scrollTo === 'function') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (topics.length === 0) {
     return (
       <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-8 text-center
@@ -37,7 +46,7 @@ export default function HelpPage({ topics = defaultTopics } = {}) {
         {topics.map(t => (
           <button
             key={t.slug}
-            onClick={() => setActiveSlug(t.slug)}
+            onClick={() => goToTopic(t.slug)}
             className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors
               ${t.slug === active?.slug
                 ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
@@ -49,7 +58,7 @@ export default function HelpPage({ topics = defaultTopics } = {}) {
       </nav>
 
       <article className="flex-1 min-w-0 bg-white dark:bg-neutral-900 rounded-lg shadow px-6 py-5">
-        {active && renderMarkdown(active.content)}
+        {active && renderMarkdown(active.content, { onNavigate: goToTopic })}
       </article>
     </div>
   );

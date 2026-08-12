@@ -5,6 +5,8 @@
 //
 // Поддержка: # .. #### заголовки, абзацы, - / * / 1. списки, ```code```,
 // > заметки, ---, **bold**, *italic*, `code`, [text](url), ![alt](src).
+// Ссылка вида [text](help:slug) — переход на другую статью справки внутри
+// HelpPage (не новая вкладка) — см. renderMarkdown(md, { onNavigate }).
 
 function isBlockStart(line) {
   return line.startsWith('```') || /^#{1,4}\s/.test(line) || /^-{3,}$/.test(line.trim())
@@ -18,8 +20,10 @@ const HEADING_CLS = {
   h4: 'text-sm font-semibold text-gray-800 dark:text-gray-200 mt-3 mb-1.5',
 };
 
+const LINK_CLS = 'text-blue-600 dark:text-blue-400 hover:underline';
+
 // Инлайн-разметка: **bold**, `code`, ![alt](src), [text](url), *italic*
-function renderInline(text) {
+function renderInline(text, opts) {
   const nodes = [];
   const regex = /(\*\*([^*]+)\*\*|`([^`]+)`|!\[([^\]]*)\]\(([^)]+)\)|\[([^\]]+)\]\(([^)]+)\)|\*([^*]+)\*)/g;
   let lastIndex = 0;
@@ -35,8 +39,18 @@ function renderInline(text) {
       nodes.push(<img key={key++} src={match[5]} alt={match[4]}
         className="rounded-lg border border-gray-200 dark:border-gray-700 my-2 max-w-full" />);
     } else if (match[7] !== undefined) {
-      nodes.push(<a key={key++} href={match[7]} target="_blank" rel="noreferrer"
-        className="text-blue-600 dark:text-blue-400 hover:underline">{match[6]}</a>);
+      const href = match[7];
+      if (href.startsWith('help:')) {
+        const slug = href.slice('help:'.length);
+        nodes.push(
+          <a key={key++} href="#" className={LINK_CLS}
+            onClick={e => { e.preventDefault(); opts?.onNavigate?.(slug); }}>
+            {match[6]}
+          </a>
+        );
+      } else {
+        nodes.push(<a key={key++} href={href} target="_blank" rel="noreferrer" className={LINK_CLS}>{match[6]}</a>);
+      }
     } else if (match[8] !== undefined) {
       nodes.push(<em key={key++}>{match[8]}</em>);
     }
@@ -46,8 +60,8 @@ function renderInline(text) {
   return nodes;
 }
 
-/** Парсит markdown-текст в массив React-блоков. */
-export function renderMarkdown(md) {
+/** Парсит markdown-текст в массив React-блоков. opts.onNavigate — обработчик help:-ссылок. */
+export function renderMarkdown(md, opts) {
   const lines = md.replace(/\r\n/g, '\n').split('\n');
   const blocks = [];
   let i = 0;
@@ -76,7 +90,7 @@ export function renderMarkdown(md) {
     const heading = line.match(/^(#{1,4})\s+(.*)$/);
     if (heading) {
       const Tag = ['h1', 'h2', 'h3', 'h4'][heading[1].length - 1];
-      blocks.push(<Tag key={key++} className={HEADING_CLS[Tag]}>{renderInline(heading[2])}</Tag>);
+      blocks.push(<Tag key={key++} className={HEADING_CLS[Tag]}>{renderInline(heading[2], opts)}</Tag>);
       i++;
       continue;
     }
@@ -109,7 +123,7 @@ export function renderMarkdown(md) {
         <div key={key++} className="border-l-4 border-blue-300 dark:border-blue-700
                                      bg-blue-50 dark:bg-blue-950/40 px-4 py-2 my-3 rounded-r
                                      text-sm text-gray-700 dark:text-gray-300 space-y-2">
-          {paragraphs.map((p, idx) => <p key={idx}>{renderInline(p)}</p>)}
+          {paragraphs.map((p, idx) => <p key={idx}>{renderInline(p, opts)}</p>)}
         </div>
       );
       continue;
@@ -128,7 +142,7 @@ export function renderMarkdown(md) {
       blocks.push(
         <ListTag key={key++} className={`my-2 pl-5 space-y-1 text-sm text-gray-700 dark:text-gray-300
                                           ${isUl ? 'list-disc' : 'list-decimal'}`}>
-          {items.map((item, idx) => <li key={idx}>{renderInline(item)}</li>)}
+          {items.map((item, idx) => <li key={idx}>{renderInline(item, opts)}</li>)}
         </ListTag>
       );
       continue;
@@ -139,7 +153,7 @@ export function renderMarkdown(md) {
     while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i])) { paraLines.push(lines[i]); i++; }
     blocks.push(
       <p key={key++} className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed my-2">
-        {renderInline(paraLines.join(' '))}
+        {renderInline(paraLines.join(' '), opts)}
       </p>
     );
   }
