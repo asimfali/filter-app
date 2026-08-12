@@ -8,7 +8,7 @@
 
 function isBlockStart(line) {
   return line.startsWith('```') || /^#{1,4}\s/.test(line) || /^-{3,}$/.test(line.trim())
-    || line.startsWith('> ') || /^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line);
+    || line === '>' || line.startsWith('> ') || /^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line);
 }
 
 const HEADING_CLS = {
@@ -89,14 +89,27 @@ export function renderMarkdown(md) {
     }
 
     // Заметка (blockquote)
-    if (line.startsWith('> ')) {
+    if (line === '>' || line.startsWith('> ')) {
+      // Строка "> " без текста — пустая строка ВНУТРИ цитаты (разрыв абзаца
+      // в рамках одного блока), а не конец цитаты — иначе многоабзацные
+      // заметки рвутся на несколько кусков посреди текста.
       const quoteLines = [];
-      while (i < lines.length && lines[i].startsWith('> ')) { quoteLines.push(lines[i].slice(2)); i++; }
+      while (i < lines.length && (lines[i] === '>' || lines[i].startsWith('> '))) {
+        quoteLines.push(lines[i] === '>' ? '' : lines[i].slice(2));
+        i++;
+      }
+      const paragraphs = [];
+      let cur = [];
+      for (const l of quoteLines) {
+        if (l === '') { if (cur.length) { paragraphs.push(cur.join(' ')); cur = []; } }
+        else cur.push(l);
+      }
+      if (cur.length) paragraphs.push(cur.join(' '));
       blocks.push(
         <div key={key++} className="border-l-4 border-blue-300 dark:border-blue-700
                                      bg-blue-50 dark:bg-blue-950/40 px-4 py-2 my-3 rounded-r
-                                     text-sm text-gray-700 dark:text-gray-300">
-          {renderInline(quoteLines.join(' '))}
+                                     text-sm text-gray-700 dark:text-gray-300 space-y-2">
+          {paragraphs.map((p, idx) => <p key={idx}>{renderInline(p)}</p>)}
         </div>
       );
       continue;

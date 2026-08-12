@@ -43,6 +43,16 @@ describe('renderMarkdown', () => {
     render(<div>{renderMarkdown('> Важное замечание')}</div>);
     expect(screen.getByText('Важное замечание')).toBeInTheDocument();
   });
+
+  it('keeps a multi-paragraph blockquote as one note, split on the bare ">" line', () => {
+    const { container } = render(
+      <div>{renderMarkdown('> Первый абзац цитаты.\n>\n> Второй абзац цитаты.')}</div>
+    );
+    expect(screen.getByText('Первый абзац цитаты.')).toBeInTheDocument();
+    expect(screen.getByText('Второй абзац цитаты.')).toBeInTheDocument();
+    // Оба абзаца — внутри одного блока-заметки, а не в двух разных
+    expect(container.querySelectorAll('.border-l-4')).toHaveLength(1);
+  });
 });
 
 describe('extractTitle', () => {
