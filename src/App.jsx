@@ -30,6 +30,7 @@ import CartPage from './pages/CartPage';
 import CartKPPage from './pages/CartKPPage';
 import VariantEditorPage from './pages/VariantEditorPage';
 import SelectionPage from './pages/SelectionPage';
+import HelpPage from './pages/HelpPage';
 import { IconClock } from './components/common/Icons.jsx';
 
 // Ленивая загрузка — тяжёлые страницы с крупными библиотеками (three.js,
@@ -392,6 +393,7 @@ function MainApp() {
                   />
                 )}
                 {page === 'selection' && <SelectionPage />}
+                {page === 'help' && <HelpPage />}
                 {page === 'defect-acts' && <DefectActPage />}
                 {page === 'variant-editor' && (
                   <VariantEditorPage onBack={() => handleNavigate('configurator')} />
