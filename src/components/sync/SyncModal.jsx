@@ -123,16 +123,16 @@ const MODE_CONFIG = {
         title: 'Медиа → S3',
         btnColor: 'bg-sky-600 hover:bg-sky-700',
         permission: PERM.PORTAL_S3_UPLOAD,  // ← гейт на вход в модалку
-        loadItems: async () => ({
-            ok: true,
-            data: {
-                success: true,
-                data: [
-                    { id: 'gallery', name: 'Галерея (полная синхронизация)', permission: PERM.PORTAL_GALLERY_UPLOAD },
-                    { id: 'hero_video', name: 'Hero-видео (полная синхронизация)', permission: PERM.PORTAL_VIDEO_UPLOAD },
-                ],
-            },
-        }),
+        // Список типов — из /media/form-data/: любой accepts_images-тип + hero_video
+        // (видео пока не generic на бэкенде, отдельное исключение по code).
+        loadItems: async () => {
+            const { ok, data } = await mediaApi.getFormData();
+            if (!ok) return { ok, data };
+            const items = (data.doc_types || [])
+                .filter(dt => dt.accepts_images || dt.code === 'hero_video')
+                .map(dt => ({ id: dt.code, name: `${dt.name} (полная синхронизация)` }));
+            return { ok, data: { success: true, data: items } };
+        },
         runItem: (itemId) => mediaApi.syncMediaToS3(itemId),
         isAsync: true,
         formatResult: (result) => result.success
