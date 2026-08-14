@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SyncModal from '../SyncModal';
 import { externalApi } from '../../../api/external';
+import { catalogApi } from '../../../api/catalog';
 import { selectionApi } from '../../../api/selection';
 
 vi.mock('../../../api/external', () => ({
@@ -15,8 +16,12 @@ vi.mock('../../../api/external', () => ({
     getRsyncFolders: vi.fn(),
     rsyncMedia: vi.fn(),
     pushFanCharts: vi.fn(),
+    pushToSite: vi.fn(),
     taskStatus: vi.fn(),
   },
+}));
+vi.mock('../../../api/catalog', () => ({
+  catalogApi: { productTypes: vi.fn() },
 }));
 vi.mock('../../../api/media', () => ({
   mediaApi: { syncMediaToS3: vi.fn() },
@@ -285,6 +290,95 @@ describe('SyncModal — non-async с extraControls (mode="variants")', () => {
     await act(async () => { fireEvent.click(screen.getByText('Запустить')); await Promise.resolve(); await Promise.resolve(); });
 
     expect(screen.getByText('✓ Привязано: 5, пропущено: 1, сброшено: 10')).toBeInTheDocument();
+  });
+});
+
+describe('SyncModal — push_to_site mode', () => {
+  const user1 = userWith('external.push_to_site');
+
+  // flush(), а не findByText — под fake timers (formatResult-тесты ниже) findByText
+  // виснет: его внутренний waitFor опирается на реальные таймеры (см. flush в шапке файла).
+  const setup = async (types = [{ id: 1, name: 'Завесы', slug: 'zavesy' }]) => {
+    catalogApi.productTypes.mockResolvedValue({ ok: true, data: types });
+    render(<SyncModal user={user1} mode="push_to_site" onClose={vi.fn()} />);
+    await flush();
+  };
+
+  it('loadItems: "Весь каталог" первым пунктом + разделы из catalogApi.productTypes()', async () => {
+    await setup();
+    expect(screen.getByText('Весь каталог')).toBeInTheDocument();
+    expect(screen.getByText('Завесы')).toBeInTheDocument();
+  });
+
+  it('пагинированный ответ (data.results) тоже поддерживается', async () => {
+    catalogApi.productTypes.mockResolvedValue({
+      ok: true,
+      data: { results: [{ id: 1, name: 'Завесы', slug: 'zavesy' }] },
+    });
+    render(<SyncModal user={user1} mode="push_to_site" onClose={vi.fn()} />);
+    expect(await screen.findByText('Завесы')).toBeInTheDocument();
+  });
+
+  it('запуск "Весь каталог" вызывает pushToSite(null, null)', async () => {
+    await setup();
+    externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('Запустить')[0]); // "Весь каталог" — первый пункт
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(externalApi.pushToSite).toHaveBeenCalledWith(null, null);
+  });
+
+  it('запуск конкретного раздела вызывает pushToSite(null, slug)', async () => {
+    await setup();
+    externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('Запустить')[1]); // «Завесы»
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(externalApi.pushToSite).toHaveBeenCalledWith(null, 'zavesy');
+  });
+
+  it('formatResult: "✓ Отправлено N товаров" при готовности задачи', async () => {
+    vi.useFakeTimers();
+    await setup();
+    externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+    externalApi.taskStatus.mockResolvedValue(
+      respOk({ success: true, data: { ready: true, result: { success: true, pushed: 42 } } })
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('Запустить')[0]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+
+    expect(screen.getByText('✓ Отправлено 42 товаров')).toBeInTheDocument();
+  });
+
+  it('formatResult показывает "✗ Ошибка: ..." при неуспехе задачи', async () => {
+    vi.useFakeTimers();
+    await setup();
+    externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+    externalApi.taskStatus.mockResolvedValue(
+      respOk({ success: true, data: { ready: true, result: { success: false, error: 'Сайт недоступен' } } })
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('Запустить')[0]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+
+    expect(screen.getByText('✗ Ошибка: Сайт недоступен')).toBeInTheDocument();
   });
 });
 

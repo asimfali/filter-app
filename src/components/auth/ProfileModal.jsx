@@ -1,42 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { authApi } from '../../api/auth';
 import { bomApi } from '../../api/bom';
-import { catalogApi } from '../../api/catalog';
 import { useTheme } from '../../contexts/ThemeContext';
-import { externalApi } from '../../api/external';
 import { can, PERM } from '../../utils/permissions';
 import SyncModal from '../sync/SyncModal';
 import PassportSyncModal from '../sync/PassportSyncModal';
 import SelectionConfigModal from '../selection/SelectionConfigModal';
 import { IconLink, IconFolder } from '../common/Icons';
 import { useModals } from '../../hooks/useModals';
-import { inputCls } from '../../utils/styles';
-
-const PUSH_TASK_ID_KEY = 'profilePushTaskId';
-const PUSH_TASK_STARTED_KEY = 'profilePushTaskStartedAt';
-// Если celery потерял task_id (backend перезапускался, результат просрочен),
-// AsyncResult().ready() для неизвестного id вечно возвращает false — без
-// таймаута опрос и disabled-состояние кнопок повисли бы навсегда.
-const PUSH_TASK_STALE_MS = 15 * 60 * 1000;
-
-// Резюмируемый task_id из sessionStorage — с учётом протухания по времени.
-// Отсутствие метки времени (задача сохранена ДО появления этой проверки)
-// считаем протухшей тоже — доверять такой записи нечем.
-function getResumablePushTaskId() {
-    const taskId = sessionStorage.getItem(PUSH_TASK_ID_KEY);
-    if (!taskId) return null;
-    const startedAt = Number(sessionStorage.getItem(PUSH_TASK_STARTED_KEY)) || 0;
-    if (!startedAt || Date.now() - startedAt > PUSH_TASK_STALE_MS) {
-        sessionStorage.removeItem(PUSH_TASK_ID_KEY);
-        sessionStorage.removeItem(PUSH_TASK_STARTED_KEY);
-        return null;
-    }
-    return taskId;
-}
 
 export default function ProfileModal({ user, onClose, onUpdated }) {
     const { dark, toggle, setDark } = useTheme();
-    const { showConfirm, modals } = useModals();
+    const { modals } = useModals();
     const [prefs, setPrefs] = useState(null);
     const [presets, setPresets] = useState([]);
     const [saving, setSaving] = useState(false);
@@ -45,63 +20,9 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     const [successMsg, setSuccessMsg] = useState('');
     const fileInputRef = useRef(null);
     const [specFolders, setSpecFolders] = useState([]);
-    const [productTypes, setProductTypes] = useState([]);
-    const [pushProductType, setPushProductType] = useState('');
-    const [pushTaskId, setPushTaskId] = useState(getResumablePushTaskId);
-    const [pushing, setPushing] = useState(() => !!getResumablePushTaskId());
-    const [pushResult, setPushResult] = useState(() =>
-        getResumablePushTaskId() ? { ok: true, message: 'Отправка: 0%...' } : null);
     const [syncModal, setSyncModal] = useState(null);
     const [selectionConfigOpen, setSelectionConfigOpen] = useState(false);
     const [passportSyncOpen, setPassportSyncOpen] = useState(false);
-    // id задачи, подхваченной из sessionStorage при маунте — чтобы опросить
-    // её реальный прогресс сразу, а не показывать "0%" до первого тика интервала
-    const resumedTaskIdRef = useRef(getResumablePushTaskId());
-
-    useEffect(() => {
-        if (!pushTaskId) return;
-        let cancelled = false;
-        const startedAt = Number(sessionStorage.getItem(PUSH_TASK_STARTED_KEY)) || 0;
-        const poll = async () => {
-            if (startedAt && Date.now() - startedAt > PUSH_TASK_STALE_MS) {
-                clearInterval(interval);
-                sessionStorage.removeItem(PUSH_TASK_ID_KEY);
-                sessionStorage.removeItem(PUSH_TASK_STARTED_KEY);
-                setPushTaskId(null);
-                setPushing(false);
-                setPushResult({ ok: false, message: '✗ Задача не отвечает больше 15 минут, попробуйте снова' });
-                setTimeout(() => setPushResult(null), 5000);
-                return;
-            }
-            const { ok, data } = await externalApi.taskStatus(pushTaskId);
-            if (cancelled || !ok || !data.success) return;
-            if (data.data.ready) {
-                clearInterval(interval);
-                sessionStorage.removeItem(PUSH_TASK_ID_KEY);
-                sessionStorage.removeItem(PUSH_TASK_STARTED_KEY);
-                setPushTaskId(null);
-                setPushing(false);
-                const result = data.data.result;
-                setPushResult({
-                    ok: result.success,
-                    message: result.success
-                        ? `✓ Отправлено ${result.pushed} товаров`
-                        : `✗ Ошибка: ${result.error}`,
-                });
-                setTimeout(() => setPushResult(null), 5000);
-            } else if (data.data.info) {
-                const { current, total } = data.data.info;
-                const percent = total ? Math.round((current / total) * 100) : 0;
-                setPushResult({ ok: true, message: `Отправка: ${percent}%...` });
-            }
-        };
-        if (resumedTaskIdRef.current === pushTaskId) {
-            resumedTaskIdRef.current = null;
-            poll();
-        }
-        const interval = setInterval(poll, 2000);
-        return () => { cancelled = true; clearInterval(interval); };
-    }, [pushTaskId]);
 
     useEffect(() => {
         // Загружаем настройки и пресеты параллельно
@@ -125,36 +46,6 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
             }
         });
     }, []);
-
-    useEffect(() => {
-        if (!can(user, PERM.EXTERNAL_PUSH_TO_SITE)) return;
-        catalogApi.productTypes().then(({ ok, data }) => {
-            if (!ok) return;
-            const types = data.results ?? data;
-            setProductTypes(Array.isArray(types) ? types : []);
-        });
-    }, [user]);
-
-    const handlePushToSite = () => {
-        const type = productTypes.find(t => t.slug === pushProductType);
-        const confirmMsg = type
-            ? `Отправить раздел «${type.name}» на внешний сайт?`
-            : 'Отправить все товары на внешний сайт?';
-        showConfirm(confirmMsg, async () => {
-            setPushing(true);
-            setPushResult(null);
-            const { ok, data } = await externalApi.pushToSite(null, pushProductType || null);
-            if (ok && data.success) {
-                sessionStorage.setItem(PUSH_TASK_ID_KEY, data.data.task_id);
-                sessionStorage.setItem(PUSH_TASK_STARTED_KEY, String(Date.now()));
-                setPushTaskId(data.data.task_id);
-                setPushResult({ ok: true, message: 'Отправка: 0%...' });
-            } else {
-                setPushing(false);
-                setPushResult({ ok: false, message: data.error || 'Ошибка' });
-            }
-        });
-    };
 
     const handleThemeChange = async (theme) => {
         if (theme === 'dark') setDark(true);
@@ -310,25 +201,12 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                       uppercase tracking-wide mb-2">
                                 Внешний сайт
                             </p>
-                            {productTypes.length > 0 && (
-                                <select
-                                    value={pushProductType}
-                                    onChange={e => setPushProductType(e.target.value)}
-                                    disabled={pushing}
-                                    className={`${inputCls} mb-1.5`}>
-                                    <option value="">Весь каталог</option>
-                                    {productTypes.map(t => (
-                                        <option key={t.slug} value={t.slug}>{t.name}</option>
-                                    ))}
-                                </select>
-                            )}
                             <button
-                                onClick={handlePushToSite}
-                                disabled={pushing}
+                                onClick={() => setSyncModal('push_to_site')}
                                 className="w-full px-3 py-2 text-sm font-medium rounded-lg
                        bg-emerald-600 hover:bg-emerald-700
-                       disabled:opacity-40 text-white transition-colors">
-                                {pushing ? 'Отправка...' : 'Синхронизировать сайт'}
+                       text-white transition-colors">
+                                Синхронизировать сайт
                             </button>
                             {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
                                 <button
@@ -365,13 +243,6 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                    text-white transition-colors">
                                     Медиа → S3
                                 </button>
-                            )}
-                            {pushResult && (
-                                <p className={`text-xs mt-1.5 ${pushResult.ok
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : 'text-red-500'}`}>
-                                    {pushResult.message}
-                                </p>
                             )}
                         </div>
                     )}
