@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { externalApi } from '../../api/external';
+import { catalogApi } from '../../api/catalog';
 import { mediaApi } from '../../api/media';
 import { can, PERM } from '../../utils/permissions';
 import { selectionApi } from '../../api/selection';
@@ -72,6 +73,28 @@ const MODE_CONFIG = {
             const docsErr = result.documents_error ? ` | Документы: ${result.documents_error}` : '';
             return `✗ ${errs || 'Ошибка'}${docsErr}`;
         },
+    },
+    push_to_site: {
+        title: 'Синхронизировать сайт',
+        btnColor: 'bg-emerald-600 hover:bg-emerald-700',
+        permission: PERM.EXTERNAL_PUSH_TO_SITE,
+        // "Весь каталог" + по одному пункту на раздел (product_type_slug) —
+        // список разделов из /catalog/product-types/.
+        loadItems: async () => {
+            const { ok, data } = await catalogApi.productTypes();
+            if (!ok) return { ok, data };
+            const types = data.results ?? data;
+            const items = [
+                { id: '', name: 'Весь каталог' },
+                ...(Array.isArray(types) ? types : []).map(t => ({ id: t.slug, name: t.name })),
+            ];
+            return { ok: true, data: { success: true, data: items } };
+        },
+        runItem: (itemId) => externalApi.pushToSite(null, itemId || null),
+        isAsync: true,
+        formatResult: (result) => result.success
+            ? `✓ Отправлено ${result.pushed} товаров`
+            : `✗ Ошибка: ${result.error}`,
     },
     fan_charts: {
         title: 'Синхронизировать графики',

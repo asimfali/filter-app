@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import ProfileModal from '../ProfileModal';
 import { authApi } from '../../../api/auth';
 import { bomApi } from '../../../api/bom';
-import { externalApi } from '../../../api/external';
 import { useTheme } from '../../../contexts/ThemeContext';
 
 vi.mock('../../../api/auth', () => ({
@@ -17,14 +16,6 @@ vi.mock('../../../api/auth', () => ({
 }));
 vi.mock('../../../api/bom', () => ({
   bomApi: { getStagePresets: vi.fn(), getFolders: vi.fn() },
-}));
-vi.mock('../../../api/external', () => ({
-  externalApi: {
-    taskStatus: vi.fn(),
-    pushToSite: vi.fn(),
-    syncPrices: vi.fn(),
-    syncCatalog: vi.fn(),
-  },
 }));
 vi.mock('../../../contexts/ThemeContext', () => ({ useTheme: vi.fn() }));
 
@@ -162,108 +153,6 @@ describe('ProfileModal — аватар', () => {
   });
 });
 
-describe('ProfileModal — синхронизация с внешним сайтом (push to site)', () => {
-  const withPush = { ...baseUser, permissions: ['external.push_to_site'] };
-
-  it('без права external.push_to_site секция не рендерится', async () => {
-    await renderProfile();
-    expect(screen.queryByText('Синхронизировать сайт')).not.toBeInTheDocument();
-  });
-
-  it('отмена в модалке подтверждения не вызывает pushToSite', async () => {
-    const user = userEvent.setup();
-    await renderProfile({ user: withPush });
-
-    await user.click(screen.getByText('Синхронизировать сайт'));
-    await user.click(await screen.findByText('Отмена'));
-
-    expect(externalApi.pushToSite).not.toHaveBeenCalled();
-  });
-
-  it('подтверждение запускает pushToSite, показывает прогресс в % и опрашивает taskStatus до готовности', async () => {
-    externalApi.pushToSite.mockResolvedValue({ ok: true, data: { success: true, data: { task_id: 't1', total: 42 } } });
-    externalApi.taskStatus
-      .mockResolvedValueOnce({
-        ok: true,
-        data: { success: true, data: { ready: false, info: { current: 21, total: 42, batch: 1, total_batches: 2, status: 'Батч 1/2...' } } },
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        data: { success: true, data: { ready: true, result: { success: true, pushed: 42 } } },
-      });
-    const user = userEvent.setup();
-    await renderProfile({ user: withPush });
-    await user.click(screen.getByText('Синхронизировать сайт'));
-
-    // fake timers включаем ДО клика "Подтвердить" — именно он (через pushToSite →
-    // setPushTaskId) планирует setInterval опроса, а переключить уже запланированный
-    // реальный таймер на фейковый нельзя; fireEvent вместо userEvent — real-time
-    // polling зависает под fake timers (см. комментарий в SpecEditorPage.test.jsx)
-    vi.useFakeTimers();
-    await act(async () => {
-      fireEvent.click(screen.getByText('Подтвердить'));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(screen.getByText('Отправка: 0%...')).toBeInTheDocument();
-    expect(screen.getByText('Отправка...')).toBeDisabled();
-
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-
-    expect(externalApi.taskStatus).toHaveBeenCalledWith('t1');
-    expect(screen.getByText('Отправка: 50%...')).toBeInTheDocument();
-    expect(screen.getByText('Отправка...')).toBeDisabled();
-
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-
-    expect(screen.getByText('✓ Отправлено 42 товаров')).toBeInTheDocument();
-    expect(screen.queryByText('Отправка...')).not.toBeInTheDocument();
-  });
-
-  it('закрытие и переоткрытие модалки во время отправки сохраняет прогресс и не даёт запустить повторно', async () => {
-    externalApi.pushToSite.mockResolvedValue({ ok: true, data: { success: true, data: { task_id: 't1', total: 42 } } });
-    externalApi.taskStatus.mockResolvedValue({
-      ok: true,
-      data: { success: true, data: { ready: false, info: { current: 21, total: 42, batch: 1, total_batches: 2, status: 'Батч 1/2...' } } },
-    });
-    const user = userEvent.setup();
-    const { unmount } = await renderProfile({ user: withPush });
-    await user.click(screen.getByText('Синхронизировать сайт'));
-    await user.click(await screen.findByText('Подтвердить'));
-    await flush();
-
-    expect(screen.getByText('Отправка: 0%...')).toBeInTheDocument();
-
-    // закрытие модалки (как в Header: {profileOpen && <ProfileModal .../>}) — размонтирование
-    unmount();
-
-    externalApi.taskStatus.mockClear();
-
-    // переоткрытие — новый маунт того же компонента должен подхватить незавершённую задачу
-    // и сразу опросить реальный прогресс (не ждать 2с до тика интервала, иначе виден
-    // ложный скачок с "0%" на актуальное значение)
-    await renderProfile({ user: withPush });
-
-    expect(externalApi.pushToSite).toHaveBeenCalledTimes(1); // повторного запуска не было
-    expect(externalApi.taskStatus).toHaveBeenCalledWith('t1');
-    expect(screen.getByRole('button', { name: 'Отправка...' })).toBeDisabled();
-    expect(screen.getByText('Отправка: 50%...')).toBeInTheDocument();
-  });
-
-  it('неудачный запуск сразу показывает ошибку без опроса', async () => {
-    const user = userEvent.setup();
-    externalApi.pushToSite.mockResolvedValue({ ok: false, data: { error: 'Сервис недоступен' } });
-    await renderProfile({ user: withPush });
-
-    await user.click(screen.getByText('Синхронизировать сайт'));
-    await user.click(await screen.findByText('Подтвердить'));
-
-    expect(await screen.findByText('Сервис недоступен')).toBeInTheDocument();
-    expect(screen.queryByText('Отправка...')).not.toBeInTheDocument();
-  });
-});
-
 describe('ProfileModal — кнопки открытия SyncModal / PassportSyncModal', () => {
   const allPermsUser = {
     ...baseUser,
@@ -274,6 +163,7 @@ describe('ProfileModal — кнопки открытия SyncModal / PassportSyn
   };
 
   it.each([
+    ['Синхронизировать сайт', 'push_to_site'],
     ['Синхронизировать графики', 'fan_charts'],
     ['Группировка исполнений', 'variants'],
     ['Rsync медиафайлов', 'rsync'],
@@ -297,6 +187,11 @@ describe('ProfileModal — кнопки открытия SyncModal / PassportSyn
     await renderProfile();
     expect(screen.queryByText('Обновить цены')).not.toBeInTheDocument();
     expect(screen.queryByText('Синхронизировать каталог')).not.toBeInTheDocument();
+  });
+
+  it('без прав секция "Внешний сайт" скрыта целиком', async () => {
+    await renderProfile();
+    expect(screen.queryByText('Синхронизировать сайт')).not.toBeInTheDocument();
   });
 
   it('close-колбэк из SyncModal закрывает модалку (syncModal сбрасывается в null)', async () => {

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { authApi } from '../../api/auth';
 import { bomApi } from '../../api/bom';
 import { useTheme } from '../../contexts/ThemeContext';
-import { externalApi } from '../../api/external';
 import { can, PERM } from '../../utils/permissions';
 import SyncModal from '../sync/SyncModal';
 import PassportSyncModal from '../sync/PassportSyncModal';
@@ -10,11 +9,9 @@ import SelectionConfigModal from '../selection/SelectionConfigModal';
 import { IconLink, IconFolder } from '../common/Icons';
 import { useModals } from '../../hooks/useModals';
 
-const PUSH_TASK_ID_KEY = 'profilePushTaskId';
-
 export default function ProfileModal({ user, onClose, onUpdated }) {
     const { dark, toggle, setDark } = useTheme();
-    const { showConfirm, modals } = useModals();
+    const { modals } = useModals();
     const [prefs, setPrefs] = useState(null);
     const [presets, setPresets] = useState([]);
     const [saving, setSaving] = useState(false);
@@ -23,49 +20,9 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     const [successMsg, setSuccessMsg] = useState('');
     const fileInputRef = useRef(null);
     const [specFolders, setSpecFolders] = useState([]);
-    const [pushTaskId, setPushTaskId] = useState(() => sessionStorage.getItem(PUSH_TASK_ID_KEY));
-    const [pushing, setPushing] = useState(() => !!sessionStorage.getItem(PUSH_TASK_ID_KEY));
-    const [pushResult, setPushResult] = useState(() =>
-        sessionStorage.getItem(PUSH_TASK_ID_KEY) ? { ok: true, message: 'Отправка: 0%...' } : null);
     const [syncModal, setSyncModal] = useState(null);
     const [selectionConfigOpen, setSelectionConfigOpen] = useState(false);
     const [passportSyncOpen, setPassportSyncOpen] = useState(false);
-    // id задачи, подхваченной из sessionStorage при маунте — чтобы опросить
-    // её реальный прогресс сразу, а не показывать "0%" до первого тика интервала
-    const resumedTaskIdRef = useRef(sessionStorage.getItem(PUSH_TASK_ID_KEY));
-
-    useEffect(() => {
-        if (!pushTaskId) return;
-        let cancelled = false;
-        const poll = async () => {
-            const { ok, data } = await externalApi.taskStatus(pushTaskId);
-            if (cancelled || !ok || !data.success) return;
-            if (data.data.ready) {
-                clearInterval(interval);
-                sessionStorage.removeItem(PUSH_TASK_ID_KEY);
-                setPushTaskId(null);
-                setPushing(false);
-                const result = data.data.result;
-                setPushResult({
-                    ok: result.success,
-                    message: result.success
-                        ? `✓ Отправлено ${result.pushed} товаров`
-                        : `✗ Ошибка: ${result.error}`,
-                });
-                setTimeout(() => setPushResult(null), 5000);
-            } else if (data.data.info) {
-                const { current, total } = data.data.info;
-                const percent = total ? Math.round((current / total) * 100) : 0;
-                setPushResult({ ok: true, message: `Отправка: ${percent}%...` });
-            }
-        };
-        if (resumedTaskIdRef.current === pushTaskId) {
-            resumedTaskIdRef.current = null;
-            poll();
-        }
-        const interval = setInterval(poll, 2000);
-        return () => { cancelled = true; clearInterval(interval); };
-    }, [pushTaskId]);
 
     useEffect(() => {
         // Загружаем настройки и пресеты параллельно
@@ -89,22 +46,6 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
             }
         });
     }, []);
-
-    const handlePushToSite = () => {
-        showConfirm('Отправить все товары на внешний сайт?', async () => {
-            setPushing(true);
-            setPushResult(null);
-            const { ok, data } = await externalApi.pushToSite();
-            if (ok && data.success) {
-                sessionStorage.setItem(PUSH_TASK_ID_KEY, data.data.task_id);
-                setPushTaskId(data.data.task_id);
-                setPushResult({ ok: true, message: 'Отправка: 0%...' });
-            } else {
-                setPushing(false);
-                setPushResult({ ok: false, message: data.error || 'Ошибка' });
-            }
-        });
-    };
 
     const handleThemeChange = async (theme) => {
         if (theme === 'dark') setDark(true);
@@ -261,12 +202,11 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                                 Внешний сайт
                             </p>
                             <button
-                                onClick={handlePushToSite}
-                                disabled={pushing}
+                                onClick={() => setSyncModal('push_to_site')}
                                 className="w-full px-3 py-2 text-sm font-medium rounded-lg
                        bg-emerald-600 hover:bg-emerald-700
-                       disabled:opacity-40 text-white transition-colors">
-                                {pushing ? 'Отправка...' : 'Синхронизировать сайт'}
+                       text-white transition-colors">
+                                Синхронизировать сайт
                             </button>
                             {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
                                 <button
@@ -303,13 +243,6 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                    text-white transition-colors">
                                     Медиа → S3
                                 </button>
-                            )}
-                            {pushResult && (
-                                <p className={`text-xs mt-1.5 ${pushResult.ok
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : 'text-red-500'}`}>
-                                    {pushResult.message}
-                                </p>
                             )}
                         </div>
                     )}
