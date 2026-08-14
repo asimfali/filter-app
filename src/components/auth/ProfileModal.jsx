@@ -20,14 +20,18 @@ const PUSH_TASK_STARTED_KEY = 'profilePushTaskStartedAt';
 const PUSH_TASK_STALE_MS = 15 * 60 * 1000;
 
 // Резюмируемый task_id из sessionStorage — с учётом протухания по времени.
+// Отсутствие метки времени (задача сохранена ДО появления этой проверки)
+// считаем протухшей тоже — доверять такой записи нечем.
 function getResumablePushTaskId() {
+    const taskId = sessionStorage.getItem(PUSH_TASK_ID_KEY);
+    if (!taskId) return null;
     const startedAt = Number(sessionStorage.getItem(PUSH_TASK_STARTED_KEY)) || 0;
-    if (startedAt && Date.now() - startedAt > PUSH_TASK_STALE_MS) {
+    if (!startedAt || Date.now() - startedAt > PUSH_TASK_STALE_MS) {
         sessionStorage.removeItem(PUSH_TASK_ID_KEY);
         sessionStorage.removeItem(PUSH_TASK_STARTED_KEY);
         return null;
     }
-    return sessionStorage.getItem(PUSH_TASK_ID_KEY);
+    return taskId;
 }
 
 export default function ProfileModal({ user, onClose, onUpdated }) {

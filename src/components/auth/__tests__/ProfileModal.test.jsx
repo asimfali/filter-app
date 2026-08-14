@@ -267,6 +267,16 @@ describe('ProfileModal — синхронизация с внешним сайт
     expect(sessionStorage.getItem('profilePushTaskId')).toBeNull();
   });
 
+  it('task_id без метки времени (запись до появления таймаута) тоже считается протухшим', async () => {
+    sessionStorage.setItem('profilePushTaskId', 'legacy-task'); // без profilePushTaskStartedAt
+
+    await renderProfile({ user: withPush });
+
+    expect(screen.getByRole('button', { name: 'Синхронизировать сайт' })).not.toBeDisabled();
+    expect(externalApi.taskStatus).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('profilePushTaskId')).toBeNull();
+  });
+
   it('неудачный запуск сразу показывает ошибку без опроса', async () => {
     const user = userEvent.setup();
     externalApi.pushToSite.mockResolvedValue({ ok: false, data: { error: 'Сервис недоступен' } });
