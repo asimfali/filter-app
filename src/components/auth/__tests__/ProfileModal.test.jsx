@@ -256,6 +256,17 @@ describe('ProfileModal — синхронизация с внешним сайт
     expect(screen.getByText('Отправка: 50%...')).toBeInTheDocument();
   });
 
+  it('протухший (>15 мин) task_id из прошлой вкладки не блокирует кнопки при открытии', async () => {
+    sessionStorage.setItem('profilePushTaskId', 'stale-task');
+    sessionStorage.setItem('profilePushTaskStartedAt', String(Date.now() - 16 * 60 * 1000));
+
+    await renderProfile({ user: withPush });
+
+    expect(screen.getByRole('button', { name: 'Синхронизировать сайт' })).not.toBeDisabled();
+    expect(externalApi.taskStatus).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('profilePushTaskId')).toBeNull();
+  });
+
   it('неудачный запуск сразу показывает ошибку без опроса', async () => {
     const user = userEvent.setup();
     externalApi.pushToSite.mockResolvedValue({ ok: false, data: { error: 'Сервис недоступен' } });

@@ -13,6 +13,22 @@ import { useModals } from '../../hooks/useModals';
 import { inputCls } from '../../utils/styles';
 
 const PUSH_TASK_ID_KEY = 'profilePushTaskId';
+const PUSH_TASK_STARTED_KEY = 'profilePushTaskStartedAt';
+// Если celery потерял task_id (backend перезапускался, результат просрочен),
+// AsyncResult().ready() для неизвестного id вечно возвращает false — без
+// таймаута опрос и disabled-состояние кнопок повисли бы навсегда.
+const PUSH_TASK_STALE_MS = 15 * 60 * 1000;
+
+// Резюмируемый task_id из sessionStorage — с учётом протухания по времени.
+function getResumablePushTaskId() {
+    const startedAt = Number(sessionStorage.getItem(PUSH_TASK_STARTED_KEY)) || 0;
+    if (startedAt && Date.now() - startedAt > PUSH_TASK_STALE_MS) {
+        sessionStorage.removeItem(PUSH_TASK_ID_KEY);
+        sessionStorage.removeItem(PUSH_TASK_STARTED_KEY);
+        return null;
+    }
+    return sessionStorage.getItem(PUSH_TASK_ID_KEY);
+}
 
 export default function ProfileModal({ user, onClose, onUpdated }) {
     const { dark, toggle, setDark } = useTheme();
@@ -27,26 +43,38 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     const [specFolders, setSpecFolders] = useState([]);
     const [productTypes, setProductTypes] = useState([]);
     const [pushProductType, setPushProductType] = useState('');
-    const [pushTaskId, setPushTaskId] = useState(() => sessionStorage.getItem(PUSH_TASK_ID_KEY));
-    const [pushing, setPushing] = useState(() => !!sessionStorage.getItem(PUSH_TASK_ID_KEY));
+    const [pushTaskId, setPushTaskId] = useState(getResumablePushTaskId);
+    const [pushing, setPushing] = useState(() => !!getResumablePushTaskId());
     const [pushResult, setPushResult] = useState(() =>
-        sessionStorage.getItem(PUSH_TASK_ID_KEY) ? { ok: true, message: 'Отправка: 0%...' } : null);
+        getResumablePushTaskId() ? { ok: true, message: 'Отправка: 0%...' } : null);
     const [syncModal, setSyncModal] = useState(null);
     const [selectionConfigOpen, setSelectionConfigOpen] = useState(false);
     const [passportSyncOpen, setPassportSyncOpen] = useState(false);
     // id задачи, подхваченной из sessionStorage при маунте — чтобы опросить
     // её реальный прогресс сразу, а не показывать "0%" до первого тика интервала
-    const resumedTaskIdRef = useRef(sessionStorage.getItem(PUSH_TASK_ID_KEY));
+    const resumedTaskIdRef = useRef(getResumablePushTaskId());
 
     useEffect(() => {
         if (!pushTaskId) return;
         let cancelled = false;
+        const startedAt = Number(sessionStorage.getItem(PUSH_TASK_STARTED_KEY)) || 0;
         const poll = async () => {
+            if (startedAt && Date.now() - startedAt > PUSH_TASK_STALE_MS) {
+                clearInterval(interval);
+                sessionStorage.removeItem(PUSH_TASK_ID_KEY);
+                sessionStorage.removeItem(PUSH_TASK_STARTED_KEY);
+                setPushTaskId(null);
+                setPushing(false);
+                setPushResult({ ok: false, message: '✗ Задача не отвечает больше 15 минут, попробуйте снова' });
+                setTimeout(() => setPushResult(null), 5000);
+                return;
+            }
             const { ok, data } = await externalApi.taskStatus(pushTaskId);
             if (cancelled || !ok || !data.success) return;
             if (data.data.ready) {
                 clearInterval(interval);
                 sessionStorage.removeItem(PUSH_TASK_ID_KEY);
+                sessionStorage.removeItem(PUSH_TASK_STARTED_KEY);
                 setPushTaskId(null);
                 setPushing(false);
                 const result = data.data.result;
@@ -114,6 +142,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
             const { ok, data } = await externalApi.pushToSite(null, pushProductType || null);
             if (ok && data.success) {
                 sessionStorage.setItem(PUSH_TASK_ID_KEY, data.data.task_id);
+                sessionStorage.setItem(PUSH_TASK_STARTED_KEY, String(Date.now()));
                 setPushTaskId(data.data.task_id);
                 setPushResult({ ok: true, message: 'Отправка: 0%...' });
             } else {
