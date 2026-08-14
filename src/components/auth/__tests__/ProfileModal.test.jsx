@@ -5,6 +5,7 @@ import ProfileModal from '../ProfileModal';
 import { authApi } from '../../../api/auth';
 import { bomApi } from '../../../api/bom';
 import { externalApi } from '../../../api/external';
+import { catalogApi } from '../../../api/catalog';
 import { useTheme } from '../../../contexts/ThemeContext';
 
 vi.mock('../../../api/auth', () => ({
@@ -25,6 +26,9 @@ vi.mock('../../../api/external', () => ({
     syncPrices: vi.fn(),
     syncCatalog: vi.fn(),
   },
+}));
+vi.mock('../../../api/catalog', () => ({
+  catalogApi: { productTypes: vi.fn() },
 }));
 vi.mock('../../../contexts/ThemeContext', () => ({ useTheme: vi.fn() }));
 
@@ -66,6 +70,7 @@ beforeEach(() => {
   authApi.getPreferences.mockResolvedValue(okPrefs({ theme: 'dark', avatar_url: null }));
   bomApi.getStagePresets.mockResolvedValue(okPrefs([]));
   bomApi.getFolders.mockResolvedValue(okPrefs([]));
+  catalogApi.productTypes.mockResolvedValue({ ok: true, data: [] });
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })));
 });
 
@@ -261,6 +266,30 @@ describe('ProfileModal — синхронизация с внешним сайт
 
     expect(await screen.findByText('Сервис недоступен')).toBeInTheDocument();
     expect(screen.queryByText('Отправка...')).not.toBeInTheDocument();
+  });
+
+  it('выбор раздела каталога передаётся в pushToSite и меняет текст подтверждения', async () => {
+    catalogApi.productTypes.mockResolvedValue({
+      ok: true,
+      data: [{ id: 1, name: 'Завесы', slug: 'zavesy' }, { id: 2, name: 'Вентиляторы', slug: 'ventilyatory' }],
+    });
+    externalApi.pushToSite.mockResolvedValue({ ok: true, data: { success: true, data: { task_id: 't1', total: 5 } } });
+    const user = userEvent.setup();
+    await renderProfile({ user: withPush });
+
+    await user.selectOptions(await screen.findByDisplayValue('Весь каталог'), 'zavesy');
+    await user.click(screen.getByText('Синхронизировать сайт'));
+
+    expect(await screen.findByText('Отправить раздел «Завесы» на внешний сайт?')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Подтвердить'));
+
+    expect(externalApi.pushToSite).toHaveBeenCalledWith(null, 'zavesy');
+  });
+
+  it('без выбора раздела селект не рендерится, если типов нет', async () => {
+    await renderProfile({ user: withPush });
+    expect(screen.queryByDisplayValue('Весь каталог')).not.toBeInTheDocument();
   });
 });
 

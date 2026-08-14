@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { authApi } from '../../api/auth';
 import { bomApi } from '../../api/bom';
+import { catalogApi } from '../../api/catalog';
 import { useTheme } from '../../contexts/ThemeContext';
 import { externalApi } from '../../api/external';
 import { can, PERM } from '../../utils/permissions';
@@ -9,6 +10,7 @@ import PassportSyncModal from '../sync/PassportSyncModal';
 import SelectionConfigModal from '../selection/SelectionConfigModal';
 import { IconLink, IconFolder } from '../common/Icons';
 import { useModals } from '../../hooks/useModals';
+import { inputCls } from '../../utils/styles';
 
 const PUSH_TASK_ID_KEY = 'profilePushTaskId';
 
@@ -23,6 +25,8 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
     const [successMsg, setSuccessMsg] = useState('');
     const fileInputRef = useRef(null);
     const [specFolders, setSpecFolders] = useState([]);
+    const [productTypes, setProductTypes] = useState([]);
+    const [pushProductType, setPushProductType] = useState('');
     const [pushTaskId, setPushTaskId] = useState(() => sessionStorage.getItem(PUSH_TASK_ID_KEY));
     const [pushing, setPushing] = useState(() => !!sessionStorage.getItem(PUSH_TASK_ID_KEY));
     const [pushResult, setPushResult] = useState(() =>
@@ -90,11 +94,24 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
         });
     }, []);
 
+    useEffect(() => {
+        if (!can(user, PERM.EXTERNAL_PUSH_TO_SITE)) return;
+        catalogApi.productTypes().then(({ ok, data }) => {
+            if (!ok) return;
+            const types = data.results ?? data;
+            setProductTypes(Array.isArray(types) ? types : []);
+        });
+    }, [user]);
+
     const handlePushToSite = () => {
-        showConfirm('Отправить все товары на внешний сайт?', async () => {
+        const type = productTypes.find(t => t.slug === pushProductType);
+        const confirmMsg = type
+            ? `Отправить раздел «${type.name}» на внешний сайт?`
+            : 'Отправить все товары на внешний сайт?';
+        showConfirm(confirmMsg, async () => {
             setPushing(true);
             setPushResult(null);
-            const { ok, data } = await externalApi.pushToSite();
+            const { ok, data } = await externalApi.pushToSite(null, pushProductType || null);
             if (ok && data.success) {
                 sessionStorage.setItem(PUSH_TASK_ID_KEY, data.data.task_id);
                 setPushTaskId(data.data.task_id);
@@ -260,6 +277,18 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                       uppercase tracking-wide mb-2">
                                 Внешний сайт
                             </p>
+                            {productTypes.length > 0 && (
+                                <select
+                                    value={pushProductType}
+                                    onChange={e => setPushProductType(e.target.value)}
+                                    disabled={pushing}
+                                    className={`${inputCls} mb-1.5`}>
+                                    <option value="">Весь каталог</option>
+                                    {productTypes.map(t => (
+                                        <option key={t.slug} value={t.slug}>{t.name}</option>
+                                    ))}
+                                </select>
+                            )}
                             <button
                                 onClick={handlePushToSite}
                                 disabled={pushing}

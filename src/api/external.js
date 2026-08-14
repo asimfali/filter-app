@@ -4,14 +4,17 @@ import { tokenStorage } from './auth';
 const API_BASE = '/api/v1/external';
 
 export const externalApi = {
-    pushToSite: async (productIds = null) => {
+    pushToSite: async (productIds = null, productTypeSlug = null) => {
+        const body = productIds
+            ? { product_ids: productIds }
+            : productTypeSlug ? { product_type_slug: productTypeSlug } : {};
         const res = await fetch(`${API_BASE}/push-to-site/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${tokenStorage.getAccess()}`,
             },
-            body: JSON.stringify(productIds ? { product_ids: productIds } : {}),
+            body: JSON.stringify(body),
         });
         const data = await res.json();
         return { ok: res.ok, data };
