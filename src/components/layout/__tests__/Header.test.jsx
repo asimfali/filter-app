@@ -5,10 +5,12 @@ import Header from '../Header';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotifications } from '../../../contexts/NotificationsContext.jsx';
 import { useCart } from '../../../contexts/CartContext';
+import useGs1Summary from '../../../hooks/useGs1Summary';
 
 vi.mock('../../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../../../contexts/NotificationsContext.jsx', () => ({ useNotifications: vi.fn() }));
 vi.mock('../../../contexts/CartContext', () => ({ useCart: vi.fn() }));
+vi.mock('../../../hooks/useGs1Summary', () => ({ default: vi.fn() }));
 
 vi.mock('../../common/SmartSelect', () => ({
   default: ({ onSelect, placeholder }) => (
@@ -79,6 +81,7 @@ beforeEach(() => {
   setupAuth();
   setupNotifications();
   setupCart();
+  useGs1Summary.mockReturnValue(null);
 });
 
 describe('Header — без пользователя', () => {
@@ -136,6 +139,29 @@ describe('Header — навигация', () => {
 
     await user.click(screen.getByTitle('Персонал'));
     expect(onNavigate).toHaveBeenCalledWith('staff');
+  });
+});
+
+describe('Header — ГС1', () => {
+  it('без external.gs1_resolve пункта нет, сводка не запрашивается', () => {
+    renderHeader();
+    expect(screen.queryByTitle('ГС1 (GTIN)')).not.toBeInTheDocument();
+    expect(useGs1Summary).toHaveBeenCalledWith(false, 'configurator');
+  });
+
+  it('с правом — пункт с бейджем числа конфликтов', () => {
+    setupAuth({ user: { ...baseUser, permissions: ['external.gs1_resolve'] } });
+    useGs1Summary.mockReturnValue({ by_status: { conflict: 12 } });
+    renderHeader();
+    expect(useGs1Summary).toHaveBeenCalledWith(true, 'configurator');
+    expect(within(screen.getByTitle('ГС1 (GTIN)')).getByText('12')).toBeInTheDocument();
+  });
+
+  it('нет конфликтов — бейджа нет', () => {
+    setupAuth({ user: { ...baseUser, permissions: ['external.gs1_resolve'] } });
+    useGs1Summary.mockReturnValue({ by_status: { new: 5 } });
+    renderHeader();
+    expect(within(screen.getByTitle('ГС1 (GTIN)')).queryByText('5')).not.toBeInTheDocument();
   });
 });
 

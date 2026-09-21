@@ -37,6 +37,8 @@ export const PERM = {
     SALES_CART_WRITE: 'sales.cart.write',
 
     // external
+    EXTERNAL_GS1_RESOLVE: 'external.gs1_resolve',
+    EXTERNAL_GS1_SYNC: 'external.gs1_sync',
     EXTERNAL_MANAGE_VARIANTS: 'external.manage_variants',
     EXTERNAL_PUSH_TO_SITE: 'external.push_to_site',
     EXTERNAL_RSYNC_MEDIA: 'external.rsync_media',
