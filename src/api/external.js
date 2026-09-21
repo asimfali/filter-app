@@ -1,7 +1,24 @@
 // src/api/external.js
-import { tokenStorage } from './auth';
+import { tokenStorage, apiFetch } from './auth';
 
 const API_BASE = '/api/v1/external';
+const GS1_BASE = `${API_BASE}/gs1`;
+
+// {ok, status, data} — status нужен для 409-веток разбора ГС1 (product_has_other_gtin/gtin_taken)
+const gs1Request = async (method, url, body) => {
+    const res = await apiFetch(url, { method, ...(body !== undefined && { body: JSON.stringify(body) }) });
+    const data = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, data };
+};
+
+const qs = (params = {}) => {
+    const p = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') p.append(k, v);
+    });
+    const s = p.toString();
+    return s ? `?${s}` : '';
+};
 
 export const externalApi = {
     pushToSite: async (productIds = null, productTypeSlug = null) => {
@@ -118,4 +135,15 @@ export const externalApi = {
         const data = await res.json();
         return { ok: res.ok, data };
     },
+
+    // ── ГС1 РУС: очередь разбора GTIN (external.gs1_resolve) и запуск/история (external.gs1_sync) ──
+    getGs1Items: (params) => gs1Request('GET', `${GS1_BASE}/items/${qs(params)}`),
+    getGs1Item: (id) => gs1Request('GET', `${GS1_BASE}/items/${id}/`),
+    getGs1Summary: () => gs1Request('GET', `${GS1_BASE}/items/summary/`),
+    resolveGs1Item: (id, action, productId = null) =>
+        gs1Request('POST', `${GS1_BASE}/items/${id}/resolve/`,
+            { action, ...(productId && { product_id: productId }) }),
+    startGs1Sync: (applyMatches = false) =>
+        gs1Request('POST', `${GS1_BASE}/runs/start/`, { apply_matches: applyMatches }),
+    getGs1Runs: (params) => gs1Request('GET', `${GS1_BASE}/runs/${qs(params)}`),
 };

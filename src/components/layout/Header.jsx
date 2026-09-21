@@ -3,13 +3,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext.jsx';
 import { useCart } from '../../contexts/CartContext';
 import { can, PERM } from '../../utils/permissions';
+import useGs1Summary from '../../hooks/useGs1Summary';
 import SmartSelect from '../common/SmartSelect';
 import ProfileModal from '../auth/ProfileModal';
 import {
   IconBell, IconCart, IconSearch,
   IconGrid, IconUsers, IconDocument, IconFlag, IconLifecycle,
   IconThermometer, IconPuzzle, IconClipboard, IconChartBar, IconPdf,
-  IconFilter, IconBox, IconFile, IconText, IconSales, IconHelp,
+  IconFilter, IconBox, IconFile, IconText, IconSales, IconHelp, IconLink,
 } from '../common/Icons'
 
 // В проде filter-app-graphs раздаётся тем же nginx'ом на том же origin (/graphs/).
@@ -210,6 +211,7 @@ export default function Header({ currentPage, onNavigate }) {
   const { user, logout, activeSession, refreshUser } = useAuth();
   const { itemsCount, activeCartId } = useCart();
   const [profileOpen, setProfileOpen] = useState(false);
+  const gs1Conflicts = useGs1Summary(can(user, PERM.EXTERNAL_GS1_RESOLVE), currentPage)?.by_status?.conflict ?? 0;
 
   return (
     <header className="bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-gray-700
@@ -235,6 +237,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'accessory-kits',  label: 'Комплектующие',   code: PERM.CATALOG_ACCESSORY_WRITE,    icon: IconPuzzle },
                 { id: 'defect-acts',   label: 'Ведомость дефектов',code: PERM.BOM_DEFECT_VIEW,            icon: IconFile },
                 { id: 'variant-editor',label: 'Исполнения',        code: PERM.PRODUCT_VARIANT_VIEW,       icon: IconText },
+                { id: 'gs1',           label: 'ГС1 (GTIN)',        code: PERM.EXTERNAL_GS1_RESOLVE,       icon: IconLink, badge: gs1Conflicts },
                 { id: 'selection',     label: 'Подбор',            code: PERM.PORTAL_PAGE_SELECTION,      icon: IconFilter },
                 // Вынесено в отдельное приложение (filter-app-graphs) — не внутренняя
                 // страница портала, а ссылка на /graphs/ (тот же origin, тот же логин).
@@ -291,6 +294,13 @@ export default function Header({ currentPage, onNavigate }) {
                     className={itemCls}
                   >
                     {Icon && <Icon className="w-5 h-5" />}
+                    {item.badge > 0 && (
+                      <span className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 bg-red-500 text-white
+                                       text-[10px] font-bold rounded-full flex items-center justify-center
+                                       leading-none">
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </span>
+                    )}
                     {tooltip}
                   </button>
                 )
