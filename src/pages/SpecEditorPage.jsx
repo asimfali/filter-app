@@ -38,6 +38,7 @@ export default function SpecEditorPage({
     // selection: { defId, startRow, endRow } | null
     const [selection, setSelection] = useState([]);
     const [isDragging, setIsDragging] = useState(false);
+    const [bulkValues, setBulkValues] = useState({}); // { [defId]: string } — значение для "применить ко всем"
     const [draftSessionId, setDraftSessionId] = useState(sessionId || null);
     const [draftName, setDraftName] = useState('');
     const [savingDraft, setSavingDraft] = useState(false);
@@ -257,6 +258,21 @@ export default function SpecEditorPage({
                     };
                 });
             }
+            return next;
+        });
+        setSaveResult(null);
+    };
+
+    const handleApplyAll = (defId) => {
+        const value = (bulkValues[defId] || '').trim();
+        if (!value || !data) return;
+        setChanges(prev => {
+            const next = { ...prev };
+            data.products.forEach(product => {
+                const spec = product.specs[defId];
+                const key = `${product.id}:${defId}`;
+                next[key] = { product_id: product.id, definition_id: defId, spec_id: spec?.spec_id ?? null, value };
+            });
             return next;
         });
         setSaveResult(null);
@@ -601,10 +617,39 @@ export default function SpecEditorPage({
                             </th>
                             {definitions.map(def => (
                                 <th key={def.id}
-                                    className="text-left px-3 py-3 text-xs font-medium text-gray-500
+                                    className="text-left px-3 py-2 text-xs font-medium text-gray-500
                              dark:text-gray-400 uppercase tracking-wide
-                             whitespace-nowrap min-w-36">
-                                    {def.display_name}
+                             whitespace-nowrap min-w-40">
+                                    <div className="mb-1">{def.display_name}</div>
+                                    <div className="flex items-center gap-1 normal-case">
+                                        <input
+                                            type="text"
+                                            list={def.choices?.length ? `choices-${def.id}` : undefined}
+                                            value={bulkValues[def.id] || ''}
+                                            onChange={e => setBulkValues(prev => ({ ...prev, [def.id]: e.target.value }))}
+                                            onKeyDown={e => { if (e.key === 'Enter') handleApplyAll(def.id); }}
+                                            placeholder="Значение для всех"
+                                            className="w-full px-1.5 py-0.5 text-xs font-normal rounded border
+                                 border-gray-200 dark:border-gray-700 bg-white dark:bg-neutral-800
+                                 text-gray-700 dark:text-gray-300 focus:outline-none
+                                 focus:ring-1 focus:ring-violet-500"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleApplyAll(def.id)}
+                                            title={`Применить ко всем ${products.length}`}
+                                            className="shrink-0 px-1.5 py-0.5 text-xs font-normal rounded
+                                 bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300
+                                 hover:bg-violet-200 dark:hover:bg-violet-900/60"
+                                        >
+                                            →
+                                        </button>
+                                        {def.choices?.length > 0 && (
+                                            <datalist id={`choices-${def.id}`}>
+                                                {def.choices.map(c => <option key={c} value={c} />)}
+                                            </datalist>
+                                        )}
+                                    </div>
                                 </th>
                             ))}
                         </tr>
@@ -670,6 +715,7 @@ export default function SpecEditorPage({
                                         >
                                             <input
                                                 type="text"
+                                                list={def.choices?.length ? `choices-${def.id}` : undefined}
                                                 value={currentValue}
                                                 onChange={e => handleCellChange(
                                                     product.id,
