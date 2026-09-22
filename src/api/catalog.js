@@ -197,6 +197,17 @@ export const catalogApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    // Юридически значимая запись GTIN в типовой регистр «Штрихкоды номенклатуры» в 1С
+    // (источник для Контур.Маркировки/Честного знака) — только явно по кнопке, не автоматом.
+    // Статус — тот же taskStatus() выше.
+    async pushGtinTo1C(productIds) {
+        const res = await apiFetch(`${BASE}/products/push-gtin-to-1c/`, {
+            method: 'POST',
+            body: JSON.stringify({ product_ids: productIds }),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
     // Серии
     async getSeriesTemplates(productTypeId = null) {
         const q = productTypeId ? `?product_type=${productTypeId}` : '';

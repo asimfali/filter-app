@@ -7,8 +7,10 @@ import {
     gs1Error, fmtGs1Date, GS1_STATUS_LABEL, GS1_STATUS_COLOR, GS1_REASON_LABEL,
 } from '../utils/gs1';
 import useGs1Summary, { notifyGs1SummaryChanged } from '../hooks/useGs1Summary';
+import { useMultiSelect } from '../hooks/useMultiSelect';
 import Gs1ItemModal from '../components/sync/Gs1ItemModal';
 import Gs1RunPanel from '../components/sync/Gs1RunPanel';
+import Gs1PushErpPanel from '../components/sync/Gs1PushErpPanel';
 
 const PAGE_SIZE = 50;
 // «Предложено» — new с кандидатом (результат dry-run), «Новые» — new без кандидатов;
@@ -28,6 +30,7 @@ export default function Gs1Page() {
     const { user } = useAuth();
     const canResolve = can(user, PERM.EXTERNAL_GS1_RESOLVE);
     const canSync = can(user, PERM.EXTERNAL_GS1_SYNC);
+    const canPushGtin = can(user, PERM.CATALOG_PUSH_GTIN_TO_1C);
     const summary = useGs1Summary(canResolve, null);
 
     const [tab, setTab] = useState('conflict');
@@ -35,12 +38,18 @@ export default function Gs1Page() {
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
     const [showInactive, setShowInactive] = useState(false);
+    const [hidePushed, setHidePushed] = useState(false);
     const [page, setPage] = useState(1);
     const [data, setData] = useState({ count: 0, results: [] });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [selectedId, setSelectedId] = useState(null);
     const reqRef = useRef(0);
+    // Отправка GTIN в 1С — только с «Сопоставленные» (только там гарантирован Product.gtin)
+    const gtinSelect = useMultiSelect(data.results);
+    const showGtinStatus = tab === 'matched'; // колонка «GTIN в 1С» видна всем, кто видит вкладку
+    const showGtinSelect = showGtinStatus && canPushGtin; // чекбоксы/панель — только с правом на отправку
+    const extraCols = (showGtinSelect ? 1 : 0) + (showGtinStatus ? 1 : 0);
 
     useEffect(() => {
         const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(1); }, 300);
@@ -58,6 +67,7 @@ export default function Gs1Page() {
                 search,
                 // по умолчанию — только активные в ГС1; деактивированные автоматически не сопоставляются
                 is_active_in_gs1: showInactive ? '' : 'true',
+                ...(tab === 'matched' && hidePushed ? { gtin_pushed_to_1c: 'false' } : {}),
                 page,
                 page_size: PAGE_SIZE,
             });
@@ -69,12 +79,18 @@ export default function Gs1Page() {
         } finally {
             if (req === reqRef.current) setLoading(false);
         }
-    }, [tab, reason, search, showInactive, page]);
+    }, [tab, reason, search, showInactive, hidePushed, page]);
 
     useEffect(() => { if (canResolve) load(); }, [canResolve, load]);
 
     const changed = () => { load(); notifyGs1SummaryChanged(); };
     const pickTab = (t) => { setTab(t); setReason(''); setPage(1); };
+
+    // Список выбранных — «живой» на текущей странице; смена страницы/фильтров/вкладки его обнуляет
+    useEffect(() => { gtinSelect.clearAll(); }, [tab, page, search, reason, showInactive, hidePushed]); // eslint-disable-line react-hooks/exhaustive-deps
+    const gtinProductIds = data.results
+        .filter(r => gtinSelect.selected.has(r.id) && r.product)
+        .map(r => r.product);
 
     if (!canResolve) {
         return <p className="text-sm text-gray-500 dark:text-gray-400">Недостаточно прав для просмотра очереди ГС1</p>;
@@ -88,6 +104,10 @@ export default function Gs1Page() {
             <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Синхронизация с ГС1 РУС</h1>
 
             {canSync && <Gs1RunPanel onFinished={changed} />}
+
+            {showGtinSelect && (
+                <Gs1PushErpPanel productIds={gtinProductIds} onDone={() => gtinSelect.clearAll()} />
+            )}
 
             <div className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-700">
                 {TABS.map(t => (
@@ -125,6 +145,13 @@ export default function Gs1Page() {
                         onChange={e => { setShowInactive(e.target.checked); setPage(1); }} />
                     Показать деактивированные в ГС1
                 </label>
+                {showGtinStatus && (
+                    <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <input type="checkbox" className="rounded" checked={hidePushed}
+                            onChange={e => { setHidePushed(e.target.checked); setPage(1); }} />
+                        Скрыть уже отправленные в 1С
+                    </label>
+                )}
             </div>
 
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -133,11 +160,19 @@ export default function Gs1Page() {
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                            {showGtinSelect && (
+                                <th className="px-3 py-2 w-8">
+                                    <input type="checkbox" className="rounded"
+                                        checked={data.results.length > 0 && gtinSelect.selected.size === data.results.length}
+                                        onChange={e => (e.target.checked ? gtinSelect.selectAll() : gtinSelect.clearAll())} />
+                                </th>
+                            )}
                             <th className="px-3 py-2 font-medium">GTIN</th>
                             <th className="px-3 py-2 font-medium">Описание</th>
                             <th className="px-3 py-2 font-medium whitespace-nowrap">Регистрация в ГС1</th>
                             <th className="px-3 py-2 font-medium">Статус</th>
                             <th className="px-3 py-2 font-medium">Товар</th>
+                            {showGtinStatus && <th className="px-3 py-2 font-medium whitespace-nowrap">GTIN в 1С</th>}
                         </tr>
                     </thead>
                     <tbody className={loading ? 'opacity-50' : ''}>
@@ -145,6 +180,13 @@ export default function Gs1Page() {
                             <tr key={row.id} onClick={() => setSelectedId(row.id)}
                                 className="border-b last:border-0 border-gray-100 dark:border-gray-800 cursor-pointer
                                            hover:bg-neutral-50 dark:hover:bg-neutral-800 text-gray-900 dark:text-white">
+                                {showGtinSelect && (
+                                    <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                                        <input type="checkbox" className="rounded"
+                                            checked={gtinSelect.selected.has(row.id)}
+                                            onChange={() => gtinSelect.toggle(row.id)} />
+                                    </td>
+                                )}
                                 <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{row.gtin}</td>
                                 <td className="px-3 py-2">
                                     {row.prod_desc}
@@ -169,10 +211,17 @@ export default function Gs1Page() {
                                     )}
                                 </td>
                                 <td className="px-3 py-2">{row.product_name ?? '—'}</td>
+                                {showGtinStatus && (
+                                    <td className="px-3 py-2 whitespace-nowrap">
+                                        {row.gtin_pushed_at
+                                            ? <span className="text-xs text-emerald-600 dark:text-emerald-400">✓ {fmtGs1Date(row.gtin_pushed_at, true)}</span>
+                                            : <span className="text-xs text-gray-400">не отправлен</span>}
+                                    </td>
+                                )}
                             </tr>
                         ))}
                         {!loading && data.results.length === 0 && (
-                            <tr><td colSpan={5} className="px-3 py-8 text-center text-gray-400">Записей нет</td></tr>
+                            <tr><td colSpan={5 + extraCols} className="px-3 py-8 text-center text-gray-400">Записей нет</td></tr>
                         )}
                     </tbody>
                 </table>

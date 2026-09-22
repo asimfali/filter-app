@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Gs1Page from '../Gs1Page';
 import { externalApi } from '../../api/external';
@@ -12,6 +12,14 @@ vi.mock('../../api/external', () => ({
 vi.mock('../../components/sync/Gs1RunPanel', () => ({ default: () => <div data-testid="run-panel" /> }));
 vi.mock('../../components/sync/Gs1ItemModal', () => ({
     default: ({ itemId }) => <div data-testid="item-modal">item:{itemId}</div>,
+}));
+vi.mock('../../components/sync/Gs1PushErpPanel', () => ({
+    default: ({ productIds, onDone }) => (
+        <div data-testid="push-erp-panel">
+            ids:{productIds.join(',')}
+            <button onClick={() => onDone({ pushed: productIds.length })}>done-push</button>
+        </div>
+    ),
 }));
 
 const ok = (data) => ({ ok: true, status: 200, data: { success: true, data } });
@@ -128,5 +136,81 @@ describe('Gs1Page', () => {
         externalApi.getGs1Items.mockResolvedValue({ ok: false, status: 403, data: { detail: 'Нет прав' } });
         render(<Gs1Page />);
         expect(await screen.findByText('Нет прав')).toBeInTheDocument();
+    });
+
+    describe('отправка GTIN в 1С', () => {
+        const matchedRow = (over = {}) => row({ id: 5, status: 'matched', reason: '', product: 55, product_name: 'Завеса А', candidates_count: 0, ...over });
+
+        it('без catalog.push_gtin_to_1c — ни чекбоксов, ни панели, но статус «GTIN в 1С» всё равно виден', async () => {
+            asUser('external.gs1_resolve');
+            externalApi.getGs1Items.mockResolvedValue(ok({ count: 1, results: [matchedRow({ gtin_pushed_at: null })] }));
+            render(<Gs1Page />);
+            fireEvent.click(await screen.findByRole('button', { name: /Сопоставленные/ }));
+            await waitFor(() => expect(lastParams().status).toBe('matched'));
+            expect(screen.queryByTestId('push-erp-panel')).not.toBeInTheDocument();
+            expect(within(screen.getByRole('table')).queryAllByRole('checkbox').length).toBe(0);
+            expect(screen.getByText('не отправлен')).toBeInTheDocument();
+        });
+
+        it('gtin_pushed_at — дата отправки в 1С отмечена галочкой', async () => {
+            asUser('external.gs1_resolve');
+            externalApi.getGs1Items.mockResolvedValue(ok({ count: 1, results: [matchedRow({ gtin_pushed_at: '2026-09-22T10:15:00Z' })] }));
+            render(<Gs1Page />);
+            fireEvent.click(await screen.findByRole('button', { name: /Сопоставленные/ }));
+            expect(await screen.findByText(/✓ 22\.09\.2026/)).toBeInTheDocument();
+        });
+
+        it('«Скрыть уже отправленные в 1С» — только на «Сопоставленные», шлёт gtin_pushed_to_1c=false', async () => {
+            asUser('external.gs1_resolve');
+            externalApi.getGs1Items.mockResolvedValue(ok({ count: 1, results: [row()] }));
+            render(<Gs1Page />);
+            await screen.findByText('Завеса тепловая');
+            expect(screen.queryByLabelText('Скрыть уже отправленные в 1С')).not.toBeInTheDocument();
+
+            externalApi.getGs1Items.mockResolvedValue(ok({ count: 1, results: [matchedRow()] }));
+            fireEvent.click(screen.getByRole('button', { name: /Сопоставленные/ }));
+            await screen.findByText('Завеса А');
+            await userEvent.setup().click(screen.getByLabelText('Скрыть уже отправленные в 1С'));
+            await waitFor(() => expect(lastParams().gtin_pushed_to_1c).toBe('false'));
+
+            fireEvent.click(screen.getByRole('button', { name: /Конфликты/ }));
+            await waitFor(() => expect(lastParams().gtin_pushed_to_1c).toBeUndefined());
+        });
+
+        it('с правом на «Сопоставленные»: выбор строк передаётся в панель как product id', async () => {
+            asUser('external.gs1_resolve', 'catalog.push_gtin_to_1c');
+            externalApi.getGs1Items.mockResolvedValue(ok({ count: 2, results: [matchedRow(), matchedRow({ id: 6, product: 66, product_name: 'Завеса Б' })] }));
+            render(<Gs1Page />);
+            fireEvent.click(await screen.findByRole('button', { name: /Сопоставленные/ }));
+            await screen.findByText('Завеса А');
+
+            expect(screen.getByTestId('push-erp-panel')).toHaveTextContent('ids:');
+            const [selectAllCb, row0Cb] = within(screen.getByRole('table')).getAllByRole('checkbox');
+            fireEvent.click(row0Cb);
+            expect(screen.getByTestId('push-erp-panel')).toHaveTextContent('ids:55');
+
+            fireEvent.click(selectAllCb); // выбрать все на странице
+            expect(screen.getByTestId('push-erp-panel')).toHaveTextContent('ids:55,66');
+        });
+
+        it('панель и чекбоксы видны только на «Сопоставленные», выбор сбрасывается при смене вкладки', async () => {
+            asUser('external.gs1_resolve', 'catalog.push_gtin_to_1c');
+            externalApi.getGs1Items.mockResolvedValue(ok({ count: 1, results: [matchedRow()] }));
+            render(<Gs1Page />);
+            fireEvent.click(await screen.findByRole('button', { name: /Сопоставленные/ }));
+            await screen.findByText('Завеса А');
+            fireEvent.click(within(screen.getByRole('table')).getAllByRole('checkbox')[1]); // чекбокс строки
+            expect(screen.getByTestId('push-erp-panel')).toHaveTextContent('ids:55');
+
+            externalApi.getGs1Items.mockResolvedValue(ok({ count: 1, results: [row()] }));
+            fireEvent.click(screen.getByRole('button', { name: /Конфликты/ }));
+            await screen.findByText('Завеса тепловая');
+            expect(screen.queryByTestId('push-erp-panel')).not.toBeInTheDocument();
+
+            externalApi.getGs1Items.mockResolvedValue(ok({ count: 1, results: [matchedRow()] }));
+            fireEvent.click(screen.getByRole('button', { name: /Сопоставленные/ }));
+            await screen.findByText('Завеса А');
+            expect(screen.getByTestId('push-erp-panel')).toHaveTextContent('ids:'); // выбор не сохранился
+        });
     });
 });
