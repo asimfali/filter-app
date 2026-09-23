@@ -18,6 +18,7 @@ export const PERM = {
     // catalog
     CATALOG_ACCESSORY_WRITE: 'catalog.accessory.write',
     CATALOG_BINDING_WRITE: 'catalog.binding.write',
+    CATALOG_DESIGN_LANDING_WRITE: 'catalog.design_landing.write',
     CATALOG_PUSH_TO_1C: 'catalog.push_to_1c',
     CATALOG_PUSH_GTIN_TO_1C: 'catalog.push_gtin_to_1c', // отдельное от push_to_1c: юр. значимая запись GTIN для Честного знака
     CATALOG_SERIES_MANAGE: 'catalog.series.manage',

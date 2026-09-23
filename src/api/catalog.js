@@ -357,6 +357,39 @@ export const catalogApi = {
         });
         return { ok: res.ok, data: await res.json() };
     },
+
+    // ── Лендинги дизайна (ParameterValueLanding) ─────────────────────────────
+
+    async designLandings() {
+        const res = await apiFetch(`${BASE}/parameter-value-landings/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async designLandingsForValue(valueId) {
+        const res = await apiFetch(`${BASE}/parameter-value-landings/?values=${valueId}`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async createDesignLanding(payload) {
+        const res = await apiFetch(`${BASE}/parameter-value-landings/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async updateDesignLanding(id, payload) {
+        const res = await apiFetch(`${BASE}/parameter-value-landings/${id}/`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, data: await res.json() };
+    },
+
+    async deleteDesignLanding(id) {
+        const res = await apiFetch(`${BASE}/parameter-value-landings/${id}/`, { method: 'DELETE' });
+        return { ok: res.ok };
+    },
 };
 
 if (typeof window !== 'undefined') {
