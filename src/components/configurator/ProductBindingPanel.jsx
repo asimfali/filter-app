@@ -110,7 +110,7 @@ export function ChainProductsPanel({ products, partialProducts = [], loading, fi
                         В цепочке
                         {!loading && (
                             <span className="ml-1 font-normal">
-                                {products.length === 500 ? '500+' : products.length} шт.
+                                {products.length === 1200 ? '1200+' : products.length} шт.
                             </span>
                         )}
                     </span>

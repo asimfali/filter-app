@@ -41,13 +41,13 @@ describe('ChainProductsPanel — Delete (регрессия на исправл�
 });
 
 describe('ChainProductsPanel — полные товары', () => {
-    it('счётчик количества, "500+" при 500 товарах', () => {
+    it('счётчик количества, "1200+" при 1200 товарах', () => {
         const { rerender } = render(<ChainProductsPanel products={[p1, p2]} loading={false} />);
         expect(screen.getByText('2 шт.')).toBeInTheDocument();
 
-        const many = Array.from({ length: 500 }, (_, i) => ({ id: i, name: `П${i}` }));
+        const many = Array.from({ length: 1200 }, (_, i) => ({ id: i, name: `П${i}` }));
         rerender(<ChainProductsPanel products={many} loading={false} />);
-        expect(screen.getByText('500+ шт.')).toBeInTheDocument();
+        expect(screen.getByText('1200+ шт.')).toBeInTheDocument();
     });
 
     it('loading=true — "Загрузка...", пусто — "Нет изделий"', () => {
