@@ -11,6 +11,7 @@ import ActivateForm from './components/auth/ActivateForm';
 import TwoFAForm from './components/auth/TwoFAForm';
 import FilterTreeGraph from './components/configurator/FilterTree';
 import ParameterEditorPage from './pages/ParameterEditorPage';
+import DesignLandingsPage from './pages/DesignLandingsPage';
 import StaffPage from './pages/staff/StaffPage';
 import DocumentsPage from './pages/documents/DocumentsPage';
 import ProductPage from './pages/product/ProductPage';
@@ -341,6 +342,7 @@ function MainApp() {
                   <ProductMasterPage onBack={() => handleNavigate('parameters')} />
                 )}
                 {page === 'parameters' && <ParameterEditorPage />}
+                {page === 'design-landings' && <DesignLandingsPage />}
                 {page === 'staff' && <StaffPage />}
                 {page === 'documents' && <DocumentsPage
                   onOpenViewer={payload => handleNavigate('model-viewer', payload)}
