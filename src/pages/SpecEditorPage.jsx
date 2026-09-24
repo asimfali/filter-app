@@ -404,7 +404,10 @@ export default function SpecEditorPage({
                         const newSpecs = { ...product.specs };
                         Object.values(changes).forEach(change => {
                             if (change.product_id !== product.id) return;
-                            if (!change.value.trim()) return;
+                            if (!change.value.trim()) {
+                                delete newSpecs[change.definition_id];
+                                return;
+                            }
                             newSpecs[change.definition_id] = {
                                 spec_id: change.spec_id || newSpecs[change.definition_id]?.spec_id,
                                 value: change.value,
