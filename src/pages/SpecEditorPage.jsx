@@ -265,7 +265,7 @@ export default function SpecEditorPage({
 
     const handleApplyAll = (defId) => {
         const value = (bulkValues[defId] || '').trim();
-        if (!value || !data) return;
+        if (!data) return;
         setChanges(prev => {
             const next = { ...prev };
             data.products.forEach(product => {
@@ -637,7 +637,11 @@ export default function SpecEditorPage({
                                         <button
                                             type="button"
                                             onClick={() => handleApplyAll(def.id)}
-                                            title={`Применить ко всем ${products.length}`}
+                                            title={
+                                                (bulkValues[def.id] || '').trim()
+                                                    ? `Применить ко всем ${products.length}`
+                                                    : `Очистить у всех ${products.length}`
+                                            }
                                             className="shrink-0 px-1.5 py-0.5 text-xs font-normal rounded
                                  bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300
                                  hover:bg-violet-200 dark:hover:bg-violet-900/60"
