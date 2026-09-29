@@ -208,6 +208,37 @@ export const catalogApi = {
         return { ok: res.ok, status: res.status, data: await res.json() };
     },
 
+    // Коды ТНВЭД/ОКПД2: список с фильтрами (codes, onec_folder, onec_hierarchy, search, product_type —
+    // без пагинации, всегда ставить фильтр), группы 1С, пакетная запись в tmdata и в 1С (dry_run → запись).
+    // Запись в 1С — юр. значимая, только явно по кнопке; статус — taskStatus() выше.
+    async listProducts(params = {}) {
+        const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v != null));
+        const res = await apiFetch(`${BASE}/products/?${qs}`);
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    async onecGroups(productTypeId = null) {
+        const q = productTypeId ? `?product_type=${productTypeId}` : '';
+        const res = await apiFetch(`${BASE}/products/onec-groups/${q}`);
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    async setCodes(payload) {
+        const res = await apiFetch(`${BASE}/products/set-codes/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    async pushCodesTo1C(productIds, dryRun) {
+        const res = await apiFetch(`${BASE}/products/push-codes-to-1c/`, {
+            method: 'POST',
+            body: JSON.stringify({ product_ids: productIds, dry_run: dryRun }),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
     // Серии
     async getSeriesTemplates(productTypeId = null) {
         const q = productTypeId ? `?product_type=${productTypeId}` : '';

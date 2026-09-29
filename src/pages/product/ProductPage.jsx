@@ -141,6 +141,8 @@ export default function ProductPage({ productId, onBack, onOpenThread, onOpenVie
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                         {product.product_type}
                         {product.sku && <> · <span className="font-mono">{product.sku}</span></>}
+                        {product.tnved && <> · ТНВЭД <span className="font-mono">{product.tnved}</span></>}
+                        {product.okpd2 && <> · ОКПД2 <span className="font-mono">{product.okpd2}</span></>}
                     </div>
                 </div>
             </div>
