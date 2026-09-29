@@ -17,12 +17,13 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    async uploadDocument(docTypeId, externalId, file, name = '') {
+    async uploadDocument(docTypeId, externalId, file, name = '', docNumber = '') {
         const fd = new FormData();
         fd.append('doc_type_id', docTypeId);
         fd.append('external_id', externalId);
         fd.append('file', file);
         if (name) fd.append('name', name);
+        if (docNumber) fd.append('doc_number', docNumber);
 
         // FormData — не передаём Content-Type, браузер сам выставит boundary
         const res = await fetch(`${BASE}/upload/`, {
@@ -476,10 +477,10 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    async renameDocument(docId, name) {
+    async renameDocument(docId, name, docNumber) {
         const res = await apiFetch(`${BASE}/documents/${docId}/rename/`, {
             method: 'PATCH',
-            body: JSON.stringify({ name }),
+            body: JSON.stringify({ name, doc_number: docNumber }),  // undefined-поля не отправляются
         });
         return { ok: res.ok, data: await res.json() };
     },

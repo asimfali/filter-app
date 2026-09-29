@@ -5,7 +5,7 @@ import FiltersPanel from '../../components/media/FiltersPanel';
 import { ChevronIcon } from './icons';
 import FileRow, { DropZone, AddFileRow } from './FileRow';
 
-function EditableName({ value, onSave, canEdit, placeholder }) {
+function EditableName({ value, onSave, canEdit, placeholder, title = 'Нажмите, чтобы изменить название', className = 'text-sm font-medium' }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value || '');
   const [saving, setSaving] = useState(false);
@@ -31,7 +31,7 @@ function EditableName({ value, onSave, canEdit, placeholder }) {
 
   if (!canEdit) {
     return (
-      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+      <div className={`${className} text-gray-900 dark:text-white truncate`}>
         {value || placeholder}
       </div>
     );
@@ -46,9 +46,9 @@ function EditableName({ value, onSave, canEdit, placeholder }) {
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
         disabled={saving}
-        className="text-sm font-medium text-gray-900 dark:text-white
+        className={`${className} text-gray-900 dark:text-white
                    bg-transparent border-b border-blue-400
-                   focus:outline-none w-full py-0 leading-tight"
+                   focus:outline-none w-full py-0 leading-tight`}
       />
     );
   }
@@ -56,11 +56,11 @@ function EditableName({ value, onSave, canEdit, placeholder }) {
   return (
     <button
       onClick={() => setEditing(true)}
-      className="text-sm font-medium text-left truncate
+      className={`${className} text-left truncate
                  text-gray-900 dark:text-white
                  hover:text-blue-500 dark:hover:text-blue-400
-                 transition-colors"
-      title="Нажмите, чтобы изменить название">
+                 transition-colors`}
+      title={title}>
       {value || <span className="text-gray-400 italic">{placeholder}</span>}
     </button>
   );
@@ -73,7 +73,8 @@ export default function DocumentCard({ item, canDelete, canManageFilters, axes, 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [docName, setDocName] = useState(item.name || '');   // ← добавлено
+  const [docName, setDocName] = useState(item.name || '');
+  const [docNumber, setDocNumber] = useState(item.doc_number || '');
 
   const handleDeleteDocument = async () => {
     if (!confirming) { setConfirming(true); return; }
@@ -86,6 +87,11 @@ export default function DocumentCard({ item, canDelete, canManageFilters, axes, 
   const handleRename = async (newName) => {
     const { ok, data } = await mediaApi.renameDocument(item.id, newName);
     if (ok && data.success) setDocName(data.name);
+  };
+
+  const handleRenameNumber = async (newNumber) => {
+    const { ok, data } = await mediaApi.renameDocument(item.id, undefined, newNumber);
+    if (ok && data.success) setDocNumber(data.doc_number);
   };
 
   return (
@@ -104,6 +110,19 @@ export default function DocumentCard({ item, canDelete, canManageFilters, axes, 
               placeholder={`${item.doc_type?.name || 'Документ'} ${item.external_id}`}
             />
           </div>
+
+          {(docNumber || canManageFilters) && (
+            <div className="shrink-0 max-w-[20%]">
+              <EditableName
+                value={docNumber}
+                onSave={handleRenameNumber}
+                canEdit={canManageFilters}
+                placeholder="№ документа"
+                title="Нажмите, чтобы изменить номер документа"
+                className="text-xs font-mono"
+              />
+            </div>
+          )}
 
           <div className="flex-1 min-w-0 overflow-x-auto">
             <FiltersPanel

@@ -115,7 +115,7 @@ export default function DocumentsPage({ onOpenViewer, onFolderUpload }) {
                 type="search"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Поиск по типу, оси, значению..."
+                placeholder="Название, ID или номер документа"
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg
                  px-3 py-2 text-sm bg-white dark:bg-neutral-800
                  text-gray-900 dark:text-white

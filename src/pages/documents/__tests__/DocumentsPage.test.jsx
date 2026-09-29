@@ -364,11 +364,11 @@ describe('DocumentsPage — поиск/список верхнего уровн�
         expect(await screen.findByText('Найдено: 1 документ')).toBeInTheDocument();
         expect(screen.getByText('Паспорта')).toBeInTheDocument();
 
-        await user.type(screen.getByPlaceholderText(/Поиск по типу/), 'passport');
+        await user.type(screen.getByPlaceholderText(/номер документа/), 'passport');
         await waitFor(() => expect(mediaApi.getDocuments).toHaveBeenCalledWith('passport'), { timeout: 2000 });
         expect(screen.getByText('Сбросить ×')).toBeInTheDocument();
         await user.click(screen.getByText('Сбросить ×'));
-        expect(screen.getByPlaceholderText(/Поиск по типу/)).toHaveValue('');
+        expect(screen.getByPlaceholderText(/номер документа/)).toHaveValue('');
     });
 
     it('ошибка загрузки показывает сообщение', async () => {
@@ -390,7 +390,7 @@ describe('DocumentsPage — поиск/список верхнего уровн�
         mediaApi.getDocuments.mockResolvedValue(ok({ documents: [] }));
         render(<DocumentsPage onOpenViewer={vi.fn()} onFolderUpload={vi.fn()} />);
         await screen.findByText('Документов пока нет');
-        await user.type(screen.getByPlaceholderText(/Поиск по типу/), 'zzz');
+        await user.type(screen.getByPlaceholderText(/номер документа/), 'zzz');
         expect(await screen.findByText('Ничего не найдено')).toBeInTheDocument();
         expect(screen.queryByText('+ Загрузить первый документ')).not.toBeInTheDocument();
     });
@@ -523,7 +523,7 @@ describe('DocumentsPage — UploadForm: поиск/создание докуме
         fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
         fireEvent.click(screen.getByRole('button', { name: 'Загрузить' }));
 
-        await vi.waitFor(() => expect(mediaApi.uploadDocument).toHaveBeenCalledWith('1', 'passport-900', file));
+        await vi.waitFor(() => expect(mediaApi.uploadDocument).toHaveBeenCalledWith('1', 'passport-900', file, '', ''));
         await vi.waitFor(() => expect(screen.getByText('✓ Загружен: /media/a.pdf')).toBeInTheDocument());
         // Панель ещё не закрыта — сообщение должно быть видно какое-то время
         expect(screen.getByText('Загрузка документа')).toBeInTheDocument();

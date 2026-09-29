@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext.jsx';
 import { useCart } from '../../contexts/CartContext';
-import { can, PERM } from '../../utils/permissions';
+import { can, canAny, PERM } from '../../utils/permissions';
 import useGs1Summary from '../../hooks/useGs1Summary';
 import SmartSelect from '../common/SmartSelect';
 import ProfileModal from '../auth/ProfileModal';
@@ -240,6 +240,8 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'defect-acts',   label: 'Ведомость дефектов',code: PERM.BOM_DEFECT_VIEW,            icon: IconFile },
                 { id: 'variant-editor',label: 'Исполнения',        code: PERM.PRODUCT_VARIANT_VIEW,       icon: IconText },
                 { id: 'gs1',           label: 'ГС1 (GTIN)',        code: PERM.EXTERNAL_GS1_RESOLVE,       icon: IconLink, badge: gs1Conflicts },
+                { id: 'product-codes', label: 'Коды ТНВЭД/ОКПД2', code: undefined, codes: [PERM.CATALOG_PRODUCT_CODES_WRITE, PERM.CATALOG_PUSH_CODES_TO_1C], icon: IconLink },
+                { id: 'nk-cards', label: 'Карточки НК', code: undefined, codes: [PERM.CATALOG_PRODUCT_CODES_WRITE, PERM.CATALOG_PUSH_CODES_TO_1C], icon: IconClipboard },
                 { id: 'selection',     label: 'Подбор',            code: PERM.PORTAL_PAGE_SELECTION,      icon: IconFilter },
                 // Вынесено в отдельное приложение (filter-app-graphs) — не внутренняя
                 // страница портала, а ссылка на /graphs/ (тот же origin, тот же логин).
@@ -247,7 +249,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'doc-generator', label: 'Генератор документов', code: null,                          icon: IconPdf,       href: DOCGEN_URL },
                 { id: 'help',          label: 'Справка',           code: null,                             icon: IconHelp },
               ]
-              const visiblePages = ALL_PAGES.filter(p => p.code === null || can(user, p.code));
+              const visiblePages = ALL_PAGES.filter(p => p.codes ? canAny(user, p.codes) : (p.code === null || can(user, p.code)));
               const navItems = [
                 ...visiblePages,
                 ...(activeSession?.data?.page === 'spec-editor'

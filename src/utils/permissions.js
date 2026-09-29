@@ -20,6 +20,8 @@ export const PERM = {
     CATALOG_BINDING_WRITE: 'catalog.binding.write',
     CATALOG_DESIGN_LANDING_WRITE: 'catalog.design_landing.write',
     CATALOG_PUSH_TO_1C: 'catalog.push_to_1c',
+    CATALOG_PRODUCT_CODES_WRITE: 'catalog.product_codes.write', // ТНВЭД/ОКПД2 в tmdata
+    CATALOG_PUSH_CODES_TO_1C: 'catalog.push_codes_to_1c', // юр. значимая запись ТНВЭД/ОКПД2 в 1С
     CATALOG_PUSH_GTIN_TO_1C: 'catalog.push_gtin_to_1c', // отдельное от push_to_1c: юр. значимая запись GTIN для Честного знака
     CATALOG_SERIES_MANAGE: 'catalog.series.manage',
     CATALOG_SPEC_WRITE: 'catalog.spec.write',
