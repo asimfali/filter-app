@@ -112,7 +112,7 @@ export default function PushCodesPanel({ productIds, onDone }) {
                                 <li key={i} className="px-2.5 py-1.5 flex items-start justify-between gap-3">
                                     <span className="text-gray-700 dark:text-gray-300">{e.product}</span>
                                     <span className="text-right text-gray-500 dark:text-gray-400 shrink-0">
-                                        {CAUSE_LABEL[e.cause] ?? e.cause}: {e.error}
+                                        {e.error || CAUSE_LABEL[e.cause] || e.cause}
                                     </span>
                                 </li>
                             ))}

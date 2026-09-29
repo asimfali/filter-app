@@ -3,17 +3,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { catalogApi } from '../api/catalog';
 import { can, PERM } from '../utils/permissions';
 import { parseError } from '../utils';
-import { inputCls } from '../utils/styles';
-import { flattenOnecFolders } from '../utils/productCodes';
 import { useMultiSelect } from '../hooks/useMultiSelect';
 import SetCodesModal from '../components/catalog/SetCodesModal';
 import PushCodesPanel from '../components/catalog/PushCodesPanel';
-
-const CODES_FILTERS = [
-    { id: '', label: 'Все' },
-    { id: 'missing', label: 'Без кодов' },
-    { id: 'filled', label: 'Заполнены' },
-];
+import ProductListFilters from '../components/catalog/ProductListFilters';
 
 // Пакетное заполнение ТНВЭД/ОКПД2 и запись в 1С. Список бэка без пагинации — грузим только
 // при выбранной группе 1С или поиске, иначе это все ~8000 активных товаров.
@@ -22,11 +15,8 @@ export default function ProductCodesPage() {
     const canWrite = can(user, PERM.CATALOG_PRODUCT_CODES_WRITE);
     const canPush = can(user, PERM.CATALOG_PUSH_CODES_TO_1C);
 
-    const [folders, setFolders] = useState([]);
-    const [folder, setFolder] = useState('');
-    const [codes, setCodes] = useState('missing');
-    const [searchInput, setSearchInput] = useState('');
-    const [search, setSearch] = useState('');
+    const [filters, setFilters] = useState({ folder: '', search: '', codes: 'missing', productType: '' });
+    const { folder, search, codes, productType } = filters;
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -35,24 +25,13 @@ export default function ProductCodesPage() {
     const sel = useMultiSelect(items);
     const ids = useMemo(() => [...sel.selected], [sel.selected]);
 
-    useEffect(() => {
-        catalogApi.onecGroups().then(({ ok, data }) => {
-            if (ok && data?.success) setFolders(flattenOnecFolders(data.data));
-        });
-    }, []);
-
-    useEffect(() => {
-        const t = setTimeout(() => setSearch(searchInput.trim()), 300);
-        return () => clearTimeout(t);
-    }, [searchInput]);
-
     const load = useCallback(async () => {
-        if (!folder && !search) { setItems([]); return; }
+        if (!folder && !search && !productType) { setItems([]); return; }
         const req = ++reqRef.current;
         setLoading(true);
         setError('');
         try {
-            const { ok, status, data } = await catalogApi.listProducts({ onec_folder: folder, search, codes });
+            const { ok, status, data } = await catalogApi.listProducts({ onec_folder: folder, search, codes, product_type: productType });
             if (req !== reqRef.current) return;
             if (!ok) { setError(parseError(data, status)); setItems([]); return; }
             setItems(Array.isArray(data) ? data : data?.data ?? data?.results ?? []);
@@ -63,7 +42,7 @@ export default function ProductCodesPage() {
             if (req === reqRef.current) setLoading(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [folder, search, codes]);
+    }, [folder, search, codes, productType]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -73,28 +52,8 @@ export default function ProductCodesPage() {
         <div className="max-w-5xl mx-auto space-y-4">
             <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Коды ТНВЭД / ОКПД2</h1>
 
-            <div className="flex flex-wrap gap-2">
-                <select className={`${inputCls} !w-auto min-w-64`} value={folder} onChange={e => setFolder(e.target.value)}>
-                    <option value="">Группа 1С…</option>
-                    {folders.map(f => (
-                        <option key={f.code} value={f.code}>
-                            {'  '.repeat(f.depth)}{f.name} ({f.products}{f.missing ? `, без кодов: ${f.missing}` : ''})
-                        </option>
-                    ))}
-                </select>
-                <input className={`${inputCls} !w-64`} placeholder="Поиск по названию, артикулу, коду"
-                    value={searchInput} onChange={e => setSearchInput(e.target.value)} />
-                <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    {CODES_FILTERS.map(f => (
-                        <button key={f.id} onClick={() => setCodes(f.id)}
-                            className={`px-3 py-1.5 text-sm ${codes === f.id
-                                ? 'bg-blue-600 text-white'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-neutral-50 dark:hover:bg-neutral-800'}`}>
-                            {f.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
+            <ProductListFilters value={filters} withProductType
+                onChange={patch => setFilters(f => ({ ...f, ...patch }))} />
 
             {(canWrite || canPush) && (
                 <div className="flex items-center gap-3">
@@ -110,8 +69,8 @@ export default function ProductCodesPage() {
             {canPush && <PushCodesPanel productIds={ids} />}
 
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-            {!folder && !search && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">Выберите группу 1С или введите поисковый запрос.</p>
+            {!folder && !search && !productType && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Выберите группу 1С, тип продукции или введите поисковый запрос.</p>
             )}
 
             {items.length > 0 && (
@@ -146,7 +105,7 @@ export default function ProductCodesPage() {
                 </div>
             )}
             {loading && <p className="text-sm text-gray-500">Загрузка…</p>}
-            {!loading && (folder || search) && !error && items.length === 0 && (
+            {!loading && (folder || search || productType) && !error && items.length === 0 && (
                 <p className="text-sm text-gray-500 dark:text-gray-400">Товаров не найдено.</p>
             )}
 

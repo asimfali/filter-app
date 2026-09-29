@@ -241,6 +241,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'variant-editor',label: 'Исполнения',        code: PERM.PRODUCT_VARIANT_VIEW,       icon: IconText },
                 { id: 'gs1',           label: 'ГС1 (GTIN)',        code: PERM.EXTERNAL_GS1_RESOLVE,       icon: IconLink, badge: gs1Conflicts },
                 { id: 'product-codes', label: 'Коды ТНВЭД/ОКПД2', code: undefined, codes: [PERM.CATALOG_PRODUCT_CODES_WRITE, PERM.CATALOG_PUSH_CODES_TO_1C], icon: IconLink },
+                { id: 'nk-cards', label: 'Карточки НК', code: undefined, codes: [PERM.CATALOG_PRODUCT_CODES_WRITE, PERM.CATALOG_PUSH_CODES_TO_1C], icon: IconClipboard },
                 { id: 'selection',     label: 'Подбор',            code: PERM.PORTAL_PAGE_SELECTION,      icon: IconFilter },
                 // Вынесено в отдельное приложение (filter-app-graphs) — не внутренняя
                 // страница портала, а ссылка на /graphs/ (тот же origin, тот же логин).

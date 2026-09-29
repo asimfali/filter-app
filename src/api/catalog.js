@@ -239,6 +239,21 @@ export const catalogApi = {
         return { ok: res.ok, status: res.status, data: await res.json() };
     },
 
+    // Карточки Национального каталога (только просмотр). readiness — дешёвая проверка без обращения к НК
+    // (до 300 id за запрос); nkCard с compare=true тратит 1 запрос из суточного лимита НК — только по кнопке.
+    async nkReadiness(productIds) {
+        const res = await apiFetch(`${BASE}/products/nk-readiness/`, {
+            method: 'POST',
+            body: JSON.stringify({ product_ids: productIds }),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    async nkCard(productId, compare = false) {
+        const res = await apiFetch(`${BASE}/products/${productId}/nk-card/${compare ? '?compare=1' : ''}`);
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
     // Серии
     async getSeriesTemplates(productTypeId = null) {
         const q = productTypeId ? `?product_type=${productTypeId}` : '';

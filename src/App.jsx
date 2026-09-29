@@ -34,6 +34,7 @@ import SelectionPage from './pages/SelectionPage';
 import HelpPage from './pages/HelpPage';
 import Gs1Page from './pages/Gs1Page';
 import ProductCodesPage from './pages/ProductCodesPage';
+import NkCardsPage from './pages/NkCardsPage';
 import { IconClock } from './components/common/Icons.jsx';
 
 // Ленивая загрузка — тяжёлые страницы с крупными библиотеками (three.js,
@@ -401,6 +402,7 @@ function MainApp() {
                 {page === 'defect-acts' && <DefectActPage />}
                 {page === 'gs1' && <Gs1Page />}
                 {page === 'product-codes' && <ProductCodesPage />}
+                {page === 'nk-cards' && <NkCardsPage />}
                 {page === 'variant-editor' && (
                   <VariantEditorPage onBack={() => handleNavigate('configurator')} />
                 )}
