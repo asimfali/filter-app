@@ -4,7 +4,7 @@ import { SELECT_CLS } from './constants';
 import { IconPdf as PdfIcon } from '../../components/common/Icons';
 
 export default function UploadForm({ docTypes, onUploaded }) {
-  const [form, setForm] = useState({ doc_type_id: '', external_id: '' });
+  const [form, setForm] = useState({ doc_type_id: '', external_id: '', doc_number: '' });
   const [file, setFile] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -135,7 +135,7 @@ export default function UploadForm({ docTypes, onUploaded }) {
 
     for (const f of multiFiles) {
       const { ok, data } = await mediaApi.uploadDocument(
-        form.doc_type_id, form.external_id, f,
+        form.doc_type_id, form.external_id, f, '', form.doc_number,
       );
       results.push({ name: f.name, ok: ok && data.success, message: data.error });
     }
@@ -145,7 +145,7 @@ export default function UploadForm({ docTypes, onUploaded }) {
 
     if (results.every(r => r.ok)) {
       setMultiFiles([]);
-      setForm({ doc_type_id: '', external_id: '' });
+      setForm({ doc_type_id: '', external_id: '', doc_number: '' });
       setQuery('');
       setIsNew(false);
       onUploaded();
@@ -175,11 +175,13 @@ export default function UploadForm({ docTypes, onUploaded }) {
       form.doc_type_id,
       form.external_id,
       file,
+      '',
+      form.doc_number,
     );
 
     if (ok && data.success) {
       setFile(null);
-      setForm({ doc_type_id: '', external_id: '' });
+      setForm({ doc_type_id: '', external_id: '', doc_number: '' });
       setQuery('');
       setIsNew(false);
       if (data.converting) {
@@ -263,6 +265,7 @@ export default function UploadForm({ docTypes, onUploaded }) {
                          border-b border-gray-100 dark:border-gray-800
                          last:border-0 text-gray-800 dark:text-gray-200">
                     {doc.external_id}
+                    {doc.doc_number && <span className="ml-2 text-xs text-gray-400">№ {doc.doc_number}</span>}
                     <span className="ml-2 text-xs text-blue-500">обновить</span>
                   </button>
                 ))}
@@ -288,6 +291,17 @@ export default function UploadForm({ docTypes, onUploaded }) {
             {isNew ? '+ Новый документ' : '↻ Обновление существующего'}
           </div>
         )}
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+          Номер документа <span className="text-gray-400">(необязательно)</span>
+        </label>
+        <input
+          value={form.doc_number}
+          onChange={e => setForm(f => ({ ...f, doc_number: e.target.value }))}
+          className={SELECT_CLS}
+        />
       </div>
 
       <div>
