@@ -628,6 +628,9 @@ describe('DocumentsPage — BulkCreateForm', () => {
 });
 
 describe('DocumentsPage — UploadForm: поиск/создание документа', () => {
+    // label без htmlFor — input лежит в том же блоке
+    const fieldInput = (label) => screen.getByText(label).closest('div').querySelector('input');
+
     async function openUpload(user) {
         mediaApi.getDocuments.mockResolvedValue(ok({ documents: [] }));
         render(<DocumentsPage onOpenViewer={vi.fn()} onFolderUpload={vi.fn()} />);
@@ -644,6 +647,18 @@ describe('DocumentsPage — UploadForm: поиск/создание докуме
         await waitFor(() => expect(mediaApi.searchDocuments).toHaveBeenCalledWith('1', 'pass'), { timeout: 2000 });
         await user.click(await screen.findByText('passport-777'));
         expect(screen.getByText('↻ Обновление существующего')).toBeInTheDocument();
+    });
+
+    it('выбор существующего документа предзаполняет название и номер', async () => {
+        const user = userEvent.setup();
+        mediaApi.searchDocuments.mockResolvedValue({ ok: true, data: { results: [
+            { id: 5, external_id: 'passport-777', name: 'Паспорт КЭВ', doc_number: 'N-777' },
+        ] } });
+        await openUpload(user);
+        await user.type(screen.getByPlaceholderText('Введите название...'), 'pass');
+        await user.click(await screen.findByText('passport-777', {}, { timeout: 2000 }));
+        expect(fieldInput('Название')).toHaveValue('Паспорт КЭВ');
+        expect(fieldInput('Номер документа')).toHaveValue('N-777');
     });
 
     it('"+ Создать «query»" — "+ Новый документ"', async () => {
@@ -686,6 +701,7 @@ describe('DocumentsPage — UploadForm: поиск/создание докуме
         await openUpload(user);
         await user.type(screen.getByPlaceholderText('Введите название...'), 'passport-900');
         await user.click(await screen.findByText('+ Создать «passport-900»'));
+        await user.type(fieldInput('Название'), 'Паспорт 900');
         const dropzone = screen.getByText('Перетащите файл сюда').closest('div');
         const file = new File(['x'], 'a.pdf', { type: 'application/pdf' });
 
@@ -694,7 +710,7 @@ describe('DocumentsPage — UploadForm: поиск/создание докуме
         fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
         fireEvent.click(screen.getByRole('button', { name: 'Загрузить' }));
 
-        await vi.waitFor(() => expect(mediaApi.uploadDocument).toHaveBeenCalledWith('1', 'passport-900', file, '', ''));
+        await vi.waitFor(() => expect(mediaApi.uploadDocument).toHaveBeenCalledWith('1', 'passport-900', file, 'Паспорт 900', ''));
         await vi.waitFor(() => expect(screen.getByText('✓ Загружен: /media/a.pdf')).toBeInTheDocument());
         // Панель ещё не закрыта — сообщение должно быть видно какое-то время
         expect(screen.getByText('Загрузка документа')).toBeInTheDocument();
