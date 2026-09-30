@@ -3,8 +3,10 @@ import { mediaApi } from '../../api/media';
 import { SELECT_CLS } from './constants';
 import { IconPdf as PdfIcon } from '../../components/common/Icons';
 
+const EMPTY_FORM = { doc_type_id: '', external_id: '', name: '', doc_number: '' };
+
 export default function UploadForm({ docTypes, onUploaded }) {
-  const [form, setForm] = useState({ doc_type_id: '', external_id: '', doc_number: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [file, setFile] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,7 +44,8 @@ export default function UploadForm({ docTypes, onUploaded }) {
   };
 
   const handleSelect = (doc) => {
-    setForm(f => ({ ...f, external_id: doc.external_id }));
+    // Обновление существующего — показываем его текущие название и номер (пустое бэкенд не затирает)
+    setForm(f => ({ ...f, external_id: doc.external_id, name: doc.name || '', doc_number: doc.doc_number || '' }));
     setQuery(doc.external_id);
     setSuggestions([]);
     setIsNew(false);
@@ -135,7 +138,7 @@ export default function UploadForm({ docTypes, onUploaded }) {
 
     for (const f of multiFiles) {
       const { ok, data } = await mediaApi.uploadDocument(
-        form.doc_type_id, form.external_id, f, '', form.doc_number,
+        form.doc_type_id, form.external_id, f, form.name, form.doc_number,
       );
       results.push({ name: f.name, ok: ok && data.success, message: data.error });
     }
@@ -145,7 +148,7 @@ export default function UploadForm({ docTypes, onUploaded }) {
 
     if (results.every(r => r.ok)) {
       setMultiFiles([]);
-      setForm({ doc_type_id: '', external_id: '', doc_number: '' });
+      setForm(EMPTY_FORM);
       setQuery('');
       setIsNew(false);
       onUploaded();
@@ -175,13 +178,13 @@ export default function UploadForm({ docTypes, onUploaded }) {
       form.doc_type_id,
       form.external_id,
       file,
-      '',
+      form.name,
       form.doc_number,
     );
 
     if (ok && data.success) {
       setFile(null);
-      setForm({ doc_type_id: '', external_id: '', doc_number: '' });
+      setForm(EMPTY_FORM);
       setQuery('');
       setIsNew(false);
       if (data.converting) {
@@ -291,6 +294,17 @@ export default function UploadForm({ docTypes, onUploaded }) {
             {isNew ? '+ Новый документ' : '↻ Обновление существующего'}
           </div>
         )}
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+          Название <span className="text-gray-400">(необязательно)</span>
+        </label>
+        <input
+          value={form.name}
+          onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+          className={SELECT_CLS}
+        />
       </div>
 
       <div>
