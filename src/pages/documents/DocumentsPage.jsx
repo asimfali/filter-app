@@ -6,12 +6,14 @@ import { IconFolder } from '../../components/common/Icons';
 import { DocumentGroup, declDocs } from './DocumentCard';
 import BulkCreateForm from './BulkCreateForm';
 import UploadForm from './UploadForm';
+import RegistryResolveAll from './RegistryResolveAll';
 
 export default function DocumentsPage({ onOpenViewer, onFolderUpload }) {
   const { user } = useAuth();
   const canUpload = can(user, PERM.PORTAL_DOCUMENTS_UPLOAD);
   const canDelete = can(user, PERM.PORTAL_DOCUMENTS_DELETE);
   const canManageFilters = can(user, PERM.PORTAL_DOCUMENTS_UPLOAD);
+  const canEditRegistry = can(user, PERM.PORTAL_DOCUMENTS_REGISTRY_EDIT);
   const [uploadMode, setUploadMode] = useState('single');
 
   // ← сначала search
@@ -62,6 +64,8 @@ export default function DocumentsPage({ onOpenViewer, onFolderUpload }) {
           </div>
         )}
       </div>
+
+      {canEditRegistry && !showUpload && <RegistryResolveAll onDone={reload} />}
 
       {showUpload ? (
         <div className="bg-white dark:bg-neutral-900 rounded-lg shadow p-5 max-w-lg">
