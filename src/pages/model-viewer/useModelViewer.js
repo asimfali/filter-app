@@ -6,7 +6,10 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getExt, authFetch, buildTree } from './utils';
+import {
+    getExt, authFetch, buildTree, markGltfParts, partOf, collectMeshes,
+    showWithAncestors, nodeOf, isCutoutHit,
+} from './utils';
 
 export function useModelViewer({ relPath, fname, mtlPath }) {
     const mountRef = useRef(null);
@@ -299,6 +302,7 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
                 .then(blob => {
                     const url = URL.createObjectURL(blob);
                     new GLTFLoader().load(url, gltf => {
+                        markGltfParts(gltf);
                         onLoaded(gltf.scene);
                         URL.revokeObjectURL(url);
                     }, undefined, () => {
@@ -431,6 +435,20 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
 
     const mouseDownPosRef = useRef(null);
 
+    // Луч из точки экрана по мешам; попадания в прозрачные вырезы текстуры пропускаются
+    const raycastAt = useCallback((e, meshes) => {
+        const container = mountRef.current;
+        const camera = cameraRef.current;
+        if (!container || !camera) return [];
+        const rect = container.getBoundingClientRect();
+        const mouse = new THREE.Vector2(
+            ((e.clientX - rect.left) / rect.width) * 2 - 1,
+            -((e.clientY - rect.top) / rect.height) * 2 + 1,
+        );
+        raycasterRef.current.setFromCamera(mouse, camera);
+        return raycasterRef.current.intersectObjects(meshes, false).filter(h => !isCutoutHit(h));
+    }, []);
+
     // ── handleCanvasClick — чистый, без хуков внутри ──────────────────────
     const handleCanvasClick = useCallback((e) => {
         if (mouseDownPosRef.current) {
@@ -445,72 +463,34 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
             const count = clickCountRef.current;
             clickCountRef.current = 0;
 
-            const container = mountRef.current;
-            const camera = cameraRef.current;
             const scene = sceneRef.current;
-            if (!container || !camera || !scene) return;
+            if (!scene) return;
 
-            const rect = container.getBoundingClientRect();
-            const mouse = new THREE.Vector2(
-                ((e.clientX - rect.left) / rect.width) * 2 - 1,
-                -((e.clientY - rect.top) / rect.height) * 2 + 1,
-            );
-            raycasterRef.current.setFromCamera(mouse, camera);
-
+            // Raycaster не проверяет visible — меши собираем по эффективной видимости
             if (count === 3) {
-                const hiddenMeshes = [];
-                scene.traverse(c => {
-                    if (c.isMesh && !c.visible) {
-                        c.visible = true;
-                        hiddenMeshes.push(c);
-                    }
-                });
-                const hits = raycasterRef.current.intersectObjects(hiddenMeshes, false);
-                hiddenMeshes.forEach(c => { c.visible = false; });
-
+                // Показать самую дальнюю скрытую деталь под курсором
+                const hits = raycastAt(e, collectMeshes(scene, false));
                 if (hits.length > 0) {
-                    const farthest = hits[hits.length - 1].object;
-                    farthest.visible = true;
-                    setSelectedNode({
-                        uuid: farthest.uuid,
-                        name: farthest.name,
-                        type: farthest.type,
-                        isMesh: true,
-                        children: [],
-                    });
+                    const part = partOf(hits[hits.length - 1].object);
+                    showWithAncestors(part);
+                    setSelectedNode(nodeOf(part));
                     refresh();
                 }
 
             } else if (count === 2) {
-                const visibleMeshes = [];
-                scene.traverse(c => {
-                    if (c.isMesh && c.visible) visibleMeshes.push(c);
-                });
-                const hits = raycasterRef.current.intersectObjects(visibleMeshes, false);
-
+                const hits = raycastAt(e, collectMeshes(scene));
                 if (hits.length > 0) {
-                    hits[0].object.visible = false;
+                    partOf(hits[0].object).traverse(c => { c.visible = false; });
                     highlightSelected(null);
                     refresh();
                 }
 
             } else if (count === 1) {
-                const visibleMeshes = [];
-                scene.traverse(c => {
-                    if (c.isMesh && c.visible) visibleMeshes.push(c);
-                });
-                const hits = raycasterRef.current.intersectObjects(visibleMeshes, false);
-
+                const hits = raycastAt(e, collectMeshes(scene));
                 if (hits.length > 0) {
-                    const hit = hits[0].object;
-                    setSelectedNode({
-                        uuid: hit.uuid,
-                        name: hit.name,
-                        type: hit.type,
-                        isMesh: true,
-                        children: [],
-                    });
-                    highlightSelected(hit.uuid);
+                    const part = partOf(hits[0].object);
+                    setSelectedNode(nodeOf(part));
+                    highlightSelected(part.uuid);
                 } else {
                     // Клик на пустое место — сбросить подсветку
                     highlightSelected(null);
@@ -518,7 +498,7 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
                 }
             }
         }, 250);
-    }, [refresh, highlightSelected]);
+    }, [refresh, highlightSelected, raycastAt]);
 
     const handleCanvasMouseDown = useCallback((e) => {
         const container = mountRef.current;
@@ -548,50 +528,24 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
         e.preventDefault();
         if (!container || !camera || !scene || !controls) return;
 
-        const rect = container.getBoundingClientRect();
-        const mouse = new THREE.Vector2(
-            ((e.clientX - rect.left) / rect.width) * 2 - 1,
-            -((e.clientY - rect.top) / rect.height) * 2 + 1,
-        );
-
-        raycasterRef.current.setFromCamera(mouse, camera);
-        const meshes = [];
-        scene.traverse(c => { if (c.isMesh && c.visible) meshes.push(c); });
-        const hits = raycasterRef.current.intersectObjects(meshes, false);
-
+        const hits = raycastAt(e, collectMeshes(scene));
         if (hits.length > 0) {
             controls.target.copy(hits[0].point);
             controls.update();
         }
-    }, []);
+    }, [raycastAt]);
 
     const handleCanvasContextMenu = useCallback((e) => {
         e.preventDefault();
         if (panDidMoveRef.current) return;
-        const container = mountRef.current;
-        const camera = cameraRef.current;
         const scene = sceneRef.current;
-        if (!container || !camera || !scene) return;
+        if (!scene) return;
 
-        const rect = container.getBoundingClientRect();
-        const mouse = new THREE.Vector2(
-            ((e.clientX - rect.left) / rect.width) * 2 - 1,
-            -((e.clientY - rect.top) / rect.height) * 2 + 1,
-        );
-
-        raycasterRef.current.setFromCamera(mouse, camera);
-        const meshes = [];
-        scene.traverse(c => { if (c.isMesh && c.visible) meshes.push(c); });
-        const hits = raycasterRef.current.intersectObjects(meshes, false);
-
+        const hits = raycastAt(e, collectMeshes(scene));
         if (hits.length > 0) {
-            const hit = hits[0].object;
-            setContextMenu({
-                x: e.clientX, y: e.clientY,
-                node: { uuid: hit.uuid, name: hit.name, type: hit.type, isMesh: true, children: [] },
-            });
+            setContextMenu({ x: e.clientX, y: e.clientY, node: nodeOf(partOf(hits[0].object)) });
         }
-    }, []);
+    }, [raycastAt]);
 
     // ── Операции с объектами ──────────────────────────────────────────────────
 
@@ -616,14 +570,15 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
             if (c.isMesh) c.visible = false;
         });
         const obj = objMapRef.current[uuid];
-        if (obj) obj.traverse(c => { c.visible = true; });
+        if (obj) showWithAncestors(obj);
         refresh();
     }, [refresh]);
 
     const showAll = useCallback(() => {
         const scene = sceneRef.current;
         if (!scene) return;
-        scene.traverse(c => { if (c.isMesh) c.visible = true; });
+        // все объекты: скрытие детали/группы сбрасывает visible и у не-Mesh узлов
+        scene.traverse(c => { c.visible = true; });
         refresh();
     }, [refresh]);
 
@@ -658,36 +613,33 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
 
     const setOpacity = useCallback((uuid, value) => {
         const obj = objMapRef.current[uuid];
-        if (!obj || !obj.isMesh) return;
+        if (!obj) return;
         const setMat = m => {
             const transparent = value < 1;
             if (m.transparent !== transparent) { m.transparent = transparent; m.needsUpdate = true; }
             m.opacity = value;
         };
-        if (Array.isArray(obj.material)) obj.material.forEach(setMat);
-        else setMat(obj.material);
-
-        // Запоминаем состояние
-        userMaterialStateRef.current[uuid] = {
-            ...userMaterialStateRef.current[uuid],
-            opacity: value,
-        };
+        // Деталь может быть Group из нескольких Mesh — применяем ко всем; состояние храним по Mesh
+        obj.traverse(c => {
+            if (!c.isMesh) return;
+            if (Array.isArray(c.material)) c.material.forEach(setMat);
+            else setMat(c.material);
+            userMaterialStateRef.current[c.uuid] = { ...userMaterialStateRef.current[c.uuid], opacity: value };
+        });
         refresh();
     }, [refresh]);
 
     const setColor = useCallback((uuid, hex) => {
         const obj = objMapRef.current[uuid];
-        if (!obj || !obj.isMesh) return;
+        if (!obj) return;
         const color = new THREE.Color(hex);
         const setMat = m => m.color.set(color);
-        if (Array.isArray(obj.material)) obj.material.forEach(setMat);
-        else setMat(obj.material);
-
-        // Запоминаем состояние
-        userMaterialStateRef.current[uuid] = {
-            ...userMaterialStateRef.current[uuid],
-            color: color.getHex(),
-        };
+        obj.traverse(c => {
+            if (!c.isMesh) return;
+            if (Array.isArray(c.material)) c.material.forEach(setMat);
+            else setMat(c.material);
+            userMaterialStateRef.current[c.uuid] = { ...userMaterialStateRef.current[c.uuid], color: color.getHex() };
+        });
         refresh();
     }, [refresh]);
 

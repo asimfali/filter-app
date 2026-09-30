@@ -8,9 +8,18 @@ export default function PropertiesPanel({ node, objMap, onOpacityChange, onColor
     );
 
     const obj = objMap[node.uuid];
-    const isMesh = obj?.isMesh;
+    // Деталь может быть Group из нескольких Mesh — свойства берём по первому Mesh, полигоны суммируем
+    let firstMesh = null;
+    let polygons = 0;
+    obj?.traverse(c => {
+        if (!c.isMesh) return;
+        firstMesh = firstMesh || c;
+        const g = c.geometry;
+        polygons += g ? (g.index ? g.index.count : g.attributes.position?.count || 0) / 3 : 0;
+    });
+    const isMesh = !!firstMesh;
     const material = isMesh
-        ? (Array.isArray(obj.material) ? obj.material[0] : obj.material)
+        ? (Array.isArray(firstMesh.material) ? firstMesh.material[0] : firstMesh.material)
         : null;
 
     const opacity = material?.opacity ?? 1;
@@ -30,12 +39,9 @@ export default function PropertiesPanel({ node, objMap, onOpacityChange, onColor
 
             <div className="text-xs text-gray-400 space-y-1">
                 <div>Тип: <span className="text-gray-600 dark:text-gray-300">{node.type}</span></div>
-                {obj?.geometry && (
+                {isMesh && (
                     <div>Полигонов: <span className="text-gray-600 dark:text-gray-300">
-                        {(obj.geometry.index
-                            ? obj.geometry.index.count / 3
-                            : obj.geometry.attributes.position?.count / 3 || 0
-                        ).toLocaleString()}
+                        {polygons.toLocaleString()}
                     </span></div>
                 )}
             </div>
