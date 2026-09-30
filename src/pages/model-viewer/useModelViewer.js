@@ -239,10 +239,19 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
                 opacity: 0.5,
             });
 
+            // Рёбра BRep из файла (примитив LINES в GLB) — тот же стиль; для таких деталей EdgesGeometry не строим.
+            // Отдельный проход до добавления вычисленных LineSegments, чтобы не спутать их с файловыми.
+            const partsWithFileEdges = new Set();
+            root.traverse(child => {
+                if (!child.isLineSegments) return;
+                child.material = edgeMaterial.clone();
+                partsWithFileEdges.add(partOf(child));
+            });
+
             // Одинаковые детали (болты и т.п.) GLTFLoader отдаёт с общим BufferGeometry — рёбра считаем один раз
             const edgesCache = new Map();
             root.traverse(child => {
-                if (!child.isMesh) return;
+                if (!child.isMesh || partsWithFileEdges.has(partOf(child))) return;
                 try {
                     const key = child.geometry.uuid;
                     let edges = edgesCache.get(key);
