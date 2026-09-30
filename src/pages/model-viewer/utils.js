@@ -22,7 +22,7 @@ export function buildTree(obj) {
 
     const node = {
         uuid: obj.uuid,
-        name: obj.name || `(${obj.type})`,
+        name: displayName(obj),
         type: obj.type,
         isMesh: obj.isMesh || false,
         children: [],
@@ -35,6 +35,9 @@ export function buildTree(obj) {
             : null,
     };
 
+    // Деталь (isPart без вложенных деталей) — лист дерева: тела/примитивы внутри не показываем
+    if (obj.userData?.isPart && !hasPartDescendant(obj)) return node;
+
     for (const child of obj.children) {
         const childNode = buildTree(child);
         if (childNode) node.children.push(childNode);
@@ -44,6 +47,15 @@ export function buildTree(obj) {
     if (!obj.isMesh && !obj.name && node.children.length === 0) return null;
 
     return node;
+}
+
+// Оригинальное имя узла glTF (GLTFLoader санитизирует obj.name: пробелы → «_»)
+function displayName(obj) {
+    return obj.userData?.name || obj.name || `(${obj.type})`;
+}
+
+function hasPartDescendant(obj) {
+    return obj.children.some(c => c.userData?.isPart || hasPartDescendant(c));
 }
 
 // ── Детали сборки ─────────────────────────────────────────────────────────────
@@ -93,7 +105,7 @@ export function showWithAncestors(obj) {
 
 // Узел для selectedNode/contextMenu
 export function nodeOf(obj) {
-    return { uuid: obj.uuid, name: obj.name || `(${obj.type})`, type: obj.type, isMesh: !!obj.isMesh, children: [] };
+    return { uuid: obj.uuid, name: displayName(obj), type: obj.type, isMesh: !!obj.isMesh, children: [] };
 }
 
 // ── Прозрачные вырезы (текстура-маска отверстий, alphaTest) ───────────────────

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
-    markGltfParts, partOf, isEffectivelyVisible, collectMeshes, showWithAncestors, nodeOf, isCutoutHit,
+    markGltfParts, partOf, isEffectivelyVisible, collectMeshes, showWithAncestors, nodeOf, isCutoutHit, buildTree,
 } from '../utils';
 
 // Структура наших GLB: именованный узел вхождения → безымянный узел деквантизации → Group из Mesh
@@ -99,5 +99,23 @@ describe('isCutoutHit', () => {
         const hit = mkHit(1.25, 1.25);
         hit.object.material.map.wrapS = hit.object.material.map.wrapT = THREE.RepeatWrapping;
         expect(isCutoutHit(hit, sample)).toBe(true);
+    });
+});
+
+describe('buildTree с деталями glTF', () => {
+    it('деталь — лист (тела внутри скрыты), сборка раскрывается; имя — оригинальное из userData.name', () => {
+        const { part, gltf } = buildPart();
+        part.userData.name = 'Заклепка тяговая:1';
+        part.name = 'Заклепка_тяговая1';
+        markGltfParts(gltf);
+        const asm = new THREE.Object3D();
+        asm.name = 'Сборка';
+        asm.userData.isPart = true;
+        asm.add(part);
+
+        const tree = buildTree(asm);
+        expect(tree.children).toHaveLength(1);
+        expect(tree.children[0]).toMatchObject({ uuid: part.uuid, name: 'Заклепка тяговая:1', children: [] });
+        expect(nodeOf(part).name).toBe('Заклепка тяговая:1');
     });
 });
