@@ -19,6 +19,8 @@ vi.mock('../../../api/media', () => ({
         getDocumentRegistry: vi.fn(),
         setDocumentRegistry: vi.fn(),
         resolveDocumentRegistry: vi.fn(),
+        resolveAllDocumentsRegistry: vi.fn(),
+        registryTaskStatus: vi.fn(),
     },
 }));
 vi.mock('../../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
@@ -320,6 +322,64 @@ describe('DocumentsPage — DocumentCard: реестр Росаккредита�
         await user.type(input, 'N-2{Enter}');
         await waitFor(() => expect(mediaApi.getDocumentRegistry).toHaveBeenCalledWith(1));
         expect(await screen.findByText('Ещё не проверялось')).toBeInTheDocument();
+    });
+});
+
+describe('DocumentsPage — «Проверить все в реестре»', () => {
+    const edit = () => useAuth.mockReturnValue({ user: withPerms('portal.documents.registry.edit') });
+    const launched = ok({ success: true, data: { task_id: 't1' } });
+    const done = (result) => ok({ success: true, data: { task_id: 't1', status: 'SUCCESS', ready: true, info: null, result } });
+
+    it('без portal.documents.registry.edit — кнопки нет', async () => {
+        await renderWithDocs([makeDoc()]);
+        expect(screen.queryByText('Проверить все в реестре')).not.toBeInTheDocument();
+    });
+
+    it('прогресс «Проверено x из y», кнопка disabled; итог, ненайденные, перезагрузка списка', async () => {
+        edit();
+        mediaApi.resolveAllDocumentsRegistry.mockResolvedValue(launched);
+        mediaApi.registryTaskStatus
+            .mockResolvedValueOnce(ok({ success: true, data: { status: 'PROGRESS', ready: false, info: { current: 1, total: 2 }, result: null } }))
+            .mockResolvedValue(done({
+                success: true, total: 2, checked: 2, found: 1, pushed_to_site: true, error: null,
+                items: [{ id: 1, doc_number: 'N-1', found: true }, { id: 2, doc_number: 'N-2', found: false }],
+            }));
+        const user = await renderWithDocs([makeDoc()]);
+        const loadsBefore = mediaApi.getDocuments.mock.calls.length;
+        await user.click(screen.getByText('Проверить все в реестре'));
+
+        expect(mediaApi.resolveAllDocumentsRegistry).toHaveBeenCalledWith(false);
+        const btn = await screen.findByText('Проверено 1 из 2');
+        expect(btn).toBeDisabled();
+
+        // следующий опрос — через POLL_MS (2 с)
+        expect(await screen.findByText(/Найдено 1 из 2 · изменения отправлены на сайт/, {}, { timeout: 3000 })).toBeInTheDocument();
+        expect(screen.getByText('N-2')).toBeInTheDocument();
+        expect(mediaApi.getDocuments.mock.calls.length).toBeGreaterThan(loadsBefore);
+    });
+
+    it('«включая найденные» — all=true; total=0 — «Нет документов для проверки»', async () => {
+        edit();
+        mediaApi.resolveAllDocumentsRegistry.mockResolvedValue(launched);
+        mediaApi.registryTaskStatus.mockResolvedValue(done({ success: true, total: 0, checked: 0, found: 0, pushed_to_site: false, error: null, items: [] }));
+        const user = await renderWithDocs([makeDoc()]);
+        await user.click(screen.getByLabelText('включая найденные'));
+        await user.click(screen.getByText('Проверить все в реестре'));
+        expect(mediaApi.resolveAllDocumentsRegistry).toHaveBeenCalledWith(true);
+        expect(await screen.findByText('Нет документов для проверки')).toBeInTheDocument();
+    });
+
+    it('сбой реестра посреди задачи — показывает error и найденное до сбоя', async () => {
+        edit();
+        mediaApi.resolveAllDocumentsRegistry.mockResolvedValue(launched);
+        mediaApi.registryTaskStatus.mockResolvedValue(done({
+            success: false, total: 3, checked: 2, found: 1, pushed_to_site: false,
+            error: 'Реестр недоступен на документе «N-3»', items: [{ id: 1, doc_number: 'N-1', found: true }],
+        }));
+        const user = await renderWithDocs([makeDoc()]);
+        await user.click(screen.getByText('Проверить все в реестре'));
+        expect(await screen.findByText('Реестр недоступен на документе «N-3»')).toBeInTheDocument();
+        expect(screen.getByText('Найдено 1 из 3')).toBeInTheDocument();
     });
 });
 

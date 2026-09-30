@@ -507,6 +507,20 @@ export const mediaApi = {
         return { ok: res.ok, status: res.status, data: await res.json() };
     },
 
+    // Массовый поиск: all=false — только документы без найденной записи, true — перепроверить все
+    async resolveAllDocumentsRegistry(all = false) {
+        const res = await apiFetch(`${BASE}/documents/registry/resolve-all/`, {
+            method: 'POST',
+            body: JSON.stringify({ all }),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    async registryTaskStatus(taskId) {
+        const res = await apiFetch(`${BASE}/documents/registry/tasks/${taskId}/`);
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
     // ── Синхронизация паспортов ─────────────────────────────────────────────
 
     async passportImportPreview(documentId, file) {

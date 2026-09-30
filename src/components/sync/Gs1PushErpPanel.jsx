@@ -1,9 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { catalogApi } from '../../api/catalog';
-import { parseError } from '../../utils';
+import useTaskPolling from '../../hooks/useTaskPolling';
 import ConfirmModal from '../common/ConfirmModal';
-
-const POLL_MS = 2000;
 
 const CAUSE_LABEL = {
     no_gtin: 'У товара не заполнен GTIN локально',
@@ -18,55 +16,19 @@ const CAUSE_LABEL = {
 // право на саму отправку — catalog.push_gtin_to_1c, отдельное от разбора очереди.
 export default function Gs1PushErpPanel({ productIds, onDone }) {
     const [confirming, setConfirming] = useState(false);
-    const [busy, setBusy] = useState(false);
-    const [taskId, setTaskId] = useState(null);
-    const [progress, setProgress] = useState('');
-    const [error, setError] = useState('');
     const [result, setResult] = useState(null); // {total, pushed, errors}
-    const onDoneRef = useRef(onDone);
-    onDoneRef.current = onDone;
 
-    useEffect(() => {
-        if (!taskId) return undefined;
-        const poll = async () => {
-            const { ok, data } = await catalogApi.taskStatus(taskId);
-            if (!ok || !data?.success) return;
-            const { ready, status, info, result: taskResult } = data.data;
-            if (info?.status) setProgress(info.status);
-            if (ready) {
-                setTaskId(null);
-                setBusy(false);
-                if (status === 'FAILURE' || taskResult?.success === false) {
-                    setError(taskResult?.error || 'Задача завершилась с ошибкой');
-                } else {
-                    setResult(taskResult);
-                    onDoneRef.current?.(taskResult);
-                }
-            }
-        };
-        const t = setInterval(poll, POLL_MS);
-        poll();
-        return () => clearInterval(t);
-    }, [taskId]);
+    const { busy, info, error, start: run } = useTaskPolling(catalogApi.taskStatus, (r, err) => {
+        if (err) return;
+        setResult(r);
+        onDone?.(r);
+    });
+    const progress = info?.status;
 
     const start = async () => {
         setConfirming(false);
-        setBusy(true);
-        setError('');
         setResult(null);
-        try {
-            const { ok, data, status } = await catalogApi.pushGtinTo1C(productIds);
-            if (ok && data?.success) {
-                setProgress(data.data.message || 'Запуск…');
-                setTaskId(data.data.task_id);
-            } else {
-                setBusy(false);
-                setError(data?.error || parseError(data, status));
-            }
-        } catch {
-            setBusy(false);
-            setError('Не удалось запустить отправку');
-        }
+        await run(() => catalogApi.pushGtinTo1C(productIds), 'Не удалось запустить отправку');
     };
 
     const disabled = busy || productIds.length === 0;

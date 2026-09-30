@@ -1,9 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { catalogApi } from '../../api/catalog';
-import { parseError } from '../../utils';
+import useTaskPolling from '../../hooks/useTaskPolling';
 import ConfirmModal from '../common/ConfirmModal';
-
-const POLL_MS = 2000;
 
 const CAUSE_LABEL = {
     not_found: 'Товар не найден',
@@ -15,60 +13,24 @@ const CAUSE_LABEL = {
 };
 
 // Запись ТНВЭД/ОКПД2 в 1С (catalog.push_codes_to_1c): сначала «Проверить» (dry_run, 1С не пишет),
-// затем отдельная «Записать в 1С» с подтверждением — запись юридически значимая. Поллинг — как в Gs1PushErpPanel.
+// затем отдельная «Записать в 1С» с подтверждением — запись юридически значимая. Поллинг — useTaskPolling.
 export default function PushCodesPanel({ productIds, onDone }) {
     const [confirming, setConfirming] = useState(false);
-    const [busy, setBusy] = useState(false);
-    const [taskId, setTaskId] = useState(null);
-    const [progress, setProgress] = useState('');
-    const [error, setError] = useState('');
     const [result, setResult] = useState(null); // {dry_run,total,pushed,changed,errors}
-    const onDoneRef = useRef(onDone);
-    onDoneRef.current = onDone;
 
     useEffect(() => { setResult(null); }, [productIds]); // проверка относится к конкретному выбору
 
-    useEffect(() => {
-        if (!taskId) return undefined;
-        const poll = async () => {
-            const { ok, data } = await catalogApi.taskStatus(taskId);
-            if (!ok || !data?.success) return;
-            const { ready, status, info, result: taskResult } = data.data;
-            if (info?.status) setProgress(info.status);
-            if (ready) {
-                setTaskId(null);
-                setBusy(false);
-                if (status === 'FAILURE' || taskResult?.success === false) {
-                    setError(taskResult?.error || 'Задача завершилась с ошибкой');
-                } else {
-                    setResult(taskResult);
-                    if (!taskResult.dry_run) onDoneRef.current?.(taskResult);
-                }
-            }
-        };
-        const t = setInterval(poll, POLL_MS);
-        poll();
-        return () => clearInterval(t);
-    }, [taskId]);
+    const { busy, info, error, start: run } = useTaskPolling(catalogApi.taskStatus, (r, err) => {
+        if (err) return;
+        setResult(r);
+        if (!r.dry_run) onDone?.(r);
+    });
+    const progress = info?.status;
 
     const start = async (dryRun) => {
         setConfirming(false);
-        setBusy(true);
-        setError('');
         setResult(null);
-        try {
-            const { ok, data, status } = await catalogApi.pushCodesTo1C(productIds, dryRun);
-            if (ok && data?.success) {
-                setProgress(data.data.message || 'Запуск…');
-                setTaskId(data.data.task_id);
-            } else {
-                setBusy(false);
-                setError(data?.error || parseError(data, status));
-            }
-        } catch {
-            setBusy(false);
-            setError('Не удалось запустить отправку');
-        }
+        await run(() => catalogApi.pushCodesTo1C(productIds, dryRun), 'Не удалось запустить отправку');
     };
 
     const disabled = busy || productIds.length === 0;
