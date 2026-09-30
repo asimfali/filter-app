@@ -485,6 +485,28 @@ export const mediaApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    // ── Реестр Росаккредитации (декларации/сертификаты) ─────────────────────
+    // Ответ data: {kind, id, url, checked_at, valid_until}; resolve добавляет {found, doc_number}
+
+    async getDocumentRegistry(docId) {
+        const res = await apiFetch(`${BASE}/documents/${docId}/registry/`);
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    // registryId: число, ссылка …/view/{id} или null (сброс)
+    async setDocumentRegistry(docId, registryId) {
+        const res = await apiFetch(`${BASE}/documents/${docId}/registry/`, {
+            method: 'PATCH',
+            body: JSON.stringify({ registry_id: registryId }),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    async resolveDocumentRegistry(docId) {
+        const res = await apiFetch(`${BASE}/documents/${docId}/registry/resolve/`, { method: 'POST' });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
     // ── Синхронизация паспортов ─────────────────────────────────────────────
 
     async passportImportPreview(documentId, file) {

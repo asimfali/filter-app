@@ -1,4 +1,4 @@
-import { parseError } from './index';
+import { envelopeError, fmtDate } from './index';
 
 export const GS1_STATUS_LABEL = {
     new: 'Новая',
@@ -26,12 +26,7 @@ export const GS1_REASON_LABEL = {
 
 export const GS1_RUN_STATUS_LABEL = { running: 'Выполняется', success: 'Успешно', failed: 'Ошибка' };
 
-export const fmtGs1Date = (iso, withTime = false) => iso
-    ? new Date(iso).toLocaleString('ru-RU', withTime
-        ? { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }
-        : { day: '2-digit', month: '2-digit', year: 'numeric' })
-    : '—';
+export const fmtGs1Date = fmtDate;
 
-// Ошибки ГС1-эндпоинтов приходят в трёх форматах: конверт {success:false, error:{message}},
-// DRF {detail} (403) и валидация тела {field: [...]} — parseError знает только два последних.
-export const gs1Error = (data, status) => data?.error?.message || parseError(data, status);
+// Ошибки ГС1-эндпоинтов приходят в трёх форматах — см. envelopeError
+export const gs1Error = envelopeError;

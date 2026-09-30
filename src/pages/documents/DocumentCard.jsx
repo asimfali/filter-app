@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { mediaApi } from '../../api/media';
+import { useAuth } from '../../contexts/AuthContext';
+import { can } from '../../utils/permissions';
 import DirectProductsPanel from '../../components/media/DirectProductsPanel';
 import FiltersPanel from '../../components/media/FiltersPanel';
 import { ChevronIcon } from './icons';
 import FileRow, { DropZone, AddFileRow } from './FileRow';
+import RegistryBlock from './RegistryBlock';
 
 function EditableName({ value, onSave, canEdit, placeholder, title = 'Нажмите, чтобы изменить название', className = 'text-sm font-medium' }) {
   const [editing, setEditing] = useState(false);
@@ -70,11 +73,17 @@ function EditableName({ value, onSave, canEdit, placeholder, title = 'Нажми
 
 export default function DocumentCard({ item, canDelete, canManageFilters, axes, onDeleted, onOpenViewer }) {
   const isStandalone = item.doc_type?.upload_mode === 'standalone';
+  const { user } = useAuth();
+  // rename/ проверяет право загрузки типа документа; старый бэкенд поле не отдаёт — общее право
+  const permCode = item.doc_type?.upload_permission_code;
+  const canRename = permCode ? can(user, permCode) : canManageFilters;
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [docName, setDocName] = useState(item.name || '');
   const [docNumber, setDocNumber] = useState(item.doc_number || '');
+  // Ключа нет — нет права registry.view; null — тип не ведётся в реестре
+  const [registry, setRegistry] = useState(item.registry);
 
   const handleDeleteDocument = async () => {
     if (!confirming) { setConfirming(true); return; }
@@ -91,7 +100,13 @@ export default function DocumentCard({ item, canDelete, canManageFilters, axes, 
 
   const handleRenameNumber = async (newNumber) => {
     const { ok, data } = await mediaApi.renameDocument(item.id, undefined, newNumber);
-    if (ok && data.success) setDocNumber(data.doc_number);
+    if (!ok || !data.success) return;
+    setDocNumber(data.doc_number);
+    // Смена номера сбрасывает привязку к реестру и ставит поиск на бэкенде — перечитываем блок
+    if (registry) {
+      const res = await mediaApi.getDocumentRegistry(item.id);
+      if (res.ok && res.data?.success) setRegistry(res.data.data);
+    }
   };
 
   return (
@@ -106,17 +121,17 @@ export default function DocumentCard({ item, canDelete, canManageFilters, axes, 
             <EditableName
               value={docName}
               onSave={handleRename}
-              canEdit={canManageFilters}
+              canEdit={canRename}
               placeholder={`${item.doc_type?.name || 'Документ'} ${item.external_id}`}
             />
           </div>
 
-          {(docNumber || canManageFilters) && (
+          {(docNumber || canRename) && (
             <div className="shrink-0 max-w-[20%]">
               <EditableName
                 value={docNumber}
                 onSave={handleRenameNumber}
-                canEdit={canManageFilters}
+                canEdit={canRename}
                 placeholder="№ документа"
                 title="Нажмите, чтобы изменить номер документа"
                 className="text-xs font-mono"
@@ -154,6 +169,10 @@ export default function DocumentCard({ item, canDelete, canManageFilters, axes, 
             )
           )}
         </div>
+      )}
+
+      {registry && (
+        <RegistryBlock docId={item.id} registry={registry} onDocNumberChange={setDocNumber} />
       )}
 
       {!isStandalone && (
