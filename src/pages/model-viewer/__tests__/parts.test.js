@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
-    markGltfParts, partOf, isEffectivelyVisible, collectMeshes, showWithAncestors, nodeOf, isCutoutHit, buildTree,
+    markGltfParts, partOf, isEffectivelyVisible, collectMeshes, showWithAncestors, nodeOf, isCutoutHit, buildTree, buildOpaqueSAT,
 } from '../utils';
 
 // Структура наших GLB: именованный узел вхождения → безымянный узел деквантизации → Group из Mesh
@@ -75,8 +75,8 @@ describe('видимость', () => {
 
 describe('isCutoutHit', () => {
     // Текстура 2×2: верхняя строка (v≈0) — вырез (альфа 0), нижняя — непрозрачная
-    const alpha = { alpha: new Uint8Array([0, 0, 255, 255]), w: 2, h: 2 };
-    const sample = () => alpha;
+    const sat = buildOpaqueSAT(new Uint8Array([0, 0, 255, 255]), 2, 2);
+    const sample = () => sat;
     const mkHit = (u, v, matOpts = {}) => {
         const map = new THREE.Texture();
         map.flipY = false;
@@ -85,20 +85,35 @@ describe('isCutoutHit', () => {
     };
 
     it('альфа < 128 — вырез, иначе попадание', () => {
-        expect(isCutoutHit(mkHit(0.25, 0.25), sample)).toBe(true);
-        expect(isCutoutHit(mkHit(0.75, 0.75), sample)).toBe(false);
+        expect(isCutoutHit(mkHit(0.25, 0.25), {}, sample)).toBe(true);
+        expect(isCutoutHit(mkHit(0.75, 0.75), {}, sample)).toBe(false);
     });
 
     it('без alphaTest, map или uv — не вырез', () => {
-        expect(isCutoutHit(mkHit(0.25, 0.25, { alphaTest: 0 }), sample)).toBe(false);
-        expect(isCutoutHit(mkHit(0.25, 0.25, { map: null }), sample)).toBe(false);
-        expect(isCutoutHit({ ...mkHit(0.25, 0.25), uv: undefined }, sample)).toBe(false);
+        expect(isCutoutHit(mkHit(0.25, 0.25, { alphaTest: 0 }), {}, sample)).toBe(false);
+        expect(isCutoutHit(mkHit(0.25, 0.25, { map: null }), {}, sample)).toBe(false);
+        expect(isCutoutHit({ ...mkHit(0.25, 0.25), uv: undefined }, {}, sample)).toBe(false);
     });
 
     it('UV вне [0,1] оборачивается по wrap текстуры (glTF по умолчанию Repeat)', () => {
         const hit = mkHit(1.25, 1.25);
         hit.object.material.map.wrapS = hit.object.material.map.wrapT = THREE.RepeatWrapping;
-        expect(isCutoutHit(hit, sample)).toBe(true);
+        expect(isCutoutHit(hit, {}, sample)).toBe(true);
+    });
+
+    it('учитывает масштаб: мелкое на экране отверстие — не вырез, крупное — вырез', () => {
+        // Текстура 8×8, левая половина прозрачная; треугольник 1×1 в мире ↔ uv 0..1 → 8 текселей на единицу
+        const alpha = new Uint8Array(64).map((_, i) => (i % 8 < 4 ? 0 : 255));
+        const sample8 = () => buildOpaqueSAT(alpha, 8, 8);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1], 2));
+        const hit = mkHit(0.25, 0.5);
+        hit.object.geometry = geo;
+        hit.face = { a: 0, b: 1, c: 2, materialIndex: 0 };
+
+        expect(isCutoutHit(hit, { pxWorld: 0.01 }, sample8)).toBe(true);   // окно r=1: x 1..3 — всё прозрачно
+        expect(isCutoutHit(hit, { pxWorld: 0.2 }, sample8)).toBe(false);   // окно r=4 задевает непрозрачное
     });
 });
 

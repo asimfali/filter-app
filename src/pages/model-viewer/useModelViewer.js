@@ -460,7 +460,9 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
             -((e.clientY - rect.top) / rect.height) * 2 + 1,
         );
         raycasterRef.current.setFromCamera(mouse, camera);
-        return raycasterRef.current.intersectObjects(meshes, false).filter(h => !isCutoutHit(h));
+        // размер экранного пикселя в мире — вырез пропускает клик, только если он заметно больше курсора
+        const pxWorld = (camera.top - camera.bottom) / camera.zoom / rect.height;
+        return raycasterRef.current.intersectObjects(meshes, false).filter(h => !isCutoutHit(h, { pxWorld }));
     }, []);
 
     // ── handleCanvasClick — чистый, без хуков внутри ──────────────────────
