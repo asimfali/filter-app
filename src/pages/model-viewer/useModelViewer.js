@@ -204,9 +204,13 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
                     const processMat = (m) => {
                         const color = m.color ? m.color.clone() : new THREE.Color(0x888888);
 
+                        // map — текстура-вырез отверстий (белая, alpha=0 в отверстиях), умножается на color;
+                        // alphaTest отсекает отверстия без сортировки прозрачных (transparent включает setOpacity)
                         return new THREE.MeshBasicMaterial({
                             color: color,  // ← без осветления
-                            transparent: true,
+                            map: m.map ?? null,
+                            alphaTest: m.alphaTest ?? 0,
+                            transparent: false,
                             opacity: 1.0,
                             side: THREE.DoubleSide,
                         });
@@ -232,10 +236,17 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
                 opacity: 0.5,
             });
 
+            // Одинаковые детали (болты и т.п.) GLTFLoader отдаёт с общим BufferGeometry — рёбра считаем один раз
+            const edgesCache = new Map();
             root.traverse(child => {
                 if (!child.isMesh) return;
                 try {
-                    const edges = new THREE.EdgesGeometry(child.geometry, 15);
+                    const key = child.geometry.uuid;
+                    let edges = edgesCache.get(key);
+                    if (!edges) {
+                        edges = new THREE.EdgesGeometry(child.geometry, 15);
+                        edgesCache.set(key, edges);
+                    }
                     const line = new THREE.LineSegments(edges, edgeMaterial.clone());
                     child.add(line);  // линии внутри mesh — следуют за ним автоматически
                 } catch { /* пропускаем */ }
@@ -648,7 +659,11 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
     const setOpacity = useCallback((uuid, value) => {
         const obj = objMapRef.current[uuid];
         if (!obj || !obj.isMesh) return;
-        const setMat = m => { m.opacity = value; m.transparent = true; };
+        const setMat = m => {
+            const transparent = value < 1;
+            if (m.transparent !== transparent) { m.transparent = transparent; m.needsUpdate = true; }
+            m.opacity = value;
+        };
         if (Array.isArray(obj.material)) obj.material.forEach(setMat);
         else setMat(obj.material);
 
