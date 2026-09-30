@@ -52,6 +52,8 @@ export const PERM = {
     // portal
     PORTAL_CHART_WRITE: 'portal.chart.write',
     PORTAL_DOCUMENTS_DELETE: 'portal.documents.delete',
+    PORTAL_DOCUMENTS_REGISTRY_EDIT: 'portal.documents.registry.edit',
+    PORTAL_DOCUMENTS_REGISTRY_VIEW: 'portal.documents.registry.view',
     PORTAL_DOCUMENTS_UPLOAD: 'portal.documents.upload',
     PORTAL_GALLERY_UPLOAD: 'portal.gallery.upload',
     PORTAL_HEAT_EXCHANGER_VIEW: 'portal.heat_exchanger.view',

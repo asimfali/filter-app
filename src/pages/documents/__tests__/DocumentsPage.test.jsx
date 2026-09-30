@@ -16,6 +16,9 @@ vi.mock('../../../api/media', () => ({
         downloadFile: vi.fn(),
         bulkCreateDocuments: vi.fn(),
         searchDocuments: vi.fn(),
+        getDocumentRegistry: vi.fn(),
+        setDocumentRegistry: vi.fn(),
+        resolveDocumentRegistry: vi.fn(),
     },
 }));
 vi.mock('../../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
@@ -206,9 +209,117 @@ describe('DocumentsPage — EditableName', () => {
         expect(mediaApi.renameDocument).not.toHaveBeenCalled();
     });
 
+    it('право на переименование — upload_permission_code типа, а не portal.documents.upload', async () => {
+        useAuth.mockReturnValue({ user: withPerms('portal.documentation.upload') });
+        const docType = { ...docType1, upload_permission_code: 'portal.documentation.upload' };
+        mediaApi.renameDocument.mockResolvedValue(ok({ success: true, name: 'Новое имя' }));
+        const user = await renderWithDocs([makeDoc({ name: 'Паспорт №1', doc_type: docType })]);
+        await user.click(screen.getByText('Паспорт №1'));
+        const input = document.querySelector('input.bg-transparent');
+        await user.clear(input);
+        await user.type(input, 'Новое имя{Enter}');
+        await waitFor(() => expect(mediaApi.renameDocument).toHaveBeenCalledWith(1, 'Новое имя'));
+    });
+
+    it('без права типа — только текст, даже с portal.documents.upload', async () => {
+        const docType = { ...docType1, upload_permission_code: 'portal.documentation.upload' };
+        await renderWithDocs([makeDoc({ name: 'Паспорт №1', doc_type: docType })]);
+        fireEvent.click(screen.getByText('Паспорт №1'));
+        expect(document.querySelector('input.bg-transparent')).toBeNull();
+    });
+
     it('пустое имя показывает placeholder (тип + external_id)', async () => {
         await renderWithDocs([makeDoc({ name: '' })]);
         expect(screen.getByText('Паспорта passport-001')).toBeInTheDocument();
+    });
+});
+
+describe('DocumentsPage — DocumentCard: реестр Росаккредитации', () => {
+    const reg = (o = {}) => ({ kind: 'declaration', id: null, url: '', checked_at: null, valid_until: null, ...o });
+    const edit = () => useAuth.mockReturnValue({
+        user: withPerms('portal.documents.upload', 'portal.documents.registry.view', 'portal.documents.registry.edit'),
+    });
+
+    it('нет ключа registry или registry=null — блока нет', async () => {
+        await renderWithDocs([makeDoc(), makeDoc({ id: 2, external_id: 'p-2', registry: null })]);
+        expect(screen.queryByText('Реестр Росаккредитации:')).not.toBeInTheDocument();
+    });
+
+    it('три состояния: в реестре (ссылка), не найдено, ещё не проверялось; без edit — без кнопок', async () => {
+        await renderWithDocs([
+            makeDoc({ registry: reg({ id: 20711310, url: 'https://pub.fsa.gov.ru/rds/declaration/view/20711310', checked_at: '2026-09-01T05:00:00Z' }) }),
+            makeDoc({ id: 2, external_id: 'p-2', registry: reg({ checked_at: '2026-09-01T05:00:00Z' }) }),
+            makeDoc({ id: 3, external_id: 'p-3', registry: reg() }),
+        ]);
+        expect(screen.getByText(/В реестре · декларация 20711310/).closest('a'))
+            .toHaveAttribute('href', 'https://pub.fsa.gov.ru/rds/declaration/view/20711310');
+        expect(screen.getByText('Не найдено в реестре')).toBeInTheDocument();
+        expect(screen.getByText('Ещё не проверялось')).toBeInTheDocument();
+        expect(screen.queryByText('Проверить в реестре')).not.toBeInTheDocument();
+    });
+
+    it('valid_until в прошлом — «истёк», в будущем — «действует до»', async () => {
+        await renderWithDocs([
+            makeDoc({ registry: reg({ id: 1, valid_until: '2020-01-01' }) }),
+            makeDoc({ id: 2, external_id: 'p-2', registry: reg({ id: 2, valid_until: '2099-01-01' }) }),
+        ]);
+        expect(screen.getByText(/истёк 01\.01\.2020/)).toBeInTheDocument();
+        expect(screen.getByText(/действует до 01\.01\.2099/)).toBeInTheDocument();
+    });
+
+    it('«Проверить в реестре» — resolve, обновляет статус и doc_number', async () => {
+        edit();
+        let finish;
+        mediaApi.resolveDocumentRegistry.mockReturnValue(new Promise(r => { finish = r; }));
+        const user = await renderWithDocs([makeDoc({ doc_number: 'ЕАЭС N RU Д-RU.B.1', registry: reg() })]);
+        await user.click(screen.getByText('Проверить в реестре'));
+        expect(screen.getByText('Проверка в реестре…')).toBeInTheDocument();
+
+        finish(ok({ success: true, data: { ...reg({ id: 5, checked_at: '2026-09-30T10:00:00Z' }), found: true, doc_number: 'ЕАЭС N RU Д-RU.В.1' } }));
+        expect(await screen.findByText(/В реестре · декларация 5/)).toBeInTheDocument();
+        expect(screen.getByText('ЕАЭС N RU Д-RU.В.1')).toBeInTheDocument();
+        expect(mediaApi.resolveDocumentRegistry).toHaveBeenCalledWith(1);
+    });
+
+    it('ошибка resolve (502 registry_unavailable) — показывает message', async () => {
+        edit();
+        mediaApi.resolveDocumentRegistry.mockResolvedValue({
+            ok: false, status: 502,
+            data: { success: false, error: { code: 'registry_unavailable', message: 'Реестр недоступен' } },
+        });
+        const user = await renderWithDocs([makeDoc({ registry: reg() })]);
+        await user.click(screen.getByText('Проверить в реестре'));
+        expect(await screen.findByText('Реестр недоступен')).toBeInTheDocument();
+    });
+
+    it('ручной ввод ссылки — PATCH, «Сбросить» — PATCH null', async () => {
+        edit();
+        const url = 'https://pub.fsa.gov.ru/rds/declaration/view/777';
+        mediaApi.setDocumentRegistry
+            .mockResolvedValueOnce(ok({ success: true, data: reg({ id: 777, url }) }))
+            .mockResolvedValueOnce(ok({ success: true, data: reg() }));
+        const user = await renderWithDocs([makeDoc({ registry: reg() })]);
+        await user.click(screen.getByText('Указать вручную'));
+        await user.type(screen.getByPlaceholderText(/id записи или ссылка/), `${url}{Enter}`);
+        await waitFor(() => expect(mediaApi.setDocumentRegistry).toHaveBeenCalledWith(1, url));
+        expect(await screen.findByText(/В реестре · декларация 777/)).toBeInTheDocument();
+
+        await user.click(screen.getByText('Сбросить'));
+        await waitFor(() => expect(mediaApi.setDocumentRegistry).toHaveBeenLastCalledWith(1, null));
+        expect(await screen.findByText('Ещё не проверялось')).toBeInTheDocument();
+    });
+
+    it('смена номера документа перечитывает блок реестра', async () => {
+        edit();
+        mediaApi.renameDocument.mockResolvedValue(ok({ success: true, name: '', doc_number: 'N-2' }));
+        mediaApi.getDocumentRegistry.mockResolvedValue(ok({ success: true, data: reg() }));
+        const user = await renderWithDocs([makeDoc({ doc_number: 'N-1', registry: reg({ id: 9 }) })]);
+        await user.click(screen.getByText('N-1'));
+        const input = document.querySelector('input.bg-transparent');
+        await user.clear(input);
+        await user.type(input, 'N-2{Enter}');
+        await waitFor(() => expect(mediaApi.getDocumentRegistry).toHaveBeenCalledWith(1));
+        expect(await screen.findByText('Ещё не проверялось')).toBeInTheDocument();
     });
 });
 
