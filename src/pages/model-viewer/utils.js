@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { tokenStorage } from '../../api/auth';
 import { getExt } from '../../utils/fileUtils';
 
@@ -110,12 +111,34 @@ export function nodeOf(obj) {
 
 // ── Прозрачные вырезы (текстура-маска отверстий, alphaTest) ───────────────────
 
-// texture → { alpha: Uint8Array, w, h } | null; только альфа-канал, чтобы не держать RGBA больших текстур
-const alphaCache = new WeakMap();
+// Таблица сумм (summed-area table) по признаку «альфа ≥ 128»: число непрозрачных в любом окне — O(1).
+// Размер (w+1)×(h+1), нулевые строка/столбец — чтобы не проверять границы.
+export function buildOpaqueSAT(alpha, w, h) {
+    const W = w + 1;
+    const sat = new Uint32Array(W * (h + 1));
+    for (let y = 0; y < h; y++) {
+        let row = 0;
+        for (let x = 0; x < w; x++) {
+            row += alpha[y * w + x] >= 128 ? 1 : 0;
+            sat[(y + 1) * W + x + 1] = sat[y * W + x + 1] + row;
+        }
+    }
+    return { sat, w, h };
+}
+
+function countOpaque({ sat, w, h }, x0, y0, x1, y1) {
+    x0 = Math.max(0, x0); y0 = Math.max(0, y0);
+    x1 = Math.min(w - 1, x1); y1 = Math.min(h - 1, y1);
+    const W = w + 1;
+    return sat[(y1 + 1) * W + x1 + 1] - sat[y0 * W + x1 + 1] - sat[(y1 + 1) * W + x0] + sat[y0 * W + x0];
+}
+
+// texture → SAT | null; RGBA после построения не держим
+const satCache = new WeakMap();
 let alphaCanvas = null;
 
-function textureAlpha(texture) {
-    if (alphaCache.has(texture)) return alphaCache.get(texture);
+function textureOpaqueSAT(texture) {
+    if (satCache.has(texture)) return satCache.get(texture);
     let res = null;
     const img = texture.image;
     const w = img?.width, h = img?.height;
@@ -130,23 +153,44 @@ function textureAlpha(texture) {
             const rgba = ctx.getImageData(0, 0, w, h).data;
             const alpha = new Uint8Array(w * h);
             for (let i = 0; i < alpha.length; i++) alpha[i] = rgba[i * 4 + 3];
-            res = { alpha, w, h };
+            res = buildOpaqueSAT(alpha, w, h);
         } catch { res = null; }
     }
-    alphaCache.set(texture, res);
+    satCache.set(texture, res);
     return res;
 }
 
-// Попадание в вырез: у материала есть map + alphaTest, альфа текстуры в точке uv < 128
-export function isCutoutHit(hit, sampleAlpha = textureAlpha) {
+// Текселей на единицу мировой длины в треугольнике попадания (по рёбрам ab, ac)
+function texelsPerWorld(hit, w, h) {
+    const geo = hit.object.geometry;
+    const pos = geo?.attributes?.position, uv = geo?.attributes?.uv;
+    if (!pos || !uv || !hit.face) return 0;
+    const m = hit.object.matrixWorld;
+    const { a, b, c } = hit.face;
+    const pa = new THREE.Vector3().fromBufferAttribute(pos, a).applyMatrix4(m);
+    let best = 0;
+    for (const v of [b, c]) {
+        const dPos = new THREE.Vector3().fromBufferAttribute(pos, v).applyMatrix4(m).distanceTo(pa);
+        if (dPos < 1e-9) continue;
+        const du = (uv.getX(v) - uv.getX(a)) * w, dv = (uv.getY(v) - uv.getY(a)) * h;
+        best = Math.max(best, Math.hypot(du, dv) / dPos);
+    }
+    return best;
+}
+
+// Попадание в вырез: у материала map + alphaTest, и все тексели в окне ~2 экранных пикселя вокруг точки
+// прозрачны. Иначе мелкая перфорация (доли пикселя на экране) пропускала бы клик насквозь.
+// pxWorld — размер экранного пикселя в мире; без него проверяется один тексель.
+export function isCutoutHit(hit, { pxWorld = 0 } = {}, sample = textureOpaqueSAT) {
     const mats = hit.object?.material;
     const mat = Array.isArray(mats) ? mats[hit.face?.materialIndex ?? 0] : mats;
     if (!mat?.map || !(mat.alphaTest > 0) || !hit.uv) return false;
-    const data = sampleAlpha(mat.map);
+    const data = sample(mat.map);
     if (!data) return false;
     // transformUv: матрица текстуры + wrap; при flipY=false (glTF) v не переворачивается
     const uv = mat.map.transformUv ? mat.map.transformUv(hit.uv.clone()) : hit.uv;
     const x = Math.min(data.w - 1, Math.max(0, Math.floor(uv.x * data.w)));
     const y = Math.min(data.h - 1, Math.max(0, Math.floor(uv.y * data.h)));
-    return data.alpha[y * data.w + x] < 128;
+    const r = pxWorld > 0 ? Math.max(1, Math.ceil(2 * pxWorld * texelsPerWorld(hit, data.w, data.h))) : 0;
+    return countOpaque(data, x - r, y - r, x + r, y + r) === 0;
 }
