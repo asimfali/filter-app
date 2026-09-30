@@ -216,6 +216,10 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
                             transparent: false,
                             opacity: 1.0,
                             side: THREE.DoubleSide,
+                            // грани чуть дальше от камеры — рёбра (из файла/EdgesGeometry) всегда поверх, без z-fighting
+                            polygonOffset: true,
+                            polygonOffsetFactor: 1,
+                            polygonOffsetUnits: 1,
                         });
                     };
 
@@ -279,8 +283,9 @@ export function useModelViewer({ relPath, fname, mtlPath }) {
             camera.right = orthoSize * aspect;
             camera.top = orthoSize;
             camera.bottom = -orthoSize;
-            camera.near = -maxDim * 100;
-            camera.far = maxDim * 100;
+            // Орто-глубина линейна: ±20 габаритов — запас на смещение цели (средняя кнопка) и вращение вокруг неё
+            camera.near = -maxDim * 20;
+            camera.far = maxDim * 20;
 
             const zoomX = (orthoSize * aspect * 2) / size.x;
             const zoomY = (orthoSize * 2) / size.z;
