@@ -12,6 +12,8 @@ echo "=== FRONTEND DEPLOY: $(date) ==="
 
 # Обновление кода
 echo "→ Обновление кода..."
+# npm install на сервере правит lock-файл — сбрасываем, иначе pull упрётся в конфликт
+git checkout -- package-lock.json
 git pull "$GIT_REMOTE" prod
 echo "  ✓ $(git log -1 --oneline)"
 
