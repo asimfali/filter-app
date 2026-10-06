@@ -1,3 +1,5 @@
+export const ARCHIVED_NOTICE = 'Файл старше действующего — сохранён в архив';
+
 export function parseError(data, status) {
     if (status === 403) return data?.detail || 'Недостаточно прав';
     if (data?.detail) return data.detail;

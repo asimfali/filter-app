@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { mediaApi } from '../api/media';
+import { ARCHIVED_NOTICE } from '../utils';
 
 const POLL_INTERVAL = 5000;
 const POLL_MAX = 12; // 60 сек
@@ -54,7 +55,7 @@ export function useProductDocUpload({ onUploaded }) {
                     setUploadResult({ ok: true, message: 'Конвертация STEP → GLB...' });
                     startPolling(productId, docType);
                 } else {
-                    setUploadResult({ ok: true, message: `✓ ${file.name}` });
+                    setUploadResult({ ok: true, message: data.archived ? `${ARCHIVED_NOTICE}: ${file.name}` : `✓ ${file.name}` });
                     // Перезагружаем файлы
                     const { ok: ok2, data: data2 } = await mediaApi.getProductDocuments(
                         productId, docType.id,

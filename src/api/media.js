@@ -22,6 +22,7 @@ export const mediaApi = {
         fd.append('doc_type_id', docTypeId);
         fd.append('external_id', externalId);
         fd.append('file', file);
+        if (file.lastModified) fd.append('last_modified', String(file.lastModified));
         if (name) fd.append('name', name);
         if (docNumber) fd.append('doc_number', docNumber);
 
@@ -123,6 +124,7 @@ export const mediaApi = {
         fd.append('doc_type_id', docTypeId);
         fd.append('product_id', productId);
         fd.append('file', file);
+        if (file.lastModified) fd.append('last_modified', String(file.lastModified));
 
         const res = await fetch(`${BASE}/product-documents/upload/`, {
             method: 'POST',
