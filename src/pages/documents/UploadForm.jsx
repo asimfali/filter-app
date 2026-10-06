@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { mediaApi } from '../../api/media';
 import { SELECT_CLS } from './constants';
+import { ARCHIVED_NOTICE } from '../../utils';
 import { IconPdf as PdfIcon } from '../../components/common/Icons';
 
 const EMPTY_FORM = { doc_type_id: '', external_id: '', name: '', doc_number: '' };
@@ -195,7 +196,7 @@ export default function UploadForm({ docTypes, onUploaded }) {
           message: `STEP загружен — конвертация в GLB ~30 сек, обновите страницу позже`
         });
       } else {
-        setResult({ success: true, message: `Загружен: ${data.path}` });
+        setResult({ success: true, message: data.archived ? `${ARCHIVED_NOTICE}: ${data.path}` : `Загружен: ${data.path}` });
         // onUploaded() закрывает форму (родитель делает setShowUpload(false)) —
         // с задержкой, чтобы сообщение об успехе успело отрендериться.
         setTimeout(onUploaded, 1500);

@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { mediaApi } from '../../api/media';
 import AccessTokenModal from '../../components/media/AccessTokenModal';
 import { canPreview3D } from '../../utils/fileUtils';
+import { ARCHIVED_NOTICE } from '../../utils';
 import { can } from '../../utils/permissions';
 import { IconPdf } from '../../components/common/Icons';
 
@@ -111,7 +112,7 @@ export function ProductDocDropZone({ product, docType, onUploaded }) {
                 if (data.converting) {
                     setResult({ ok: true, message: 'STEP загружен — конвертация ~30 сек, обновите страницу' });
                 } else {
-                    setResult({ ok: true, message: `✓ ${file.name}` });
+                    setResult({ ok: true, message: data.archived ? `${ARCHIVED_NOTICE}: ${file.name}` : `✓ ${file.name}` });
                     await onUploaded(docType.code, docType.id);
                 }
             }

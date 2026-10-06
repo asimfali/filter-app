@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { mediaApi } from '../api/media';
+import { ARCHIVED_NOTICE } from '../utils';
 import { can } from '../utils/permissions';
 
 export function useDocTypes(user) {
@@ -47,7 +48,7 @@ export function useCommonDocUpload({ onUploaded }) {
                 if (data.converting) {
                     setUploadResult({ ok: true, message: 'STEP загружен — конвертация ~30 сек' });
                 } else {
-                    setUploadResult({ ok: true, message: `✓ ${file.name}` });
+                    setUploadResult({ ok: true, message: data.archived ? `${ARCHIVED_NOTICE}: ${file.name}` : `✓ ${file.name}` });
                 }
                 setTimeout(() => { onUploaded?.(); setUploadResult(null); }, 1500);
             } else {
