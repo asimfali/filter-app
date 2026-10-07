@@ -146,6 +146,7 @@ export default function FolderUploadPage({ onBack }) {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState(null);
+    const [emptyMsg, setEmptyMsg] = useState('');
     const [excludeFolders, setExcludeFolders] = useState('Архив, archive');
     const [folderMarker, setFolderMarker] = useState('ПАСПОРТ');
     const [nameTemplate, setNameTemplate] = useState('{doc_type} {series}{heating} {design}');
@@ -160,7 +161,9 @@ export default function FolderUploadPage({ onBack }) {
     const docTypeCode = selectedDocType?.code || '';
     const allowedExtensions = docTypeCode === 'models'
         ? ['.pdf', '.step', '.stp', '.stl', '.obj', '.gltf', '.glb']
-        : ['.pdf'];
+        : docTypeCode === 'bim'
+            ? ['.rfa', '.rvt']
+            : ['.pdf'];
 
     // ← activeSettings ЗДЕСЬ — до useEffect которые его используют
     const activeSettings = useMemo(() => {
@@ -309,8 +312,12 @@ export default function FolderUploadPage({ onBack }) {
                 ? filterLatestPassports(withoutExcluded, folderMarker)
                 : withoutExcluded;
 
-        if (!files.length) return;
+        if (!files.length) {
+            setEmptyMsg(`В папке нет файлов допустимых типов (${allowedExtensions.join(', ')})`);
+            return;
+        }
 
+        setEmptyMsg('');
         setLoading(true);
         setItems([]);
         setProgress(null);
@@ -589,6 +596,8 @@ export default function FolderUploadPage({ onBack }) {
                         </div>
                     )}
                 </div>
+
+                {emptyMsg && <div className="mt-3 text-xs text-amber-600 dark:text-amber-400">{emptyMsg}</div>}
 
                 {/* Прогресс-бар */}
                 {progress && (
