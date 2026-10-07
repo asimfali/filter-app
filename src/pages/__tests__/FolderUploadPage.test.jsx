@@ -218,13 +218,36 @@ describe('FolderUploadPage — разбор папки (handleFolderChange)', ()
         expect(await screen.findByText('2 файлов')).toBeInTheDocument();
     });
 
-    it('пустой список после фильтрации — parseFolderPaths не вызывается', async () => {
+    it('пустой список после фильтрации — parseFolderPaths не вызывается, показано сообщение', async () => {
         const user = await renderPage();
         await user.selectOptions(screen.getByText('— выберите —').closest('select'), '1');
         const input = document.querySelector('input[type="file"]');
         fireEvent.change(input, { target: { files: [makeFile('Изделие/картинка.jpg', 'картинка.jpg')] } });
-        await new Promise(r => setTimeout(r, 50));
+        expect(await screen.findByText('В папке нет файлов допустимых типов (.pdf)')).toBeInTheDocument();
         expect(mediaApi.parseFolderPaths).not.toHaveBeenCalled();
+    });
+
+    it('docTypeCode="bim" разрешает .rfa/.rvt и отсекает .pdf', async () => {
+        mediaApi.getFormData.mockResolvedValue(ok({
+            doc_types: [docTypeFilters, { id: 4, name: 'BIM', code: 'bim', upload_mode: 'filters' }],
+            axes: [],
+            folder_upload_settings: [],
+        }));
+        const user = await renderPage();
+        await user.selectOptions(screen.getByText('— выберите —').closest('select'), '4');
+        mediaApi.parseFolderPaths.mockResolvedValue(ok({ success: true, results: [
+            { external_id: 'a', path: 'x/a.rfa', article: 'a', filters: [] },
+            { external_id: 'b', path: 'x/b.RVT', article: 'b', filters: [] },
+        ] }));
+
+        const input = document.querySelector('input[type="file"]');
+        expect(input).toHaveAttribute('accept', '.rfa,.rvt');
+        fireEvent.change(input, { target: { files: [
+            makeFile('x/a.rfa', 'a.rfa'), makeFile('x/b.RVT', 'b.RVT'), makeFile('x/c.pdf', 'c.pdf'),
+        ] } });
+
+        await waitFor(() => expect(mediaApi.parseFolderPaths).toHaveBeenCalled());
+        expect(mediaApi.parseFolderPaths.mock.calls[0][0]).toEqual(['x/a.rfa', 'x/b.RVT']);
     });
 });
 
