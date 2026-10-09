@@ -12,11 +12,10 @@ import { useProductDocUpload } from '../hooks/useProductDocUpload';
 import LiteraSelector from '../components/plm/LiteraSelector';
 import { useBatchStages } from '../hooks/useBatchStages';
 import { useColumnPrefs } from '../hooks/useColumnPrefs';
-import ColumnSettingsModal from '../components/catalog/ColumnSettingsModal';
+import ColumnSettingsButton from '../components/catalog/ColumnSettingsButton';
 
 export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOpenViewer }) {
     const [data, setData] = useState(null);
-    const [showColSettings, setShowColSettings] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { user } = useAuth();
@@ -213,23 +212,7 @@ export default function SpecPreviewPage({ productIds, onBack, onOpenEditor, onOp
                                 ✎ Редактировать
                             </button>
                         )}
-                        <button
-                            onClick={() => setShowColSettings(true)}
-                            className="px-3 py-2 text-sm rounded-lg bg-neutral-100 dark:bg-neutral-800
-               text-gray-700 dark:text-gray-300 hover:bg-neutral-200
-               dark:hover:bg-neutral-700 transition-colors"
-                            title="Настройка колонок">
-                            ⚙
-                        </button>
-
-                        {showColSettings && (
-                            <ColumnSettingsModal
-                                columns={columns}
-                                onToggle={toggle}
-                                onReorder={reorder}
-                                onClose={() => setShowColSettings(false)}
-                            />
-                        )}
+                        <ColumnSettingsButton columns={columns} onToggle={toggle} onReorder={reorder} />
                         {uniqueLiteras.length > 0 && (
                             <LiteraSelector
                                 stages={uniqueLiteras}
