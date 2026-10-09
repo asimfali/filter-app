@@ -10,6 +10,15 @@ import { sessionsApi } from '../api/sessions';
 import { IconFolder, IconClock, IconLock } from '../components/common/Icons';
 
 function buildDocumentName(template, docTypeName, item) {
+    const name = buildNameFromTemplate(template, docTypeName, item);
+    // Оси не распознались (пусто или только название типа) — имя файла без расширения
+    if ((!name || name === docTypeName) && item.file?.name) {
+        return item.file.name.replace(/\.[^.]+$/, '');
+    }
+    return name;
+}
+
+function buildNameFromTemplate(template, docTypeName, item) {
     if (!template) {
         return item.article || docTypeName || '';
     }
