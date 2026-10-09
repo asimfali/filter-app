@@ -261,7 +261,7 @@ async function parseWithItems(user, docTypeIdValue, results) {
 }
 
 describe('FolderUploadPage — таблица: buildDocumentName + колонки осей', () => {
-    it('без шаблона — имя из item.article, иначе имя типа документа', async () => {
+    it('без шаблона — имя из item.article, иначе имя файла без расширения', async () => {
         const user = await renderPage();
         await user.selectOptions(screen.getByText('— выберите —').closest('select'), '1');
         fireEvent.change(screen.getByPlaceholderText('{doc_type} {series} {heating} {design}'), { target: { value: '' } });
@@ -277,9 +277,8 @@ describe('FolderUploadPage — таблица: buildDocumentName + колонк�
         });
         await waitFor(() => expect(mediaApi.parseFolderPaths).toHaveBeenCalled());
         expect(await screen.findByText('АРТ-1')).toBeInTheDocument();
-        // фолбэк для второй строки (пустой article) — "Паспорта" неоднозначно (тоже текст опции
-        // <select>), проверяем именно в ячейке "Имя документа" (span)
-        expect(screen.getAllByText('Паспорта', { selector: 'span' })).toHaveLength(1);
+        // фолбэк для второй строки (пустой article) — имя файла без расширения
+        expect(screen.getByText('b', { selector: 'span' })).toBeInTheDocument();
     });
 
     it('с шаблоном подставляет {doc_type} и {axis_code} (или транслитерацию имени оси)', async () => {
