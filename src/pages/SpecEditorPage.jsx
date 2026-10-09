@@ -6,6 +6,8 @@ import { can, PERM } from '../utils/permissions';
 import { catalogApi } from '../api/catalog';
 import { IconSave } from '../components/common/Icons';
 import { useModals } from '../hooks/useModals';
+import { useColumnPrefs } from '../hooks/useColumnPrefs';
+import ColumnSettingsButton from '../components/catalog/ColumnSettingsButton';
 
 const API_BASE = '/api/v1/catalog';
 
@@ -43,6 +45,9 @@ export default function SpecEditorPage({
     const [draftName, setDraftName] = useState('');
     const [savingDraft, setSavingDraft] = useState(false);
     const [draftSaved, setDraftSaved] = useState(false);
+    const { columns, toggle, reorder } = useColumnPrefs(
+        'spec_editor', [], data?.definitions || [], [],
+    );
     const dragStart = useRef(null); // { defId, rowIdx }
     const anchorCell = useRef(null); // { defId, rowIdx } — точка отсчёта для Shift
 
@@ -501,7 +506,11 @@ export default function SpecEditorPage({
 
     if (!data) return null;
 
-    const { definitions, products } = data;
+    const { products } = data;
+    const defById = Object.fromEntries(data.definitions.map(d => [String(d.id), d]));
+    const definitions = columns
+        .filter(c => c.visible && defById[c.id])
+        .map(c => defById[c.id]);
 
     return (
         <div className="space-y-4" style={{ userSelect: 'none' }}>
@@ -527,7 +536,8 @@ export default function SpecEditorPage({
                             Редактор характеристик
                         </h1>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            {products.length} изделий · {definitions.length} характеристик
+                            {products.length} изделий · {definitions.length}
+                            {definitions.length !== data.definitions.length && ` из ${data.definitions.length}`} характеристик
                             {selectionInfo && (
                                 <span className="ml-3 text-violet-500">{selectionInfo}</span>
                             )}
@@ -536,6 +546,7 @@ export default function SpecEditorPage({
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <ColumnSettingsButton columns={columns} onToggle={toggle} onReorder={reorder} />
                     {saveResult && !saveResult.error && (
                         <span className="text-xs text-emerald-600 dark:text-emerald-400">
                             ✓ Сохранено: {saveResult.created} создано, {saveResult.updated} обновлено
