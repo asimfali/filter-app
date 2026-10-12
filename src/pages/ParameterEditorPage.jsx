@@ -609,6 +609,7 @@ function BulkAddValues({ axisId, onAdded }) {
                 value={text} onChange={e => setText(e.target.value)}
                 rows={5} placeholder={"Комфорт\nОптима\nПремиум\nЭконом"}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm
+                     bg-neutral-50 dark:bg-neutral-800 text-gray-900 dark:text-white
                      focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono"
             />
             {result && (
