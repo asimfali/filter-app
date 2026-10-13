@@ -3,11 +3,13 @@ import CreateThreadModal from '../issues/CreateThreadModal.jsx';
 import cytoscape from 'cytoscape';
 import ProductBindingPanel, { ChainProductsPanel } from './ProductBindingPanel.jsx';
 import BindingGraph from './BindingGraph.jsx';
+import ReferenceAxesPanel, { withRefValues, refDetachAxisIds } from './ReferenceAxesPanel.jsx';
 import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
 import { can, PERM } from '../../utils/permissions';
 import { useChainSearch } from '../../hooks/useChainSearch';
 import { IconEye, IconLock } from '../common/Icons.jsx';
+import { envelopeError } from '../../utils';
 
 export const byNumericValue = (a, b) => {
   const na = parseFloat(String(a.label).replace(',', '.'));
@@ -55,6 +57,12 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
   const [intersectionIds, setIntersectionIds] = useState([]);
   const [orphanMode, setOrphanMode] = useState(false);
   const [bindingReferenceAxes, setBindingReferenceAxes] = useState([]);
+  const [refSelection, setRefSelection] = useState({});
+  const [chainSelectedIds, setChainSelectedIds] = useState([]);
+  const [searchSelectedIds, setSearchSelectedIds] = useState([]);
+  const [refApplying, setRefApplying] = useState(false);
+  const [refCurrent, setRefCurrent] = useState(null);   // {by_product, parent_ok} выделенных товаров
+  const [refCurrentNonce, setRefCurrentNonce] = useState(0);
   // ── Хуки поиска ───────────────────────────────────────────────────────────
   const chainSearch = useChainSearch(selectedTypeId, { partial: partialSearch });
   const filterSearch = useChainSearch(selectedTypeId, { partial: partialSearch, parentsOnly });
@@ -707,6 +715,66 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
     cyInstanceRef.current = cy;
   };
 
+  const showResult = (result, ms = 3000) => {
+    setDropResult(result);
+    setTimeout(() => setDropResult(null), ms);
+  };
+
+  // Списки после изменения привязок: в orphan-режиме — повторный поиск сирот
+  const refreshChain = () => (orphanModeRef.current
+    ? handleSelectionForOrphans(chainFilters)
+    : handleChainSelection(chainFilters));
+
+  // Привязка цепочки + отмеченные справочные оси: attach одним запросом, «снять» — detach по осям
+  const submitBinding = async (productIds, chainValueIds) => {
+    const valueIds = withRefValues(chainValueIds, bindingReferenceAxes, refSelection);
+    const detachAxisIds = refDetachAxisIds(bindingReferenceAxes, refSelection);
+    const messages = [];
+    try {
+      if (valueIds.length) {
+        const { ok, data } = await catalogApi.attachByIdsBulk(productIds, valueIds);
+        if (!ok || !data.success) return { ok: false, message: envelopeError(data) };
+        messages.push(`Привязано к ${data.data.axes} осям: создано ${data.data.created}, обновлено ${data.data.updated}`);
+      }
+      if (detachAxisIds.length) {
+        const { ok, data } = await catalogApi.detachAxisFromProducts(productIds, detachAxisIds);
+        if (!ok || !data.success) return { ok: false, message: [...messages, envelopeError(data)].join('; ') };
+        messages.push(`отвязано ${data.data.deleted}`);
+      }
+    } catch {
+      return { ok: false, message: [...messages, 'Ошибка сети'].join('; ') };
+    } finally {
+      setRefCurrentNonce(n => n + 1);
+    }
+    return { ok: true, message: `✓ ${messages.join('; ')}` };
+  };
+
+  const selectedProductIds = [...new Set([...(chainFilters.length ? chainSelectedIds : []), ...searchSelectedIds])];
+
+  // Текущие значения справочных осей у выделенных товаров (debounce)
+  const selectedProductKey = selectedProductIds.join(',');
+  const refAxisKey = bindingReferenceAxes.map(a => a.axis_id).join(',');
+  useEffect(() => {
+    setRefCurrent(null);
+    if (!selectedProductKey || !refAxisKey || !canEditBindings) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const { ok, data } = await catalogApi.currentValuesByProduct(selectedProductKey.split(','), refAxisKey.split(','));
+        if (!cancelled && ok && data.success) setRefCurrent(data.data);
+      } catch { /* панель просто не покажет текущие значения */ }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [selectedProductKey, refAxisKey, refCurrentNonce, canEditBindings]);
+
+  const handleApplyRefs = async () => {
+    if (!selectedProductIds.length) return;
+    setRefApplying(true);
+    showResult(await submitBinding(selectedProductIds, []));
+    setRefApplying(false);
+    await refreshChain();
+  };
+
   const handleBindingDrop = async (productIds, valueId, valueLabel) => {
     try {
       const { ok, data } = await catalogApi.attachByIds(productIds, valueId);
@@ -1222,13 +1290,8 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                   setTimeout(() => setDropResult(null), 3000);
                 }}
                 onDropBulk={async (productIds, valueIds) => {
-                  const { ok, data } = await catalogApi.attachByIdsBulk(productIds, valueIds);
-                  setDropResult(
-                    ok && data.success
-                      ? { ok: true, message: `✓ Привязано к ${data.data.axes} осям: создано ${data.data.created}, обновлено ${data.data.updated}` }
-                      : { ok: false, message: data.error || 'Ошибка' }
-                  );
-                  setTimeout(() => setDropResult(null), 3000);
+                  showResult(await submitBinding(productIds, valueIds));
+                  await refreshChain();
                 }}
                 onBulkConnect={async (sourceId, targetIds, addEdges) => {
                   const connections = targetIds.map(tid => ({
@@ -1247,6 +1310,17 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                 onReferenceAxesLoaded={setBindingReferenceAxes}
                 onReferenceSelect={handleSelectionForOrphans}
               />
+              {canEditBindings && bindingMode === 'attach' && (
+                <ReferenceAxesPanel
+                  axes={bindingReferenceAxes}
+                  selection={refSelection}
+                  onChange={setRefSelection}
+                  current={refCurrent}
+                  selectedCount={selectedProductIds.length}
+                  onApply={handleApplyRefs}
+                  applying={refApplying}
+                />
+              )}
             </div>
             {orphanMode && chainProducts.length > 0 && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 
@@ -1278,15 +1352,10 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                     return;
                   }
 
-                  const { ok, data } = await catalogApi.attachByIdsBulk(productIds, chainFilters);
-                  setDropResult(
-                    ok && data.success
-                      ? { ok: true, message: `✓ Привязано к ${data.data.axes} осям: создано ${data.data.created}` }
-                      : { ok: false, message: data.error || 'Ошибка' }
-                  );
+                  showResult(await submitBinding(productIds, chainFilters));
                   await handleChainSelection(chainFilters);
-                  setTimeout(() => setDropResult(null), 3000);
                 }}
+                onSelectionChange={setChainSelectedIds}
                 availableAxes={allAxes}  // ← все оси типа продукции
                 onDetachAxis={async (axisId, productIds) => {
                   const { ok, data } = await catalogApi.detachAxisFromProducts(productIds, axisId);
@@ -1308,7 +1377,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                 readOnly={!canEditBindings}
                 pendingAssignments={pendingAssignments}
                 onDragStart={(ids) => setPendingAssignments(prev => ({ ...prev, dragging: ids }))}
-                onSelectionChange={(ids) => { }}
+                onSelectionChange={setSearchSelectedIds}
               />
             </div>
           </div>
