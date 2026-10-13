@@ -207,3 +207,27 @@ describe('ChainProductsPanel — drop', () => {
         expect(screen.getByText('Перетащите товар · Shift/Ctrl')).toBeInTheDocument();
     });
 });
+
+describe('ChainProductsPanel — onSelectionChange', () => {
+    it('сообщает выделенные полные и неполные товары', async () => {
+        const user = userEvent.setup();
+        const onSelectionChange = vi.fn();
+        render(<ChainProductsPanel products={[p1, p2]} partialProducts={[partial1]} loading={false}
+            onSelectionChange={onSelectionChange} />);
+        expect(onSelectionChange).toHaveBeenLastCalledWith([]);
+        await user.click(screen.getByText('Калорифер КЭВ-2'));
+        await user.click(screen.getByText('Неполный-1'));
+        expect(onSelectionChange).toHaveBeenLastCalledWith([2, 10]);
+    });
+
+    it('товары, ушедшие из списка, из выделения отбрасываются', async () => {
+        const user = userEvent.setup();
+        const onSelectionChange = vi.fn();
+        const { rerender } = render(<ChainProductsPanel products={[p1, p2]} loading={false}
+            onSelectionChange={onSelectionChange} />);
+        await user.click(screen.getByText('Калорифер КЭВ-1'));
+        expect(onSelectionChange).toHaveBeenLastCalledWith([1]);
+        rerender(<ChainProductsPanel products={[p2]} loading={false} onSelectionChange={onSelectionChange} />);
+        expect(onSelectionChange).toHaveBeenLastCalledWith([]);
+    });
+});
