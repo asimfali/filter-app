@@ -5,6 +5,7 @@ import SyncModal from '../SyncModal';
 import { externalApi } from '../../../api/external';
 import { catalogApi } from '../../../api/catalog';
 import { selectionApi } from '../../../api/selection';
+import { mediaApi } from '../../../api/media';
 
 vi.mock('../../../api/external', () => ({
   externalApi: {
@@ -24,7 +25,7 @@ vi.mock('../../../api/catalog', () => ({
   catalogApi: { productTypes: vi.fn() },
 }));
 vi.mock('../../../api/media', () => ({
-  mediaApi: { syncMediaToS3: vi.fn() },
+  mediaApi: { syncMediaToS3: vi.fn(), getFormData: vi.fn() },
 }));
 vi.mock('../../../api/selection', () => ({
   selectionApi: {
@@ -619,4 +620,23 @@ describe('SyncModal — dxf_import mode', () => {
 
     expect(await screen.findByText('✗ Ошибка импорта', {}, { timeout: 3000 })).toBeInTheDocument();
   }, 8000);
+});
+
+describe('SyncModal — Медиа → S3', () => {
+  it('список типов — только sync_to_s3 (+ hero_video), accepts_images без флага не попадает', async () => {
+    mediaApi.getFormData.mockResolvedValue(respOk({ doc_types: [
+      { code: 'bim', name: 'BIM модель', accepts_images: true, sync_to_s3: false },
+      { code: 'gallery', name: 'Галерея', accepts_images: true, sync_to_s3: true },
+      { code: 'catalog_book', name: 'Каталог (издание)', accepts_images: false, sync_to_s3: true },
+      { code: 'hero_video', name: 'Видео', accepts_images: false, sync_to_s3: false },
+      { code: 'passport', name: 'Паспорт', accepts_images: false, sync_to_s3: false },
+    ] }));
+    render(<SyncModal user={userWith('portal.s3.upload')} mode="s3_media" onClose={vi.fn()} />);
+
+    expect(await screen.findByText('Галерея (полная синхронизация)')).toBeInTheDocument();
+    expect(screen.getByText('Каталог (издание) (полная синхронизация)')).toBeInTheDocument();
+    expect(screen.getByText('Видео (полная синхронизация)')).toBeInTheDocument();
+    expect(screen.queryByText(/BIM модель/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Паспорт/)).not.toBeInTheDocument();
+  });
 });
