@@ -19,6 +19,12 @@ export const attachSummary = ({ axes, created, updated, skipped, conflicts }) =>
     + (skipped ? `; пропущено ${skipped}` + (c ? `: другое значение оси «${c.axis_name}» («${c.current_value}» вместо «${c.requested_value}»)` : '') : '');
 };
 
+// Пропущенные при привязке товары не трогаем и при снятии осей
+export const withoutSkipped = (productIds, skippedIds = []) => {
+  const skipped = new Set(skippedIds.map(String));
+  return productIds.filter(id => !skipped.has(String(id)));
+};
+
 export const byNumericValue = (a, b) => {
   const na = parseFloat(String(a.label).replace(',', '.'));
   const nb = parseFloat(String(b.label).replace(',', '.'));
@@ -727,14 +733,16 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
     const valueIds = withRefValues(chainValueIds, bindingReferenceAxes, refSelection);
     const detachAxisIds = refDetachAxisIds(bindingReferenceAxes, refSelection);
     const messages = [];
+    let detachIds = productIds;
     try {
       if (valueIds.length) {
         const { ok, data } = await catalogApi.attachByIdsBulk(productIds, valueIds);
         if (!ok || !data.success) return { ok: false, message: envelopeError(data) };
         messages.push(attachSummary(data.data));
+        detachIds = withoutSkipped(productIds, data.data.skipped_ids);
       }
-      if (detachAxisIds.length) {
-        const { ok, data } = await catalogApi.detachAxisFromProducts(productIds, detachAxisIds);
+      if (detachAxisIds.length && detachIds.length) {
+        const { ok, data } = await catalogApi.detachAxisFromProducts(detachIds, detachAxisIds);
         if (!ok || !data.success) return { ok: false, message: [...messages, envelopeError(data)].join('; ') };
         messages.push(`отвязано ${data.data.deleted}`);
       }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { byNumericValue, attachSummary } from '../FilterTree.jsx';
+import { byNumericValue, attachSummary, withoutSkipped } from '../FilterTree.jsx';
 
 describe('byNumericValue', () => {
     it('сортирует числовые label по значению, включая запятую как разделитель', () => {
@@ -35,5 +35,15 @@ describe('attachSummary', () => {
 
     it('старый ответ без skipped/conflicts — как раньше', () => {
         expect(attachSummary({ axes: 1, created: 1, updated: 0 })).toBe('Привязано к 1 осям: создано 1, обновлено 0');
+    });
+});
+
+describe('withoutSkipped', () => {
+    it('убирает пропущенные товары, сравнивая id как строки', () => {
+        expect(withoutSkipped(['1', 2, '3'], [2, 3])).toEqual(['1']);
+    });
+
+    it('без skipped_ids (старый ответ) — все товары', () => {
+        expect(withoutSkipped([1, 2])).toEqual([1, 2]);
     });
 });
