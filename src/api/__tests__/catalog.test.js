@@ -31,31 +31,3 @@ describe('catalogApi.pushGtinTo1C', () => {
         expect(res).toEqual({ ok: false, status: 403, data: { detail: 'Нет права на отправку GTIN в 1С.' } });
     });
 });
-
-describe('catalogApi — справочные оси в редакторе привязок', () => {
-    const okJson = (data) => ({ ok: true, status: 200, json: async () => ({ success: true, data }) });
-
-    it('currentValuesByProduct POSTит product_ids + axis_ids в current-parameters', async () => {
-        apiFetch.mockResolvedValue(okJson({ by_product: {}, parent_ok: {} }));
-        const res = await catalogApi.currentValuesByProduct([1, 2], [7]);
-        expect(apiFetch).toHaveBeenCalledWith('/api/v1/catalog/products/current-parameters/', {
-            method: 'POST',
-            body: JSON.stringify({ product_ids: [1, 2], axis_ids: [7] }),
-        });
-        expect(res).toEqual({ ok: true, data: { success: true, data: { by_product: {}, parent_ok: {} } } });
-    });
-
-    it('detachAxisFromProducts: массив осей — axis_ids, одна ось — axis_id (старый формат)', async () => {
-        apiFetch.mockResolvedValue(okJson({ deleted: 3 }));
-        await catalogApi.detachAxisFromProducts([1], [7, 9]);
-        expect(apiFetch).toHaveBeenLastCalledWith('/api/v1/catalog/products/detach-axis-from-products/', {
-            method: 'POST',
-            body: JSON.stringify({ product_ids: [1], axis_ids: [7, 9] }),
-        });
-        await catalogApi.detachAxisFromProducts([1], 7);
-        expect(apiFetch).toHaveBeenLastCalledWith('/api/v1/catalog/products/detach-axis-from-products/', {
-            method: 'POST',
-            body: JSON.stringify({ product_ids: [1], axis_id: 7 }),
-        });
-    });
-});

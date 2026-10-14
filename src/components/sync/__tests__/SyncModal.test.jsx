@@ -106,7 +106,7 @@ describe('SyncModal — generic async (mode="prices")', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
 
     expect(externalApi.taskStatus).toHaveBeenCalledWith('t1');
-    expect(screen.getByText('✓ Создано: 3, обновлено: 5')).toBeInTheDocument();
+    expect(screen.getByText('✓ Создано: 3, обновлено: 5')).toHaveClass('text-emerald-500');
   });
 
   it('formatResult дописывает ", ошибок: N", если result.errors задан', async () => {
@@ -138,7 +138,7 @@ describe('SyncModal — generic async (mode="prices")', () => {
     await act(async () => { fireEvent.click(screen.getByText('Запустить')); await Promise.resolve(); await Promise.resolve(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
 
-    expect(screen.getByText('✗ Нет соединения с 1С')).toBeInTheDocument();
+    expect(screen.getByText('✗ Нет соединения с 1С')).toHaveClass('text-red-500');
   });
 
   it('продолжает опрашивать, если задача ещё не готова', async () => {
@@ -207,6 +207,22 @@ describe('SyncModal — generic async (mode="prices")', () => {
     });
 
     expect(externalApi.syncPrices).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('SyncModal — rsync "Запустить все"', () => {
+  it('запускает все папки, документы — только на последнем шаге', async () => {
+    externalApi.getRsyncFolders.mockResolvedValue(respOk({ success: true, data: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }] }));
+    externalApi.rsyncMedia.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+    render(<SyncModal user={userWith('external.rsync_media')} mode="rsync" onClose={vi.fn()} />);
+    await flush();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Запустить все'));
+      for (let i = 0; i < 6; i++) await Promise.resolve();
+    });
+
+    expect(externalApi.rsyncMedia.mock.calls).toEqual([['a', false], ['b', true]]);
   });
 });
 
@@ -379,6 +395,40 @@ describe('SyncModal — push_to_site mode', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
 
     expect(screen.getByText('✗ Ошибка: Сайт недоступен')).toBeInTheDocument();
+  });
+
+  it('ошибка-объект {code, message} (ALREADY_RUNNING) → message, красным', async () => {
+    vi.useFakeTimers();
+    await setup();
+    externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+    externalApi.taskStatus.mockResolvedValue(respOk({
+      success: true,
+      data: { ready: true, result: { success: false, error: { code: 'ALREADY_RUNNING', message: 'Синхронизация уже выполняется' } } },
+    }));
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('Запустить')[1]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+
+    const msg = screen.getByText('✗ Ошибка: Синхронизация уже выполняется');
+    expect(msg).toHaveClass('text-red-500');
+  });
+
+  it('"Запустить все" запускает только "Весь каталог", без разделов', async () => {
+    await setup([{ id: 1, name: 'Завесы', slug: 'zavesy' }, { id: 2, name: 'Тепловентиляторы', slug: 'tv' }]);
+    externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Запустить все'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(externalApi.pushToSite).toHaveBeenCalledTimes(1);
+    expect(externalApi.pushToSite).toHaveBeenCalledWith(null, null);
   });
 });
 

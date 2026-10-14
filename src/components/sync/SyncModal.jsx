@@ -92,9 +92,11 @@ const MODE_CONFIG = {
         },
         runItem: (itemId) => externalApi.pushToSite(null, itemId || null),
         isAsync: true,
+        // «Весь каталог» покрывает все разделы; параллельные прогоны бэкенд отклоняет (ALREADY_RUNNING)
+        runAllFilter: (item) => item.id === '',
         formatResult: (result) => result.success
             ? `✓ Отправлено ${result.pushed} товаров`
-            : `✗ Ошибка: ${result.error}`,
+            : `✗ Ошибка: ${result.error?.message ?? result.error}`,
     },
     fan_charts: {
         title: 'Синхронизировать графики',
@@ -221,7 +223,8 @@ export default function SyncModal({ user, onClose, mode }) {
                         : data.data.ready;
 
                 if (isReady) {
-                    const isFailed = data.data.status === 'FAILED';
+                    // ready, но задача вернула {success: false} — тоже неуспех (красным)
+                    const isFailed = data.data.status === 'FAILED' || data.data.result?.success === false;
                     const msg = (mode === 'extract')
                         ? (isFailed
                             ? `✗ ${data.data.error_log?.error || 'Ошибка'}`
@@ -375,10 +378,11 @@ export default function SyncModal({ user, onClose, mode }) {
 
     const runAll = async () => {
         setRunningAll(true);
-        for (let i = 0; i < items.length; i++) {
-            const isLast = i === items.length - 1;
+        const runItems = config.runAllFilter ? items.filter(config.runAllFilter) : items;
+        for (let i = 0; i < runItems.length; i++) {
+            const isLast = i === runItems.length - 1;
             // Документы синхронизируем только на последнем шаге батча
-            await runItem(items[i].id, mode === 'rsync' ? { syncDocuments: isLast } : undefined);
+            await runItem(runItems[i].id, mode === 'rsync' ? { syncDocuments: isLast } : undefined);
         }
         setRunningAll(false);
     };
