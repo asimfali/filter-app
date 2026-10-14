@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
 import cytoscape from 'cytoscape';
 import { catalogApi } from '../../api/catalog';
-import { chainSearchValueIds } from './chainIds';
 
 
 /**
@@ -573,16 +572,18 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             intersection.addClass('chain-selected');
             cy.nodes('[type="value"]').not(intersection).addClass('chain-dimmed');
 
-            // Цепочка для drop и поиска: classifier пересечения + явно выбранные reference
-            selectedChainRef.current = chainSearchValueIds(
-                intersection,
-                selectedNodeIds.map(id => cy.getElementById(`value-${id}`)),
-            );
+            selectedChainRef.current = intersection
+                .filter(n => n.data('type') === 'value')
+                .map(n => n.id().replace('value-', ''));
 
+            // ← передаём только non-reference узлы в поиск
             const classifierChain = intersection
                 .filter(n => n.data('type') === 'value' && !n.data('is_reference'))
                 .map(n => n.id().replace('value-', ''));
-            const referenceChain = selectedChainRef.current.filter(id => !classifierChain.includes(id));
+
+            const referenceChain = intersection
+                .filter(n => n.data('type') === 'value' && n.data('is_reference'))
+                .map(n => n.id().replace('value-', ''));
             onSelectionChange?.(classifierChain, referenceChain);
         };
 

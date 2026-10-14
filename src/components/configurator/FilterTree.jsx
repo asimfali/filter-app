@@ -3,7 +3,6 @@ import CreateThreadModal from '../issues/CreateThreadModal.jsx';
 import cytoscape from 'cytoscape';
 import ProductBindingPanel, { ChainProductsPanel } from './ProductBindingPanel.jsx';
 import BindingGraph from './BindingGraph.jsx';
-import { chainSearchValueIds } from './chainIds';
 import ReferenceAxesPanel, { withRefValues, refDetachAxisIds } from './ReferenceAxesPanel.jsx';
 import { catalogApi } from '../../api/catalog';
 import { useAuth } from '../../contexts/AuthContext';
@@ -652,7 +651,11 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
         intersection = intersection.filter(node => chainsByAxis[i].has(node));
       }
 
-      setIntersectionIds(chainSearchValueIds(intersection, selected));
+      setIntersectionIds(
+        intersection
+          .filter(n => n.data('type') === 'value' && !n.data('is_reference'))
+          .map(n => n.id().replace('value-', ''))
+      );
 
       // ── Подсветка ──
       const connectingEdges = intersection.edgesWith(intersection);
