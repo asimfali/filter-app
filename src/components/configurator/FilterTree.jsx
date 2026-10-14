@@ -12,6 +12,13 @@ import { IconEye, IconLock } from '../common/Icons.jsx';
 import { buildFacetIndex, applyClick, normalizeSelection, activeValues, deadValues, matchedProducts } from './facets';
 import { envelopeError } from '../../utils';
 
+// Итог attach-by-ids-bulk; товары с другим значением классификационной оси бэкенд пропускает целиком
+export const attachSummary = ({ axes, created, updated, skipped, conflicts }) => {
+  const c = conflicts?.[0];
+  return `Привязано к ${axes} осям: создано ${created}, обновлено ${updated}`
+    + (skipped ? `; пропущено ${skipped}` + (c ? `: другое значение оси «${c.axis_name}» («${c.current_value}» вместо «${c.requested_value}»)` : '') : '');
+};
+
 export const byNumericValue = (a, b) => {
   const na = parseFloat(String(a.label).replace(',', '.'));
   const nb = parseFloat(String(b.label).replace(',', '.'));
@@ -724,7 +731,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
       if (valueIds.length) {
         const { ok, data } = await catalogApi.attachByIdsBulk(productIds, valueIds);
         if (!ok || !data.success) return { ok: false, message: envelopeError(data) };
-        messages.push(`Привязано к ${data.data.axes} осям: создано ${data.data.created}, обновлено ${data.data.updated}`);
+        messages.push(attachSummary(data.data));
       }
       if (detachAxisIds.length) {
         const { ok, data } = await catalogApi.detachAxisFromProducts(productIds, detachAxisIds);
