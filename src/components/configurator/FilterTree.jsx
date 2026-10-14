@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { can, PERM } from '../../utils/permissions';
 import { useChainSearch } from '../../hooks/useChainSearch';
 import { IconEye, IconLock } from '../common/Icons.jsx';
+import { buildFacetIndex, applyClick, normalizeSelection, activeValues, deadValues, matchedProducts } from './facets';
 
 export const byNumericValue = (a, b) => {
   const na = parseFloat(String(a.label).replace(',', '.'));
@@ -39,12 +40,10 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
   const [allAxes, setAllAxes] = useState([]);
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [filterResult, setFilterResult] = useState(savedState?.filterResult || null);
-  const [counting, setCounting] = useState(false);
   const [graphHeight, setGraphHeight] = useState(500);
   const [showCreateThread, setShowCreateThread] = useState(false);
   const [parentsOnly, setParentsOnly] = useState(false);
   const restoredNodes = useRef(savedState?.selectedNodes || []);
-  const restoredIntersectionIds = useRef(savedState?.intersectionIds || []);
   const isRestoringRef = useRef(!!savedState);
   const selectedTagsTypeIdRef = useRef(selectedTypeId);
   // ── Редактор привязок ──────────────────────────────────────────────────────
@@ -52,12 +51,14 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
   const [pendingAssignments, setPendingAssignments] = useState({});
   const [dropResult, setDropResult] = useState(null);
   const bindingGraphRef = useRef(null);
-  const [intersectionIds, setIntersectionIds] = useState([]);
+  const facetRef = useRef(null);   // { setSelection, restore, refresh, matched } текущего графа фильтра
+  const partialRef = useRef(partialSearch);
+  partialRef.current = partialSearch;
+  const [threadExternalIds, setThreadExternalIds] = useState(null);
   const [orphanMode, setOrphanMode] = useState(false);
   const [bindingReferenceAxes, setBindingReferenceAxes] = useState([]);
   // ── Хуки поиска ───────────────────────────────────────────────────────────
   const chainSearch = useChainSearch(selectedTypeId, { partial: partialSearch });
-  const filterSearch = useChainSearch(selectedTypeId, { partial: partialSearch, parentsOnly });
 
   const refAxesRef = useRef([]);
   useEffect(() => {
@@ -143,7 +144,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
       setFilterResult(null);
       setSelectedTags([]);
       setTagValues([]);
-      setIntersectionIds([]);
       setBindingTags([]);
       setBindingTagValues([]);
       selectedTagsTypeIdRef.current = selectedTypeId;  // ← теги (пустые) теперь принадлежат новому типу
@@ -210,7 +210,6 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
     if (isRestoringRef.current && savedState?.selectedTypeId === selectedTypeId) return;
 
     setSelectedTags([]);
-    setIntersectionIds([]);
     selectedTagsTypeIdRef.current = selectedTypeId;
   }, [selectedTypeId]);
 
@@ -240,7 +239,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
 
     const load = async () => {
       try {
-        const { ok, data } = await catalogApi.filteredConfiguration(selectedTypeId, selectedTags, false, true, true);
+        const { ok, data } = await catalogApi.filteredConfiguration(selectedTypeId, selectedTags, false, true, true, true);
         if (!ok || !data.success) {
           throw new Error(`Загрузка графа: ${data?.error || 'нет ответа'}`);
         }
@@ -281,7 +280,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
         pendingGraphData.current = {
           nodes, edges, byOrder,
           selectedIds: data.data.selected_ids,
-          productPaths: data.data.product_paths || [],
+          facetProducts: data.data.facet_products,
           referenceAxes: data.data.reference_axes || [],
         };
         setGraphLoading(false);
@@ -304,22 +303,14 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
     const timer = setTimeout(() => {
       if (!cyRef.current || !pendingGraphData.current) return;
 
-      const { nodes, edges, byOrder, selectedIds, productPaths, referenceAxes } = pendingGraphData.current;
+      const { nodes, edges, byOrder, selectedIds, facetProducts, referenceAxes } = pendingGraphData.current;
       pendingGraphData.current = null;
 
-      initCytoscape(nodes, edges, byOrder, selectedIds, productPaths, referenceAxes);
+      initCytoscape(nodes, edges, byOrder, selectedIds, facetProducts, referenceAxes);
 
       if (restoredNodes.current.length) {
-        setSelectedNodes(restoredNodes.current);
-        setIntersectionIds(restoredIntersectionIds.current);
-        if (cyInstanceRef.current) {
-          const cy = cyInstanceRef.current;
-          restoredNodes.current.forEach(n => {
-            cy.getElementById(`value-${n.valueId}`).select();
-          });
-        }
+        facetRef.current?.restore(restoredNodes.current.map(n => n.valueId));
         restoredNodes.current = [];
-        restoredIntersectionIds.current = [];
         isRestoringRef.current = false;
       }
     }, 100);
@@ -360,8 +351,9 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
 
   // ── Инициализация Cytoscape ────────────────────────────────────────────────
 
-  const initCytoscape = (nodes, edges, byOrder, selectedIds = [], productPaths = [], referenceAxes = []) => {
+  const initCytoscape = (nodes, edges, byOrder, selectedIds = [], facetProducts = null, referenceAxes = []) => {
     if (!cyRef.current) return;
+    const facetIndex = buildFacetIndex({ nodes, referenceAxes, facetProducts, tagIds: selectedIds });
 
     if (!byOrder) {
       byOrder = {};
@@ -568,6 +560,17 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
         },
         { selector: 'edge.dimmed', style: { 'opacity': 0.1 } },
         {
+          // Мёртвый узел: ни одного товара даже при выборе только его — клик игнорируется
+          selector: 'node.dead',
+          style: {
+            'background-opacity': 0.15,
+            'border-opacity': 0.3,
+            'border-style': 'dotted',
+            color: '#94a3b8',
+            'text-opacity': 0.5,
+          },
+        },
+        {
           selector: 'node[type="value"]:selected',
           style: {
             'background-color': '#3b82f6',
@@ -580,7 +583,9 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
         },
       ],
       selectionType: 'additive',
-      boxSelectionEnabled: true,
+      // Выбор управляется фасетами (applyClick), не встроенным выделением cytoscape
+      boxSelectionEnabled: false,
+      autounselectify: true,
     });
 
     setTimeout(() => {
@@ -590,9 +595,14 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
       cy.maxZoom(3);
     }, 100);
 
+    let selIds = [];   // выбор в порядке клика (старые → новые)
+
     const updateSelection = () => {
       const selected = cy.nodes('[type="value"]:selected');
-      cy.elements().removeClass('highlighted dimmed');
+      const partial = partialRef.current;
+      cy.elements().removeClass('highlighted dimmed dead');
+      const dead = deadValues(facetIndex, partial);
+      cy.nodes('[type="value"]').filter(n => dead.has(n.id().replace('value-', ''))).addClass('dead');
 
       if (selected.length === 0) {
         setSelectedNodes([]);
@@ -600,61 +610,21 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
         return;
       }
 
-      // ── Вспомогательная функция: обход только по реальным рёбрам ──
-      const getReachableNodes = (startNode) => {
-        const startVid = startNode.id().replace('value-', '');
-        const matchingPaths = productPaths.filter(path =>
-          path.map(String).includes(startVid)
-        );
-
-        if (!matchingPaths.length) {
-          return cy.collection().merge(startNode);
-        }
-
-        // Объединяем все value_ids из подходящих товаров
-        const allowed = new Set();
-        matchingPaths.forEach(path => {
-          path.forEach(vid => allowed.add(String(vid)));
-        });
-
-        return cy.nodes('[type="value"]').filter(n =>
-          allowed.has(n.id().replace('value-', ''))
-        );
-      };
-
-      // ── Пересечение цепочек всех выбранных узлов ──
-      const byAxis = {};
-      selected.forEach(node => {
-        const axisId = node.data('axis_id');
-        if (!byAxis[axisId]) byAxis[axisId] = [];
-        byAxis[axisId].push(node);
+      // ── Подсветка по фасетам ──
+      // highlighted — значения подходящих товаров; dimmed — неактивные (Shift+клик перестроит выбор)
+      const active = activeValues(facetIndex, selIds, partial);
+      const matchedVals = matchedProducts(facetIndex, selIds, { partial }).map(p => new Set(p.vals.values()));
+      const vid = n => n.id().replace('value-', '');
+      cy.nodes('[type="value"]').not(selected).forEach(n => {
+        const v = vid(n);
+        if (dead.has(v)) return;
+        if (!active.has(v)) n.addClass('dimmed');
+        else if (matchedVals.some(vals => vals.has(v))) n.addClass('highlighted');
       });
-
-      const chainsByAxis = Object.values(byAxis).map(nodesInAxis => {
-        let union = cy.collection();
-        nodesInAxis.forEach(node => {
-          union = union.union(getReachableNodes(node));
-        });
-        return union;
+      cy.edges().forEach(e => {
+        const a = vid(e.source()), b = vid(e.target());
+        e.addClass(matchedVals.some(vals => vals.has(a) && vals.has(b)) ? 'highlighted' : 'dimmed');
       });
-
-      let intersection = chainsByAxis[0];
-      for (let i = 1; i < chainsByAxis.length; i++) {
-        intersection = intersection.filter(node => chainsByAxis[i].has(node));
-      }
-
-      setIntersectionIds(
-        intersection
-          .filter(n => n.data('type') === 'value' && !n.data('is_reference'))
-          .map(n => n.id().replace('value-', ''))
-      );
-
-      // ── Подсветка ──
-      const connectingEdges = intersection.edgesWith(intersection);
-      connectingEdges.addClass('highlighted');
-      intersection.not(selected).addClass('highlighted');
-      cy.nodes('[type="value"]').not(intersection).addClass('dimmed');
-      cy.edges().not(connectingEdges).addClass('dimmed');
 
       setFilterResult(null);
       setSelectedNodes(
@@ -686,16 +656,35 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
       });
     };
 
-    cy.on('select unselect', 'node[type="value"]', updateSelection);
-    cy.on('tap', e => {
-      if (e.target === cy) {
-        setIntersectionIds([]);
-        cy.nodes().unselect();
-        cy.elements().removeClass('highlighted dimmed');
-        setSelectedNodes([]);
-        setFilterResult(null);
-      }
+    const setSelection = (ids) => {
+      if (cy.destroyed()) return;   // граф пересоздан (смена тегов/типа), facetRef ещё старый
+      selIds = ids;
+      cy.autounselectify(false);
+      cy.batch(() => {
+        cy.nodes(':selected').unselect();
+        ids.forEach(id => cy.getElementById(`value-${id}`).select());
+      });
+      cy.autounselectify(true);
+      updateSelection();
+    };
+
+    cy.on('tap', 'node[type="value"]', e => {
+      const oe = e.originalEvent;
+      setSelection(applyClick(facetIndex, selIds, e.target.id().replace('value-', ''), {
+        additive: !!(oe?.shiftKey || oe?.ctrlKey || oe?.metaKey),
+        partial: partialRef.current,
+      }));
     });
+    cy.on('tap', e => {
+      if (e.target === cy) setSelection([]);
+    });
+
+    facetRef.current = {
+      setSelection,
+      restore: (ids) => setSelection(normalizeSelection(facetIndex, ids, partialRef.current)),
+      refresh: () => setSelection(normalizeSelection(facetIndex, selIds, partialRef.current)),
+      matched: (opts) => matchedProducts(facetIndex, selIds, { partial: partialRef.current, ...opts }),
+    };
     referenceAxes.forEach(refAxis => {
       cy.getElementById(`axis-${refAxis.axis_id}`).style('display', 'none');
       refAxis.values.forEach(val => {
@@ -705,6 +694,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
     cy.edges('[?is_reference]').style('display', 'none');
 
     cyInstanceRef.current = cy;
+    updateSelection();   // начальная разметка мёртвых узлов
   };
 
   const handleBindingDrop = async (productIds, valueId, valueLabel) => {
@@ -770,21 +760,22 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
 
   // ── Остальные handlers (без изменений) ────────────────────────────────────
 
-  const handleFilterCount = async () => {
-    if (!intersectionIds.length) return;
-    setCounting(true);
-    try {
-      const result = await filterSearch.search(intersectionIds);
-      if (result) {
-        setFilterResult({
-          count: result.count,
-          product_ids: result.products.map(p => p.id),
-          product_external_ids: result.products.map(p => p.external_id).filter(Boolean),
-        });
-      }
-    } finally {
-      setCounting(false);
-    }
+  // Подходящие товары считаются на фронте по facet_products — без запроса
+  const handleFilterCount = () => {
+    const products = facetRef.current?.matched({ parentsOnly }) || [];
+    setFilterResult({ count: products.length, product_ids: products.map(p => p.id) });
+  };
+
+  // «Найти изделия» больше не делает запрос — пересчёт подсветки при смене галочки «Неполные данные»
+  useEffect(() => {
+    facetRef.current?.refresh();
+  }, [partialSearch]);
+
+  // «Создать тред» — external_id подгружаются через by-ids
+  const openCreateThread = async () => {
+    const { ok, data } = await catalogApi.byIds(filterResult.product_ids);
+    setThreadExternalIds(ok && Array.isArray(data) ? data.map(p => p.external_id).filter(Boolean) : []);
+    setShowCreateThread(true);
   };
 
   // ── Рендер ────────────────────────────────────────────────────────────────
@@ -954,7 +945,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                     {productType?.name}
                   </span>
                   <span className="text-xs text-gray-400 dark:text-gray-500">
-                    Клик — выделить · Shift+клик — добавить · Drag — область
+                    Клик — выделить · Shift+клик — добавить
                   </span>
                 </div>
                 <div
@@ -993,11 +984,10 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                       </label>
                       <button
                         onClick={handleFilterCount}
-                        disabled={counting}
                         className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50
                                text-white text-sm py-2 rounded-lg transition-colors"
                       >
-                        {counting ? 'Поиск...' : 'Найти изделия'}
+                        Найти изделия
                       </button>
                     </>
                   ) : (
@@ -1023,7 +1013,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                     {canEditSpecs && (
                       <button
                         onClick={() => {
-                          onSaveState?.({ selectedTypeId, selectedTags, selectedNodes, intersectionIds, filterResult });
+                          onSaveState?.({ selectedTypeId, selectedTags, selectedNodes, filterResult });
                           onOpenSpecEditor(filterResult.product_ids);
                         }}
                         className="w-full bg-violet-600 hover:bg-violet-700 text-white
@@ -1034,7 +1024,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                     )}
                     <button
                       onClick={() => {
-                        onSaveState?.({ selectedTypeId, selectedTags, selectedNodes, intersectionIds, filterResult });
+                        onSaveState?.({ selectedTypeId, selectedTags, selectedNodes, filterResult });
                         onOpenSpecPreview(filterResult.product_ids);
                       }}
                       className="w-full bg-neutral-100 dark:bg-neutral-800
@@ -1044,7 +1034,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                       <IconEye className="w-4 h-4 inline mr-1 align-middle" /> Просмотр ({filterResult.count})
                     </button>
                     <button
-                      onClick={() => setShowCreateThread(true)}
+                      onClick={openCreateThread}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white
                  text-sm py-2 rounded-lg transition-colors"
                     >
@@ -1052,7 +1042,7 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                     </button>
                     {showCreateThread && (
                       <CreateThreadModal
-                        productIds={filterResult.product_external_ids}
+                        productIds={threadExternalIds || []}
                         graphContext={{
                           filters: selectedNodes.map(n => ({ axis_id: n.axisId, value_id: n.valueId })),
                           tags: selectedTags,
