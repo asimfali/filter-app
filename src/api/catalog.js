@@ -120,15 +120,6 @@ export const catalogApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    // Режим по товарам: {by_product: {pid: {axisId: valueId|null}}, parent_ok: {pid: {axisId: bool}}}
-    async currentValuesByProduct(productIds, axisIds) {
-        const res = await apiFetch(`${BASE}/products/current-parameters/`, {
-            method: 'POST',
-            body: JSON.stringify({ product_ids: productIds, axis_ids: axisIds }),
-        });
-        return { ok: res.ok, data: await res.json() };
-    },
-
     async specsBulk(productIds) {
         const res = await apiFetch(`${BASE}/products/specs-bulk/`, {
             method: 'POST',
@@ -323,14 +314,10 @@ export const catalogApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
-    // axisId — одна ось или массив осей (axis_ids, одним запросом)
     async detachAxisFromProducts(productIds, axisId) {
         const res = await apiFetch(`${BASE}/products/detach-axis-from-products/`, {
             method: 'POST',
-            body: JSON.stringify({
-                product_ids: productIds,
-                ...(Array.isArray(axisId) ? { axis_ids: axisId } : { axis_id: axisId }),
-            }),
+            body: JSON.stringify({ product_ids: productIds, axis_id: axisId }),
         });
         return { ok: res.ok, data: await res.json() };
     },
