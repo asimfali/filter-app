@@ -3,11 +3,17 @@ import { catalogApi } from '../../api/catalog';
 import { useMultiSelect } from '../../hooks/useMultiSelect';
 
 export function ChainProductsPanel({ products, partialProducts = [], loading, filters, onDrop, onDetach,
-    onPartialDragStart,onDetachAxis, availableAxes = [], }) {
+    onPartialDragStart,onDetachAxis, availableAxes = [], onSelectionChange, }) {
     const [isDragOver, setIsDragOver] = useState(false);
     const [showDetachMenu, setShowDetachMenu] = useState(false);
     const fullSelect = useMultiSelect(products);
     const partialSelect = useMultiSelect(partialProducts);
+
+    // Родителю — только видимые выделенные (после обновления списка старые id отбрасываются)
+    useEffect(() => {
+        const visible = new Set([...products, ...partialProducts].map(p => p.id));
+        onSelectionChange?.([...fullSelect.selected, ...partialSelect.selected].filter(id => visible.has(id)));
+    }, [fullSelect.selected, partialSelect.selected, products, partialProducts, onSelectionChange]);
 
     // Del — удаление выделенных
     useEffect(() => {
@@ -232,6 +238,11 @@ export default function ProductBindingPanel({
     const [noParams, setNoParams] = useState(false);
     const { selected, setSelected, handleClick, selectAll } = useMultiSelect(products);
 
+    // Родителю — только видимые выделенные (после нового поиска старые id отбрасываются)
+    useEffect(() => {
+        onSelectionChange?.(products.filter(p => selected.has(p.id)).map(p => p.id));
+    }, [selected, products, onSelectionChange]);
+
     // ── Загрузка товаров ───────────────────────────────────────────────────
     useEffect(() => {
         if (search.length < 2 && !noParams) {
@@ -259,13 +270,8 @@ export default function ProductBindingPanel({
 
     const handleSelectAll = () => {
         if (readOnly) return;
-        if (selected.size === products.length) {
-            setSelected(new Set());
-            onSelectionChange?.([]);
-        } else {
-            selectAll();
-            onSelectionChange?.([...products.map(p => p.id)]);
-        }
+        if (selected.size === products.length) setSelected(new Set());
+        else selectAll();
     };
 
     // ── Drag ───────────────────────────────────────────────────────────────
@@ -277,10 +283,7 @@ export default function ProductBindingPanel({
             ? [...selected]
             : [productId];
 
-        if (!selected.has(productId)) {
-            setSelected(new Set([productId]));
-            onSelectionChange?.([productId]);
-        }
+        if (!selected.has(productId)) setSelected(new Set([productId]));
 
         // Передаём ids через dataTransfer и через колбэк
         e.dataTransfer.setData('productIds', JSON.stringify(dragIds));
