@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../api/auth';
-import { parseError } from '../utils';
+import { parseError, envelopeError } from '../utils';
 import Modal from '../components/common/Modal';
 import { useModals } from '../hooks/useModals';
 
@@ -99,6 +99,25 @@ function AxisOrderPanel({ axis }) {
     };
 
     const taken = hint?.typeAxes.find(a => a.order === addOrder);
+    const [shiftError, setShiftError] = useState('');
+
+    // Освободить order под классификационную ось: справочные оси типа с order ≥ addOrder — на +1
+    const handleShiftRefs = async () => {
+        setLoading(true);
+        setShiftError('');
+        try {
+            const res = await apiFetch(`${API}/product-types/${addTypeId}/shift-reference-axes/`, {
+                method: 'POST',
+                body: JSON.stringify({ from_order: addOrder }),
+            });
+            const data = await res.json();
+            if (!res.ok || data.success === false) setShiftError(envelopeError(data, res.status));
+            else await selectType(addTypeId);
+        } catch {
+            setShiftError('Ошибка сети');
+        }
+        setLoading(false);
+    };
 
     const handleDelete = async (id) => {
         await apiFetch(`${API}/axis-orders/${id}/`, { method: 'DELETE' });
@@ -184,6 +203,16 @@ function AxisOrderPanel({ axis }) {
                             ⚠ order {addOrder} уже у {taken.axis_type === 'reference' ? 'справочной' : 'классификационной'} оси «{taken.name}»
                         </span>
                     )}
+                    {taken?.axis_type === 'reference' && axis.axis_type !== 'reference' && (
+                        <button
+                            onClick={handleShiftRefs}
+                            disabled={loading}
+                            className="ml-2 text-amber-500 underline hover:text-amber-400 disabled:opacity-40"
+                        >
+                            Сдвинуть справочные на +1
+                        </button>
+                    )}
+                    {shiftError && <span className="ml-2 text-red-400">{shiftError}</span>}
                 </div>
             )}
         </div>

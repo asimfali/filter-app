@@ -494,6 +494,49 @@ describe('ParameterEditorPage — AxisOrderPanel', () => {
     expect(within(getPanel()).queryByText(/уже у/)).not.toBeInTheDocument();
   });
 
+  it('«Сдвинуть справочные на +1» шлёт shift-reference-axes и пересчитывает подсказку', async () => {
+    let own2 = [
+      { id: 21, name: 'Нагрев', order: 3, axis_type: 'classifier' },
+      { id: 22, name: 'Паспорт', order: 4, axis_type: 'reference' },
+    ];
+    const base = routeFetch({ values: [], axisOrders: [] });
+    const user = await gotoValues({ axisOrders: [] });
+    apiFetch.mockImplementation((url, opts = {}) => {
+      if (url.includes('/shift-reference-axes/')) {
+        own2 = own2.map(a => (a.axis_type === 'reference' ? { ...a, order: a.order + 1 } : a));
+        return Promise.resolve(resp({ success: true, data: { shifted: 1 } }));
+      }
+      if (url.includes('/parameter-axes/?product_type=2')) return Promise.resolve(resp(own2));
+      if (url.includes('/axis-orders/?product_type=2')) return Promise.resolve(resp([]));
+      return base(url, opts);
+    });
+    await screen.findByText('Нет привязок');
+    await user.selectOptions(within(getPanel()).getByRole('combobox'), '2');
+    await user.click(await within(getPanel()).findByText('Сдвинуть справочные на +1'));
+
+    expect(apiFetch).toHaveBeenCalledWith('/api/v1/catalog/product-types/2/shift-reference-axes/', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ from_order: 4 }),
+    }));
+    await waitFor(() => expect(within(getPanel()).queryByText(/уже у/)).not.toBeInTheDocument());
+    expect(within(getPanel()).getByRole('spinbutton')).toHaveValue(4);
+  });
+
+  it('ошибка сдвига показывается рядом, кнопка остаётся', async () => {
+    const base = routeFetch({ values: [], axisOrders: [] });
+    const user = await gotoValues({ axisOrders: [] });
+    apiFetch.mockImplementation((url, opts = {}) => {
+      if (url.includes('/shift-reference-axes/')) return Promise.resolve(resp({ success: false, error: { message: 'order 5 занят классификационной осью' } }, false));
+      if (url.includes('/parameter-axes/?product_type=2')) return Promise.resolve(resp([{ id: 22, name: 'Паспорт', order: 0, axis_type: 'reference' }]));
+      if (url.includes('/axis-orders/?product_type=2')) return Promise.resolve(resp([]));
+      return base(url, opts);
+    });
+    await screen.findByText('Нет привязок');
+    await user.selectOptions(within(getPanel()).getByRole('combobox'), '2');
+    await user.click(await within(getPanel()).findByText('Сдвинуть справочные на +1'));
+    expect(await within(getPanel()).findByText(/order 5 занят классификационной осью/)).toBeInTheDocument();
+    expect(within(getPanel()).getByText('Сдвинуть справочные на +1')).toBeInTheDocument();
+  });
+
   it('nextAxisOrder: справочная — в конец, классификационная — после классификационных, пусто — 0', () => {
     const axes = [
       { id: 1, name: 'A', order: 0, axis_type: 'classifier' },
