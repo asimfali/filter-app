@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ParameterEditorPage from '../ParameterEditorPage';
+import ParameterEditorPage, { nextAxisOrder } from '../ParameterEditorPage';
 import { apiFetch } from '../../api/auth';
 
 vi.mock('../../api/auth', () => ({ apiFetch: vi.fn() }));
@@ -466,6 +466,43 @@ describe('ParameterEditorPage — AxisOrderPanel', () => {
       method: 'POST', body: JSON.stringify({ product_type: '2', axis: 10, order: 0 }),
     })));
     await waitFor(() => expect(within(getPanel()).getByText('Приточная установка')).toBeInTheDocument());
+  });
+
+  it('выбор типа подставляет следующий order после последней классификационной оси и предупреждает о занятом', async () => {
+    const own2 = [
+      { id: 20, name: 'Серия', order: 0, axis_type: 'classifier' },
+      { id: 21, name: 'Нагрев', order: 3, axis_type: 'classifier' },
+      { id: 22, name: 'Паспорт', order: 4, axis_type: 'reference' },
+    ];
+    const shared2 = [{ id: 401, axis: 23, axis_name: 'Сертификат', order: 5, axis_type: 'reference' }];
+    const base = routeFetch({ values: [], axisOrders: [] });
+    const user = await gotoValues({ axisOrders: [] });
+    apiFetch.mockImplementation((url, opts) => {
+      if (url.includes('/parameter-axes/?product_type=2')) return Promise.resolve(resp(own2));
+      if (url.includes('/axis-orders/?product_type=2')) return Promise.resolve(resp(shared2));
+      return base(url, opts);
+    });
+    await screen.findByText('Нет привязок');
+    await user.selectOptions(within(getPanel()).getByRole('combobox'), '2');
+
+    expect(await within(getPanel()).findByText(/последняя классификационная ось: Нагрев \(order 3\)/)).toBeInTheDocument();
+    expect(within(getPanel()).getByRole('spinbutton')).toHaveValue(4);
+    expect(within(getPanel()).getByText(/order 4 уже у справочной оси «Паспорт»/)).toBeInTheDocument();
+
+    await user.clear(within(getPanel()).getByRole('spinbutton'));
+    await user.type(within(getPanel()).getByRole('spinbutton'), '7');
+    expect(within(getPanel()).queryByText(/уже у/)).not.toBeInTheDocument();
+  });
+
+  it('nextAxisOrder: справочная — в конец, классификационная — после классификационных, пусто — 0', () => {
+    const axes = [
+      { id: 1, name: 'A', order: 0, axis_type: 'classifier' },
+      { id: 2, name: 'B', order: 2, axis_type: 'classifier' },
+      { id: 3, name: 'R', order: 6, axis_type: 'reference' },
+    ];
+    expect(nextAxisOrder(axes, 'reference')).toEqual({ order: 7, last: axes[2] });
+    expect(nextAxisOrder(axes, 'classifier')).toEqual({ order: 3, last: axes[1] });
+    expect(nextAxisOrder([], 'classifier')).toEqual({ order: 0, last: null });
   });
 
   it('удаление привязки отправляет DELETE и перезагружает', async () => {

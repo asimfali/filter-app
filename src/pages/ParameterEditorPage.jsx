@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../api/auth';
 import { parseError } from '../utils';
 import Modal from '../components/common/Modal';
@@ -26,12 +26,46 @@ function useProductTypes() {
     return types;
 }
 
+// Следующий order для оси в типе: справочная — в конец, классификационная — после последней
+// классификационной. Возвращает { order, last }.
+export function nextAxisOrder(typeAxes, axisType) {
+    const pool = axisType === 'reference' ? typeAxes : typeAxes.filter(a => a.axis_type !== 'reference');
+    const last = pool.reduce((m, a) => (!m || a.order > m.order ? a : m), null);
+    return { order: last ? last.order + 1 : 0, last };
+}
+
 function AxisOrderPanel({ axis }) {
     const [orders, setOrders] = useState([]);
     const [productTypes, setProductTypes] = useState([]);
     const [addTypeId, setAddTypeId] = useState('');
     const [addOrder, setAddOrder] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [hint, setHint] = useState(null);   // { last, typeAxes } для выбранного типа
+    const hintReq = useRef(0);
+
+    // Оси выбранного типа: собственные + общие через AxisOrder (кроме текущей)
+    const selectType = async (typeId) => {
+        setAddTypeId(typeId);
+        setHint(null);
+        const req = ++hintReq.current;
+        if (!typeId) { setAddOrder(0); return; }
+        try {
+            const [r1, r2] = await Promise.all([
+                apiFetch(`${API}/parameter-axes/?product_type=${typeId}`),
+                apiFetch(`${API}/axis-orders/?product_type=${typeId}`),
+            ]);
+            const [own, shared] = (await Promise.all([r1.json(), r2.json()]))
+                .map(d => (Array.isArray(d) ? d : (d.results || [])));
+            if (req !== hintReq.current) return;
+            const typeAxes = [
+                ...own.map(a => ({ id: a.id, name: a.name, order: a.order, axis_type: a.axis_type })),
+                ...shared.map(o => ({ id: o.axis, name: o.axis_name, order: o.order, axis_type: o.axis_type })),
+            ].filter(a => a.id !== axis.id);
+            const next = nextAxisOrder(typeAxes, axis.axis_type);
+            setHint({ last: next.last, typeAxes });
+            setAddOrder(next.order);
+        } catch { /* order остаётся ручным */ }
+    };
 
     const load = async () => {
         const [r1, r2] = await Promise.all([
@@ -59,9 +93,12 @@ function AxisOrderPanel({ axis }) {
         });
         setAddTypeId('');
         setAddOrder(0);
+        setHint(null);
         await load();
         setLoading(false);
     };
+
+    const taken = hint?.typeAxes.find(a => a.order === addOrder);
 
     const handleDelete = async (id) => {
         await apiFetch(`${API}/axis-orders/${id}/`, { method: 'DELETE' });
@@ -108,7 +145,7 @@ function AxisOrderPanel({ axis }) {
                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Тип продукции</label>
                     <select
                         value={addTypeId}
-                        onChange={e => setAddTypeId(e.target.value)}
+                        onChange={e => selectType(e.target.value)}
                         className={`w-full ${inp}`}
                     >
                         <option value="">— выберите —</option>
@@ -137,6 +174,18 @@ function AxisOrderPanel({ axis }) {
                     {loading ? '...' : '+ Добавить'}
                 </button>
             </div>
+            {hint && (
+                <div className="mt-1 text-xs text-gray-400">
+                    {hint.last
+                        ? `последняя ${axis.axis_type === 'reference' ? '' : 'классификационная '}ось: ${hint.last.name} (order ${hint.last.order})`
+                        : 'у типа ещё нет осей'}
+                    {taken && (
+                        <span className="ml-2 text-amber-500">
+                            ⚠ order {addOrder} уже у {taken.axis_type === 'reference' ? 'справочной' : 'классификационной'} оси «{taken.name}»
+                        </span>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
