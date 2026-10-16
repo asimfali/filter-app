@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SyncModal from '../SyncModal';
 import { externalApi } from '../../../api/external';
@@ -22,7 +22,7 @@ vi.mock('../../../api/external', () => ({
   },
 }));
 vi.mock('../../../api/catalog', () => ({
-  catalogApi: { productTypes: vi.fn() },
+  catalogApi: { productTypes: vi.fn(), chainSummary: vi.fn() },
 }));
 vi.mock('../../../api/media', () => ({
   mediaApi: { syncMediaToS3: vi.fn(), getFormData: vi.fn() },
@@ -312,6 +312,35 @@ describe('SyncModal — non-async с extraControls (mode="variants")', () => {
 
 describe('SyncModal — push_to_site mode', () => {
   const user1 = userWith('external.push_to_site');
+
+  describe('проверка цепочек перед отправкой', () => {
+    const run = async (summary) => {
+      catalogApi.productTypes.mockResolvedValue({ ok: true, data: [{ id: 1, name: 'Завесы', slug: 'zavesy' }] });
+      catalogApi.chainSummary.mockResolvedValue({ ok: true, data: summary });
+      externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+      render(<SyncModal user={user1} mode="push_to_site" onClose={vi.fn()} />);
+      await screen.findByText('Завесы');
+      await userEvent.click(screen.getAllByText('Запустить')[1]);
+    };
+
+    it('есть ошибки → подтверждение; «Отмена» не отправляет', async () => {
+      await run([{ id: 1, name: 'Завесы', slug: 'zavesy', errors: [{ code: 'x', message: 'Дыра в цепочке' }] }]);
+      expect(await screen.findByText(/Дыра в цепочке/)).toBeInTheDocument();
+      await userEvent.click(screen.getByText('Отмена'));
+      expect(externalApi.pushToSite).not.toHaveBeenCalled();
+    });
+
+    it('есть ошибки → «Подтвердить» отправляет', async () => {
+      await run([{ id: 1, name: 'Завесы', slug: 'zavesy', errors: [{ code: 'x', message: 'Дыра в цепочке' }] }]);
+      await userEvent.click(await screen.findByText('Подтвердить'));
+      await waitFor(() => expect(externalApi.pushToSite).toHaveBeenCalledWith(null, 'zavesy'));
+    });
+
+    it('ошибок нет → отправка без вопросов', async () => {
+      await run([{ id: 1, name: 'Завесы', slug: 'zavesy', errors: [] }]);
+      await waitFor(() => expect(externalApi.pushToSite).toHaveBeenCalled());
+    });
+  });
 
   // flush(), а не findByText — под fake timers (formatResult-тесты ниже) findByText
   // виснет: его внутренний waitFor опирается на реальные таймеры (см. flush в шапке файла).

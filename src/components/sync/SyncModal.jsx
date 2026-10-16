@@ -6,6 +6,7 @@ import { can, PERM } from '../../utils/permissions';
 import { selectionApi } from '../../api/selection';
 import { IconLink, IconClock } from '../common/Icons';
 import Modal from '../common/Modal';
+import ConfirmModal from '../common/ConfirmModal';
 
 // ─── Конфигурация режимов ─────────────────────────────────────────────────
 
@@ -91,6 +92,17 @@ const MODE_CONFIG = {
             return { ok: true, data: { success: true, data: items } };
         },
         runItem: (itemId) => externalApi.pushToSite(null, itemId || null),
+        // Ошибки цепочки осей по разделам: пусто — можно отправлять, иначе спрашиваем подтверждение
+        preflight: async (itemId) => {
+            const { ok, data } = await catalogApi.chainSummary();
+            const list = ok ? (Array.isArray(data) ? data : data?.data) : null;
+            if (!Array.isArray(list)) return null;
+            const bad = list.filter(t => t.errors?.length && (!itemId || t.slug === itemId));
+            if (!bad.length) return null;
+            return 'В цепочках осей есть ошибки:\n' +
+                bad.map(t => `• ${t.name}: ${t.errors.map(e => e.message).join('; ')}`).join('\n') +
+                '\n\nВсё равно отправить на сайт?';
+        },
         isAsync: true,
         // «Весь каталог» покрывает все разделы; параллельные прогоны бэкенд отклоняет (ALREADY_RUNNING)
         runAllFilter: (item) => item.id === '',
@@ -183,6 +195,8 @@ export default function SyncModal({ user, onClose, mode }) {
     const [dxfExistsWarning, setDxfExistsWarning] = useState(false);
     const [pendingDxfItem, setPendingDxfItem] = useState(null);
     const [dxfConfig, setDxfConfig] = useState({})
+    const [confirmState, setConfirmState] = useState(null);   // { message, resolve }
+    const askConfirm = (message) => new Promise(resolve => setConfirmState({ message, resolve }));
 
     useEffect(() => {
         config.loadItems().then(({ ok, data }) => {
@@ -316,6 +330,17 @@ export default function SyncModal({ user, onClose, mode }) {
             ...prev,
             [itemId]: { loading: true, ok: null, message: 'Запуск...' },
         }));
+
+        if (config.preflight) {
+            const warn = await config.preflight(itemId).catch(() => null);
+            if (warn && !(await askConfirm(warn))) {
+                setResults(prev => ({
+                    ...prev,
+                    [itemId]: { loading: false, ok: false, message: 'Отменено: в цепочках осей есть ошибки' },
+                }));
+                return;
+            }
+        }
 
         let ok, data;
 
@@ -637,6 +662,11 @@ export default function SyncModal({ user, onClose, mode }) {
                         );
                     })}
                 </div>
+            {confirmState && (
+                <ConfirmModal message={<span className="whitespace-pre-line">{confirmState.message}</span>}
+                    onConfirm={() => { confirmState.resolve(true); setConfirmState(null); }}
+                    onCancel={() => { confirmState.resolve(false); setConfirmState(null); }} />
+            )}
         </Modal>
     );
 }

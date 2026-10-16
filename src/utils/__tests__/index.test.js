@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseError, unwrapList } from '../index';
+import { parseError, unwrapList, translitSlug } from '../index';
 
 describe('parseError', () => {
   it('returns a fixed message for 403 without detail', () => {
@@ -41,5 +41,18 @@ describe('unwrapList', () => {
   it('returns [] for null/undefined', () => {
     expect(unwrapList(null)).toEqual([]);
     expect(unwrapList(undefined)).toEqual([]);
+  });
+});
+
+describe('translitSlug', () => {
+  it('кириллица → латиница, пробелы → _', () => {
+    expect(translitSlug('Вид нагрева')).toBe('vid_nagreva');
+    expect(translitSlug('Исполнение')).toBe('ispolnenie');
+    expect(translitSlug('Щётка')).toBe('shchetka');
+  });
+  it('мусор вычищается, смешанный текст сохраняется, пусто → пусто', () => {
+    expect(translitSlug('  IP-класс (2) ')).toBe('ip_klass_2');
+    expect(translitSlug('Mount Type!')).toBe('mount_type');
+    expect(translitSlug(null)).toBe('');
   });
 });
