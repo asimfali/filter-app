@@ -41,6 +41,45 @@ export const catalogApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    // ── Структурные операции с цепочкой осей типа ─────────────────────────
+    // ok/status/data — data в конверте {success, data|error}
+
+    async chainAnalyze(typeId, includeProducts = false) {
+        const res = await apiFetch(`${BASE}/product-types/${typeId}/chain/analyze/${includeProducts ? '?include_products=1' : ''}`);
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    async chainSummary() {
+        const res = await apiFetch(`${BASE}/product-types/chain-summary/`);
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    // body: {op, axis_id, after_axis_id, assign, extra_edges, skip_edges}
+    async chainPlan(typeId, body) {
+        const res = await apiFetch(`${BASE}/product-types/${typeId}/chain/plan/`, {
+            method: 'POST', body: JSON.stringify(body),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    // body — как у plan + plan_hash (+ confirm_losses)
+    async chainApply(typeId, body) {
+        const res = await apiFetch(`${BASE}/product-types/${typeId}/chain/apply/`, {
+            method: 'POST', body: JSON.stringify(body),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    async chainOperations(typeId) {
+        const res = await apiFetch(`${BASE}/chain-operations/?product_type=${typeId}`);
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    async chainUndo(operationId) {
+        const res = await apiFetch(`${BASE}/chain-operations/${operationId}/undo/`, { method: 'POST' });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
     async detachChain(productIds, chainValueIds) {
         const res = await apiFetch(`${BASE}/products/detach-chain/`, {
             method: 'POST',
@@ -49,7 +88,7 @@ export const catalogApi = {
                 chain_value_ids: chainValueIds,
             }),
         });
-        return { ok: res.ok, data: await res.json() };
+        return { ok: res.ok, status: res.status, data: await res.json() };
     },
 
     async filterCount(filters) {
