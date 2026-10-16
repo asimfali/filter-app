@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch } from '../api/auth';
-import { parseError, envelopeError } from '../utils';
+import { parseError, translitSlug } from '../utils';
 import Modal from '../components/common/Modal';
 import { useModals } from '../hooks/useModals';
+import ChainOperationModal from '../components/catalog/ChainOperationModal';
+import ChainCheckModal from '../components/catalog/ChainCheckModal';
+import { catalogApi } from '../api/catalog';
 
 const API = '/api/v1/catalog';
 
@@ -26,6 +29,19 @@ function useProductTypes() {
     return types;
 }
 
+// Счётчик ошибок цепочки по типам: {typeId: errors[]}
+function useChainSummary() {
+    const [summary, setSummary] = useState({});
+    const reload = useCallback(() => {
+        catalogApi.chainSummary().then(({ ok, data }) => {
+            const list = ok ? (Array.isArray(data) ? data : data?.data) : null;
+            if (Array.isArray(list)) setSummary(Object.fromEntries(list.map(t => [t.id, t.errors ?? []])));
+        }).catch(() => {});
+    }, []);
+    useEffect(() => { reload(); }, [reload]);
+    return [summary, reload];
+}
+
 // Следующий order для оси в типе: справочная — в конец, классификационная — после последней
 // классификационной. Возвращает { order, last }.
 export function nextAxisOrder(typeAxes, axisType) {
@@ -34,14 +50,16 @@ export function nextAxisOrder(typeAxes, axisType) {
     return { order: last ? last.order + 1 : 0, last };
 }
 
-function AxisOrderPanel({ axis }) {
+function AxisOrderPanel({ axis, onChainChanged }) {
     const [orders, setOrders] = useState([]);
     const [productTypes, setProductTypes] = useState([]);
     const [addTypeId, setAddTypeId] = useState('');
     const [addOrder, setAddOrder] = useState(0);
     const [loading, setLoading] = useState(false);
     const [hint, setHint] = useState(null);   // { last, typeAxes } для выбранного типа
+    const [chainOp, setChainOp] = useState(null);   // { op, typeId, typeName } — диалог операции с цепочкой
     const hintReq = useRef(0);
+    const isClassifier = axis.axis_type !== 'reference';
 
     // Оси выбранного типа: собственные + общие через AxisOrder (кроме текущей)
     const selectType = async (typeId) => {
@@ -82,6 +100,12 @@ function AxisOrderPanel({ axis }) {
 
     const handleAdd = async () => {
         if (!addTypeId) return;
+        // Классификационная ось встаёт в цепочку только структурной операцией
+        if (isClassifier) {
+            const pt = productTypes.find(t => String(t.id) === String(addTypeId));
+            setChainOp({ op: 'insert', typeId: addTypeId, typeName: pt?.name });
+            return;
+        }
         setLoading(true);
         await apiFetch(`${API}/axis-orders/`, {
             method: 'POST',
@@ -99,28 +123,13 @@ function AxisOrderPanel({ axis }) {
     };
 
     const taken = hint?.typeAxes.find(a => a.order === addOrder);
-    const [shiftError, setShiftError] = useState('');
 
-    // Освободить order под классификационную ось: справочные оси типа с order ≥ addOrder — на +1
-    const handleShiftRefs = async () => {
-        setLoading(true);
-        setShiftError('');
-        try {
-            const res = await apiFetch(`${API}/product-types/${addTypeId}/shift-reference-axes/`, {
-                method: 'POST',
-                body: JSON.stringify({ from_order: addOrder }),
-            });
-            const data = await res.json();
-            if (!res.ok || data.success === false) setShiftError(envelopeError(data, res.status));
-            else await selectType(addTypeId);
-        } catch {
-            setShiftError('Ошибка сети');
+    const handleDelete = async (o) => {
+        if (isClassifier) {
+            setChainOp({ op: 'remove', typeId: o.product_type, typeName: o.product_type_name });
+            return;
         }
-        setLoading(false);
-    };
-
-    const handleDelete = async (id) => {
-        await apiFetch(`${API}/axis-orders/${id}/`, { method: 'DELETE' });
+        await apiFetch(`${API}/axis-orders/${o.id}/`, { method: 'DELETE' });
         await load();
     };
 
@@ -145,10 +154,10 @@ function AxisOrderPanel({ axis }) {
                                        border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
                             <span className="text-sm text-gray-700 dark:text-gray-300">
                                 {o.product_type_name}
-                                <span className="ml-2 text-xs text-gray-400">order: {o.order}</span>
+                                {!isClassifier && <span className="ml-2 text-xs text-gray-400">order: {o.order}</span>}
                             </span>
                             <button
-                                onClick={() => handleDelete(o.id)}
+                                onClick={() => handleDelete(o)}
                                 className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50"
                             >
                                 ✕
@@ -175,7 +184,7 @@ function AxisOrderPanel({ axis }) {
                             ))}
                     </select>
                 </div>
-                <div className="w-20">
+                {!isClassifier && <div className="w-20">
                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Order</label>
                     <input
                         type="number"
@@ -183,7 +192,7 @@ function AxisOrderPanel({ axis }) {
                         onChange={e => setAddOrder(parseInt(e.target.value) || 0)}
                         className={`w-full ${inp}`}
                     />
-                </div>
+                </div>}
                 <button
                     onClick={handleAdd}
                     disabled={!addTypeId || loading}
@@ -193,27 +202,20 @@ function AxisOrderPanel({ axis }) {
                     {loading ? '...' : '+ Добавить'}
                 </button>
             </div>
-            {hint && (
+            {hint && !isClassifier && (
                 <div className="mt-1 text-xs text-gray-400">
-                    {hint.last
-                        ? `последняя ${axis.axis_type === 'reference' ? '' : 'классификационная '}ось: ${hint.last.name} (order ${hint.last.order})`
-                        : 'у типа ещё нет осей'}
+                    {hint.last ? `последняя ось: ${hint.last.name} (order ${hint.last.order})` : 'у типа ещё нет осей'}
                     {taken && (
                         <span className="ml-2 text-amber-500">
                             ⚠ order {addOrder} уже у {taken.axis_type === 'reference' ? 'справочной' : 'классификационной'} оси «{taken.name}»
                         </span>
                     )}
-                    {taken?.axis_type === 'reference' && axis.axis_type !== 'reference' && (
-                        <button
-                            onClick={handleShiftRefs}
-                            disabled={loading}
-                            className="ml-2 text-amber-500 underline hover:text-amber-400 disabled:opacity-40"
-                        >
-                            Сдвинуть справочные на +1
-                        </button>
-                    )}
-                    {shiftError && <span className="ml-2 text-red-400">{shiftError}</span>}
                 </div>
+            )}
+            {chainOp && (
+                <ChainOperationModal {...chainOp} axis={axis}
+                    onClose={() => setChainOp(null)}
+                    onApplied={() => { setAddTypeId(''); setHint(null); load(); onChainChanged?.(); }} />
             )}
         </div>
     );
@@ -344,17 +346,28 @@ function FilterRulesEditor({ value, onChange, productTypeId }) {
 
 // ── Форма оси ─────────────────────────────────────────────────────────────
 
-function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
+function AxisForm({ productTypeId, isGlobal, axis, axes = [], onSave, onClose }) {
     const [form, setForm] = useState({
         name: axis?.name || '',
         code: axis?.code || '',
-        order: axis?.order ?? 0,
+        order: axis?.order ?? nextAxisOrder(axes, 'classifier').order,
         axis_type: axis?.axis_type || 'classifier',
         filter_rules: axis?.filter_rules || {},
         ...(!isGlobal && { product_type: productTypeId }),
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const inChain = !!axis && axis.axis_type !== 'reference' && axis.is_active !== false;
+    const orderTouched = useRef(false);
+
+    // Новая классификационная ось встаёт только в конец цепочки: order = длина цепочки (с учётом общих осей)
+    useEffect(() => {
+        if (axis || isGlobal || !productTypeId) return;
+        catalogApi.chainAnalyze(productTypeId).then(({ ok, data }) => {
+            const len = ok ? data?.data?.chain?.length : null;
+            if (Number.isInteger(len) && !orderTouched.current) setForm(f => (f.axis_type === 'reference' ? f : { ...f, order: len }));
+        }).catch(() => {});
+    }, [axis, isGlobal, productTypeId]);
 
     // Автогенерация code из name (только при создании)
     const handleNameChange = (e) => {
@@ -362,8 +375,8 @@ function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
         setForm(f => ({
             ...f,
             name,
-            // Транслитерация не нужна — просто latin lowercase если редактируем новую
-            ...(!axis && { code: name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') }),
+            // code — транслит названия (можно поправить руками)
+            ...(!axis && { code: translitSlug(name) }),
         }));
     };
 
@@ -374,9 +387,12 @@ function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
 
         const url = axis ? `${API}/parameter-axes/${axis.id}/` : `${API}/parameter-axes/`;
         const method = axis ? 'PATCH' : 'POST';
+        // У оси, уже стоящей в цепочке, order/тип/тип продукции меняет только операция с цепочкой — не шлём
+        const body = { ...form };
+        if (axis && inChain) { delete body.order; delete body.axis_type; delete body.product_type; }
 
         try {
-            const res = await apiFetch(url, { method, body: JSON.stringify(form) });
+            const res = await apiFetch(url, { method, body: JSON.stringify(body) });
             const data = await res.json();
             if (res.ok) { onSave(data); onClose(); }
             else setError(parseApiError(data, res.status));
@@ -408,9 +424,12 @@ function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
             </div>
             <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1">Порядок (order)</label>
-                <input type="number" required value={form.order}
-                    onChange={e => setForm(f => ({ ...f, order: parseInt(e.target.value) || 0 }))}
-                    className={inp} />
+                <input type="number" required value={form.order} disabled={inChain}
+                    onChange={e => { orderTouched.current = true; setForm(f => ({ ...f, order: parseInt(e.target.value) || 0 })); }}
+                    className={`${inp} disabled:opacity-50`} />
+                {inChain && (
+                    <p className="mt-1 text-xs text-gray-400">Ось в цепочке — порядок меняется кнопками ↑ ↓ ⇅ в списке осей.</p>
+                )}
             </div>
             <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -418,7 +437,13 @@ function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
                 </label>
                 <select
                     value={form.axis_type || 'classifier'}
-                    onChange={e => setForm(f => ({ ...f, axis_type: e.target.value }))}
+                    disabled={!!axis && axis.axis_type !== 'reference' && axis.is_active !== false}
+                    onChange={e => setForm(f => ({
+                        ...f,
+                        axis_type: e.target.value,
+                        // новая ось — предлагаем следующий order для выбранного типа
+                        ...(!axis && { order: nextAxisOrder(axes, e.target.value).order }),
+                    }))}
                     className={inp}
                 >
                     <option value="classifier">Классификационная (граф)</option>
@@ -456,11 +481,11 @@ function AxisForm({ productTypeId, isGlobal, axis, onSave, onClose }) {
 
 // ── Форма значения ────────────────────────────────────────────────────────
 
-function ValueForm({ axisId, value, onSave, onClose }) {
+function ValueForm({ axisId, value, nextSort = 0, onSave, onClose }) {
     const [form, setForm] = useState({
         axis: axisId,
         value: value?.value || '',
-        sort_order: value?.sort_order ?? 0,
+        sort_order: value?.sort_order ?? nextSort,
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -546,6 +571,9 @@ function ValuesPanel({ axis }) {
 
     useEffect(() => { load(); }, [axis.id]);
 
+    // Следующий sort_order — после максимального из уже введённых
+    const nextSort = values.length ? Math.max(...values.map(v => v.sort_order ?? 0)) + 1 : 0;
+
     const handleDelete = (id) => {
         showConfirm('Удалить значение?', async () => {
             await apiFetch(`${API}/parameter-values/${id}/`, { method: 'DELETE' });
@@ -602,12 +630,12 @@ function ValuesPanel({ axis }) {
             )}
 
             {/* Быстрое добавление нескольких значений */}
-            <BulkAddValues axisId={axis.id} onAdded={load} />
+            <BulkAddValues axisId={axis.id} startOrder={nextSort} onAdded={load} />
 
             {/* Модалки */}
             {modal === 'add' && (
                 <Modal title="Новое значение" onClose={() => setModal(null)}>
-                    <ValueForm axisId={axis.id}
+                    <ValueForm axisId={axis.id} nextSort={nextSort}
                         onSave={v => { setValues(vs => [...vs, v]); load(); }}
                         onClose={() => setModal(null)} />
                 </Modal>
@@ -626,7 +654,7 @@ function ValuesPanel({ axis }) {
 
 // ── Быстрое массовое добавление ───────────────────────────────────────────
 
-function BulkAddValues({ axisId, onAdded }) {
+function BulkAddValues({ axisId, startOrder = 0, onAdded }) {
     const [open, setOpen] = useState(false);
     const [text, setText] = useState('');
     const [loading, setLoading] = useState(false);
@@ -647,7 +675,7 @@ function BulkAddValues({ axisId, onAdded }) {
             const res = await apiFetch(`${API}/parameter-values/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ axis: axisId, value: lines[i], sort_order: i }),
+                body: JSON.stringify({ axis: axisId, value: lines[i], sort_order: startOrder + i }),
             });
             if (res.ok) {
                 created++;
@@ -715,8 +743,11 @@ function BulkAddValues({ axisId, onAdded }) {
 
 // ── Главная страница ──────────────────────────────────────────────────────
 
-export default function ParameterEditorPage() {
+export default function ParameterEditorPage({ onChainChanged }) {
     const productTypes = useProductTypes();
+    const [chainSummary, reloadSummary] = useChainSummary();
+    const [chainOp, setChainOp] = useState(null);     // { op, axis } — диалог операции
+    const [checkOpen, setCheckOpen] = useState(false);
     const [mode, setMode] = useState('typed');
     const [typeId, setTypeId] = useState('');
     const [axes, setAxes] = useState([]);
@@ -724,6 +755,9 @@ export default function ParameterEditorPage() {
     const [loadingAxes, setLoadingAxes] = useState(false);
     const [modal, setModal] = useState(null); // null | 'add-axis' | axis-object
     const { showConfirm, modals } = useModals();
+
+    const [axesVersion, setAxesVersion] = useState(0);
+    const reloadAxes = () => { setAxesVersion(v => v + 1); reloadSummary(); onChainChanged?.(); };
 
     // Загрузка осей при выборе типа
     useEffect(() => {
@@ -743,7 +777,7 @@ export default function ParameterEditorPage() {
                 setAxes(list);
                 setLoadingAxes(false);
             });
-    }, [typeId, mode]);
+    }, [typeId, mode, axesVersion]);
 
     const handleDeleteAxis = async (axis) => {
         // Сначала пробуем обычное удаление
@@ -756,7 +790,12 @@ export default function ParameterEditorPage() {
         }
 
         // Если 409/400 — есть привязки, предлагаем force delete
-        await res.json().catch(() => ({}));
+        const errData = await res.json().catch(() => ({}));
+        // Ось стоит в цепочке типа — удаление только операцией «убрать из цепочки»
+        if (errData?.error?.code === 'CHAIN_OPERATION_REQUIRED') {
+            setChainOp({ op: 'remove', axis, typeId: mode === 'typed' ? typeId : errData.error.product_types?.[0]?.id });
+            return;
+        }
         showConfirm(
             `Ось «${axis.name}» имеет привязки к товарам.\n\n` +
             `Удалить ось вместе со всеми привязками товаров?`,
@@ -765,6 +804,10 @@ export default function ParameterEditorPage() {
                     method: 'DELETE',
                 });
                 const data2 = await res2.json();
+                if (data2?.error?.code === 'CHAIN_OPERATION_REQUIRED') {
+                    setChainOp({ op: 'remove', axis, typeId: mode === 'typed' ? typeId : data2.error.product_types?.[0]?.id });
+                    return;
+                }
                 if (res2.ok && data2.success) {
                     setAxes(ax => ax.filter(a => a.id !== axis.id));
                     if (selectedAxis?.id === axis.id) setSelectedAxis(null);
@@ -819,10 +862,21 @@ export default function ParameterEditorPage() {
                         >
                             <option value="">— выберите —</option>
                             {productTypes.map(pt => (
-                                <option key={pt.id} value={pt.id}>{pt.name}</option>
+                                <option key={pt.id} value={pt.id}>
+                                    {pt.name}{chainSummary[pt.id]?.length ? ` ⚠ ${chainSummary[pt.id].length}` : ''}
+                                </option>
                             ))}
                         </select>
                     </div>
+                )}
+                {mode === 'typed' && typeId && (
+                    <button onClick={() => setCheckOpen(true)}
+                        title={(chainSummary[typeId] ?? []).map(e => e.message).join('\n')}
+                        className={`self-end border text-sm px-3 py-2 rounded-lg transition-colors ${chainSummary[typeId]?.length
+                            ? 'border-red-300 text-red-500 hover:bg-red-50'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-neutral-50 dark:hover:bg-neutral-800'}`}>
+                        Проверить цепочку{chainSummary[typeId]?.length ? ` (${chainSummary[typeId].length})` : ''}
+                    </button>
                 )}
             </div>
 
@@ -856,19 +910,36 @@ export default function ParameterEditorPage() {
                                         onClick={() => setSelectedAxis(axis)}
                                         className={`flex items-center justify-between rounded-lg px-3 py-2.5
                                             cursor-pointer group transition-colors ${selectedAxis?.id === axis.id
-                                                ? 'bg-blue-50 border border-blue-200'
+                                                ? 'bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800'
                                                 : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-transparent'}`}>
                                         <div className="min-w-0">
                                             <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{axis.name}</div>
                                             <div className="text-xs text-gray-400 dark:text-gray-500">
                                                 order: {axis.order} · {axis.values_count ?? '?'} зн.
+                                                {axis.is_active === false && <span className="ml-1 text-amber-500">· не в цепочке</span>}
                                             </div>
                                         </div>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0 ml-1">
+                                        <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                                            {mode === 'typed' && axis.axis_type !== 'reference' && (axis.is_active === false ? (
+                                                <button onClick={e => { e.stopPropagation(); setChainOp({ op: 'insert', axis, typeId }); }}
+                                                    className="text-xs text-emerald-500 hover:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/40"
+                                                    title="Вставить в цепочку">в цепочку</button>
+                                            ) : (
+                                                <>
+                                                    <button onClick={e => { e.stopPropagation(); setChainOp({ op: 'move', axis, typeId, direction: 'up' }); }}
+                                                        className="text-gray-400 hover:text-emerald-500 px-1 rounded hover:bg-emerald-500/10" title="Выше в цепочке">↑</button>
+                                                    <button onClick={e => { e.stopPropagation(); setChainOp({ op: 'move', axis, typeId, direction: 'down' }); }}
+                                                        className="text-gray-400 hover:text-emerald-500 px-1 rounded hover:bg-emerald-500/10" title="Ниже в цепочке">↓</button>
+                                                    <button onClick={e => { e.stopPropagation(); setChainOp({ op: 'move', axis, typeId }); }}
+                                                        className="text-gray-400 hover:text-emerald-500 px-1 rounded hover:bg-emerald-500/10" title="Переместить после оси…">⇅</button>
+                                                </>
+                                            ))}
+                                            <span className="flex gap-1 opacity-0 group-hover:opacity-100">
                                             <button onClick={e => { e.stopPropagation(); setModal(axis); }}
                                                 className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50" title="Редактировать">✎</button>
                                             <button onClick={e => { e.stopPropagation(); handleDeleteAxis(axis); }}
                                                 className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50" title="Удалить">✕</button>
+                                            </span>
                                         </div>
                                     </div>
                                 ))}
@@ -884,7 +955,7 @@ export default function ParameterEditorPage() {
                         )}
                         {/* Привязка к типам продукции — только для общих осей */}
                         {selectedAxis && (
-                            <AxisOrderPanel axis={selectedAxis} />
+                            <AxisOrderPanel axis={selectedAxis} onChainChanged={onChainChanged} />
                         )}
                     </div>
                 </div>
@@ -896,7 +967,8 @@ export default function ParameterEditorPage() {
                     <AxisForm
                         productTypeId={mode === 'global' ? null : typeId}
                         isGlobal={mode === 'global'}
-                        onSave={axis => setAxes(ax => [...ax, axis].sort((a, b) => a.order - b.order))}
+                        axes={axes}
+                        onSave={axis => { setAxes(ax => [...ax, axis].sort((a, b) => a.order - b.order)); reloadSummary(); onChainChanged?.(); }}
                         onClose={() => setModal(null)} />
                 </Modal>
             )}
@@ -911,6 +983,20 @@ export default function ParameterEditorPage() {
                         )}
                         onClose={() => setModal(null)} />
                 </Modal>
+            )}
+            {chainOp && (
+                <ChainOperationModal
+                    typeId={chainOp.typeId}
+                    typeName={productTypes.find(t => String(t.id) === String(chainOp.typeId))?.name}
+                    op={chainOp.op} axis={chainOp.axis} direction={chainOp.direction}
+                    onClose={() => setChainOp(null)}
+                    onApplied={reloadAxes} />
+            )}
+            {checkOpen && (
+                <ChainCheckModal typeId={typeId}
+                    typeName={productTypes.find(t => String(t.id) === String(typeId))?.name}
+                    onClose={() => setCheckOpen(false)}
+                    onChanged={reloadAxes} />
             )}
             {modals}
         </div>

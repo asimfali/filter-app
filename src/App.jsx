@@ -221,6 +221,12 @@ function MainApp() {
     sessionStorage.setItem('configuratorState', JSON.stringify(state));
   }, []);
 
+  // Структура цепочки осей изменилась — сохранённая раскладка графа устарела
+  const handleChainChanged = useCallback(() => {
+    setConfiguratorState(null);
+    sessionStorage.removeItem('configuratorState');
+  }, []);
+
   const handleOpenSpecEditor = useCallback((ids) => handleNavigate('spec-editor', ids), []);
   const handleOpenSpecPreview = useCallback((ids) => handleNavigate('spec-preview', ids), []);
   const handleOpenThread = useCallback((id) => handleNavigate('issue-thread', id), []);
@@ -343,7 +349,7 @@ function MainApp() {
                 {page === 'series-master' && (
                   <ProductMasterPage onBack={() => handleNavigate('parameters')} />
                 )}
-                {page === 'parameters' && <ParameterEditorPage />}
+                {page === 'parameters' && <ParameterEditorPage onChainChanged={handleChainChanged} />}
                 {page === 'design-landings' && <DesignLandingsPage />}
                 {page === 'staff' && <StaffPage />}
                 {page === 'documents' && <DocumentsPage

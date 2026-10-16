@@ -115,6 +115,41 @@ describe('ParameterEditorPage — AxisForm (создание/редактиро�
     expect(screen.getByPlaceholderText('design')).toHaveValue('mount_type');
   });
 
+  it('code — транслит кириллического названия, который можно поправить', async () => {
+    const user = await gotoTyped();
+    await user.click(screen.getByText('+ Ось'));
+    await user.type(screen.getByPlaceholderText('Дизайн'), 'Вид нагрева');
+    const code = screen.getByPlaceholderText('design');
+    expect(code).toHaveValue('vid_nagreva');
+    await user.clear(code);
+    await user.type(code, 'heat');
+    expect(code).toHaveValue('heat');
+  });
+
+  it('классификационная ось: поле order есть и предлагает следующий после последней классификационной', async () => {
+    const user = await gotoTyped();
+    await user.click(screen.getByText('+ Ось'));
+    expect(screen.getByRole('spinbutton')).toHaveValue(2);   // последняя классификационная — order 1
+  });
+
+  it('классификационная ось: order = длина цепочки из analyze (учитывает общие оси); ручная правка не затирается', async () => {
+    const user = await gotoTyped();
+    const base = apiFetch.getMockImplementation();
+    apiFetch.mockImplementation((url, opts) => url.includes('/chain/analyze/')
+      ? Promise.resolve(resp({ success: true, data: { chain: [{}, {}, {}, {}] } }))
+      : base(url, opts));
+    await user.click(screen.getByText('+ Ось'));
+    await waitFor(() => expect(screen.getByRole('spinbutton')).toHaveValue(4));
+  });
+
+  it('справочная ось: order по умолчанию — следующий после последней оси типа', async () => {
+    const user = await gotoTyped();
+    await user.click(screen.getByText('+ Ось'));
+    await user.selectOptions(screen.getByDisplayValue('Классификационная (граф)'), 'reference');
+    // оси типа: order 1 (classifier) и 2 (reference) → 3
+    expect(screen.getByRole('spinbutton')).toHaveValue(3);
+  });
+
   it('переключение типа оси на "Справочная" показывает FilterRulesEditor', async () => {
     const user = await gotoTyped();
     await user.click(screen.getByText('+ Ось'));
@@ -349,6 +384,37 @@ describe('ParameterEditorPage — ValuesPanel / ValueForm', () => {
   });
 });
 
+describe('ParameterEditorPage — sort_order новых значений', () => {
+  it('массовое добавление продолжает нумерацию после максимального sort_order', async () => {
+    apiFetch.mockImplementation(routeFetch({ values: [value1, value2] }));   // sort_order 2 и 1
+    const user = userEvent.setup();
+    render(<ParameterEditorPage />);
+    await selectProductType(user);
+    await user.click(await screen.findByText('Дизайн'));
+    await screen.findByText('Комфорт');
+    await user.click(screen.getByText('Добавить несколько значений сразу'));
+    await user.type(screen.getByPlaceholderText(/Комфорт/), 'А{enter}Б');
+    apiFetch.mockClear();
+    await user.click(screen.getByText('Добавить 2 значений'));
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining('/parameter-values/'),
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ axis: 10, value: 'Б', sort_order: 4 }) })));
+    expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining('/parameter-values/'),
+      expect.objectContaining({ body: JSON.stringify({ axis: 10, value: 'А', sort_order: 3 }) }));
+  });
+
+  it('одиночное добавление предлагает следующий sort_order', async () => {
+    apiFetch.mockImplementation(routeFetch({ values: [value1, value2] }));
+    const user = userEvent.setup();
+    render(<ParameterEditorPage />);
+    await selectProductType(user);
+    await user.click(await screen.findByText('Дизайн'));
+    await screen.findByText('Комфорт');
+    await user.click(screen.getByText('+ Добавить значение'));
+    expect(await screen.findByText('Новое значение')).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton')).toHaveValue(3);
+  });
+});
+
 describe('ParameterEditorPage — BulkAddValues', () => {
   const gotoValues = async (overrides = {}) => {
     apiFetch.mockImplementation(routeFetch({ values: [], ...overrides }));
@@ -420,12 +486,12 @@ describe('ParameterEditorPage — BulkAddValues', () => {
 describe('ParameterEditorPage — AxisOrderPanel', () => {
   const axisOrder1 = { id: 300, product_type: 1, product_type_name: 'Калорифер', order: 5 };
 
-  const gotoValues = async (overrides = {}) => {
+  const gotoValues = async (overrides = {}, axisName = 'Мощность') => {
     apiFetch.mockImplementation(routeFetch({ values: [], axisOrders: [axisOrder1], ...overrides }));
     const user = userEvent.setup();
     render(<ParameterEditorPage />);
     await selectProductType(user);
-    await user.click(await screen.findByText('Дизайн'));
+    await user.click(await screen.findByText(axisName));
     await screen.findByText('Привязка к типам продукции (AxisOrder)');
     return user;
   };
@@ -463,18 +529,18 @@ describe('ParameterEditorPage — AxisOrderPanel', () => {
     apiFetch.mockImplementation(routeFetch({ values: [], axisOrders: [{ id: 301, product_type: 2, product_type_name: 'Приточная установка', order: 0 }] }));
     await user.click(within(getPanel()).getByText('+ Добавить'));
     await waitFor(() => expect(apiFetch).toHaveBeenCalledWith('/api/v1/catalog/axis-orders/', expect.objectContaining({
-      method: 'POST', body: JSON.stringify({ product_type: '2', axis: 10, order: 0 }),
+      method: 'POST', body: JSON.stringify({ product_type: '2', axis: 11, order: 2 }),
     })));
     await waitFor(() => expect(within(getPanel()).getByText('Приточная установка')).toBeInTheDocument());
   });
 
-  it('выбор типа подставляет следующий order после последней классификационной оси и предупреждает о занятом', async () => {
+  it('выбор типа (справочная ось) подставляет следующий order после последней оси и предупреждает о занятом', async () => {
     const own2 = [
       { id: 20, name: 'Серия', order: 0, axis_type: 'classifier' },
       { id: 21, name: 'Нагрев', order: 3, axis_type: 'classifier' },
       { id: 22, name: 'Паспорт', order: 4, axis_type: 'reference' },
     ];
-    const shared2 = [{ id: 401, axis: 23, axis_name: 'Сертификат', order: 5, axis_type: 'reference' }];
+    const shared2 = [{ id: 401, axis: 23, axis_name: 'Сертификат', order: 3, axis_type: 'reference' }];
     const base = routeFetch({ values: [], axisOrders: [] });
     const user = await gotoValues({ axisOrders: [] });
     apiFetch.mockImplementation((url, opts) => {
@@ -485,56 +551,16 @@ describe('ParameterEditorPage — AxisOrderPanel', () => {
     await screen.findByText('Нет привязок');
     await user.selectOptions(within(getPanel()).getByRole('combobox'), '2');
 
-    expect(await within(getPanel()).findByText(/последняя классификационная ось: Нагрев \(order 3\)/)).toBeInTheDocument();
-    expect(within(getPanel()).getByRole('spinbutton')).toHaveValue(4);
-    expect(within(getPanel()).getByText(/order 4 уже у справочной оси «Паспорт»/)).toBeInTheDocument();
+    expect(await within(getPanel()).findByText(/последняя ось: Паспорт \(order 4\)/)).toBeInTheDocument();
+    expect(within(getPanel()).getByRole('spinbutton')).toHaveValue(5);
+    expect(within(getPanel()).queryByText(/уже у/)).not.toBeInTheDocument();
 
     await user.clear(within(getPanel()).getByRole('spinbutton'));
-    await user.type(within(getPanel()).getByRole('spinbutton'), '7');
+    await user.type(within(getPanel()).getByRole('spinbutton'), '4');
+    expect(within(getPanel()).getByText(/order 4 уже у справочной оси «Паспорт»/)).toBeInTheDocument();
+    await user.clear(within(getPanel()).getByRole('spinbutton'));
+    await user.type(within(getPanel()).getByRole('spinbutton'), '8');
     expect(within(getPanel()).queryByText(/уже у/)).not.toBeInTheDocument();
-  });
-
-  it('«Сдвинуть справочные на +1» шлёт shift-reference-axes и пересчитывает подсказку', async () => {
-    let own2 = [
-      { id: 21, name: 'Нагрев', order: 3, axis_type: 'classifier' },
-      { id: 22, name: 'Паспорт', order: 4, axis_type: 'reference' },
-    ];
-    const base = routeFetch({ values: [], axisOrders: [] });
-    const user = await gotoValues({ axisOrders: [] });
-    apiFetch.mockImplementation((url, opts = {}) => {
-      if (url.includes('/shift-reference-axes/')) {
-        own2 = own2.map(a => (a.axis_type === 'reference' ? { ...a, order: a.order + 1 } : a));
-        return Promise.resolve(resp({ success: true, data: { shifted: 1 } }));
-      }
-      if (url.includes('/parameter-axes/?product_type=2')) return Promise.resolve(resp(own2));
-      if (url.includes('/axis-orders/?product_type=2')) return Promise.resolve(resp([]));
-      return base(url, opts);
-    });
-    await screen.findByText('Нет привязок');
-    await user.selectOptions(within(getPanel()).getByRole('combobox'), '2');
-    await user.click(await within(getPanel()).findByText('Сдвинуть справочные на +1'));
-
-    expect(apiFetch).toHaveBeenCalledWith('/api/v1/catalog/product-types/2/shift-reference-axes/', expect.objectContaining({
-      method: 'POST', body: JSON.stringify({ from_order: 4 }),
-    }));
-    await waitFor(() => expect(within(getPanel()).queryByText(/уже у/)).not.toBeInTheDocument());
-    expect(within(getPanel()).getByRole('spinbutton')).toHaveValue(4);
-  });
-
-  it('ошибка сдвига показывается рядом, кнопка остаётся', async () => {
-    const base = routeFetch({ values: [], axisOrders: [] });
-    const user = await gotoValues({ axisOrders: [] });
-    apiFetch.mockImplementation((url, opts = {}) => {
-      if (url.includes('/shift-reference-axes/')) return Promise.resolve(resp({ success: false, error: { message: 'order 5 занят классификационной осью' } }, false));
-      if (url.includes('/parameter-axes/?product_type=2')) return Promise.resolve(resp([{ id: 22, name: 'Паспорт', order: 0, axis_type: 'reference' }]));
-      if (url.includes('/axis-orders/?product_type=2')) return Promise.resolve(resp([]));
-      return base(url, opts);
-    });
-    await screen.findByText('Нет привязок');
-    await user.selectOptions(within(getPanel()).getByRole('combobox'), '2');
-    await user.click(await within(getPanel()).findByText('Сдвинуть справочные на +1'));
-    expect(await within(getPanel()).findByText(/order 5 занят классификационной осью/)).toBeInTheDocument();
-    expect(within(getPanel()).getByText('Сдвинуть справочные на +1')).toBeInTheDocument();
   });
 
   it('nextAxisOrder: справочная — в конец, классификационная — после классификационных, пусто — 0', () => {
@@ -557,6 +583,23 @@ describe('ParameterEditorPage — AxisOrderPanel', () => {
       expect.stringContaining('/axis-orders/300/'), expect.objectContaining({ method: 'DELETE' })
     ));
     expect(await screen.findByText('Нет привязок')).toBeInTheDocument();
+  });
+
+  it('классификационная ось: нет поля order, «Добавить» открывает предпросмотр insert', async () => {
+    const user = await gotoValues({ axisOrders: [] }, 'Дизайн');
+    await screen.findByText('Нет привязок');
+    expect(within(getPanel()).queryByRole('spinbutton')).not.toBeInTheDocument();
+    await user.selectOptions(within(getPanel()).getByRole('combobox'), '2');
+    await user.click(within(getPanel()).getByText('+ Добавить'));
+    expect(await screen.findByText('Вставить ось в цепочку')).toBeInTheDocument();
+    expect(apiFetch).not.toHaveBeenCalledWith('/api/v1/catalog/axis-orders/', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('классификационная ось: удаление привязки открывает операцию remove и не шлёт DELETE', async () => {
+    const user = await gotoValues({}, 'Дизайн');
+    await user.click(within(getPanel()).getByText('✕'));
+    expect(await screen.findByText('Убрать ось из цепочки')).toBeInTheDocument();
+    expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/axis-orders/300/'), expect.objectContaining({ method: 'DELETE' }));
   });
 });
 
