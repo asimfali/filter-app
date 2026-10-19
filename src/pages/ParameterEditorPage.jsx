@@ -5,6 +5,7 @@ import Modal from '../components/common/Modal';
 import { useModals } from '../hooks/useModals';
 import ChainOperationModal from '../components/catalog/ChainOperationModal';
 import ChainCheckModal from '../components/catalog/ChainCheckModal';
+import AxisRebindModal from '../components/catalog/AxisRebindModal';
 import { catalogApi } from '../api/catalog';
 
 const API = '/api/v1/catalog';
@@ -754,7 +755,9 @@ export default function ParameterEditorPage({ onChainChanged }) {
     const [selectedAxis, setSelectedAxis] = useState(null);
     const [loadingAxes, setLoadingAxes] = useState(false);
     const [modal, setModal] = useState(null); // null | 'add-axis' | axis-object
-    const { showConfirm, modals } = useModals();
+    const { showAlert, modals } = useModals();
+    const [depsAxis, setDepsAxis] = useState(null);   // { axis, dependencies } — ось с зависимостями, удалить нельзя
+    const [rebindAxis, setRebindAxis] = useState(null);
 
     const [axesVersion, setAxesVersion] = useState(0);
     const reloadAxes = () => { setAxesVersion(v => v + 1); reloadSummary(); onChainChanged?.(); };
@@ -767,7 +770,7 @@ export default function ParameterEditorPage({ onChainChanged }) {
 
         const url = mode === 'global'
             ? `${API}/parameter-axes/?product_type=global`   // ← новый query param
-            : `${API}/parameter-axes/?product_type=${typeId}`;
+            : `${API}/parameter-axes/?product_type=${typeId}&include_shared=1`;   // + общие оси цепочки типа
 
         apiFetch(url)
             .then(r => r.json())
@@ -796,24 +799,20 @@ export default function ParameterEditorPage({ onChainChanged }) {
             setChainOp({ op: 'remove', axis, typeId: mode === 'typed' ? typeId : errData.error.product_types?.[0]?.id });
             return;
         }
-        showConfirm(
-            `Ось «${axis.name}» имеет привязки к товарам.\n\n` +
-            `Удалить ось вместе со всеми привязками товаров?`,
-            async () => {
-                const res2 = await apiFetch(`${API}/parameter-axes/${axis.id}/force-delete/`, {
-                    method: 'DELETE',
-                });
-                const data2 = await res2.json();
-                if (data2?.error?.code === 'CHAIN_OPERATION_REQUIRED') {
-                    setChainOp({ op: 'remove', axis, typeId: mode === 'typed' ? typeId : data2.error.product_types?.[0]?.id });
-                    return;
-                }
-                if (res2.ok && data2.success) {
-                    setAxes(ax => ax.filter(a => a.id !== axis.id));
-                    if (selectedAxis?.id === axis.id) setSelectedAxis(null);
-                }
-            }
-        );
+        if (errData?.error?.code === 'AXIS_HAS_DEPENDENCIES') {
+            setDepsAxis({ axis, dependencies: errData.error.dependencies ?? [] });
+            return;
+        }
+        showAlert(parseError(errData, res.status));
+    };
+
+    const handleDeactivateAxis = async (axis) => {
+        const res = await apiFetch(`${API}/parameter-axes/${axis.id}/`, {
+            method: 'PATCH', body: JSON.stringify({ is_active: false }),
+        });
+        if (!res.ok) { showAlert(parseError(await res.json().catch(() => ({})), res.status)); return; }
+        setDepsAxis(null);
+        reloadAxes();
     };
 
     return (
@@ -911,16 +910,19 @@ export default function ParameterEditorPage({ onChainChanged }) {
                                         className={`flex items-center justify-between rounded-lg px-3 py-2.5
                                             cursor-pointer group transition-colors ${selectedAxis?.id === axis.id
                                                 ? 'bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800'
-                                                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-transparent'}`}>
+                                                : axis.is_shared
+                                                    ? 'bg-indigo-50/60 dark:bg-indigo-950/20 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-900/50'
+                                                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-transparent'}`}>
                                         <div className="min-w-0">
                                             <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{axis.name}</div>
                                             <div className="text-xs text-gray-400 dark:text-gray-500">
+                                                {axis.is_shared && <span className="mr-1 text-indigo-500 dark:text-indigo-400">общая ·</span>}
                                                 order: {axis.order} · {axis.values_count ?? '?'} зн.
                                                 {axis.is_active === false && <span className="ml-1 text-amber-500">· не в цепочке</span>}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-0.5 shrink-0 ml-1">
-                                            {mode === 'typed' && axis.axis_type !== 'reference' && (axis.is_active === false ? (
+                                            {mode === 'typed' && !axis.is_shared && axis.axis_type !== 'reference' && (axis.is_active === false ? (
                                                 <button onClick={e => { e.stopPropagation(); setChainOp({ op: 'insert', axis, typeId }); }}
                                                     className="text-xs text-emerald-500 hover:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/40"
                                                     title="Вставить в цепочку">в цепочку</button>
@@ -934,6 +936,11 @@ export default function ParameterEditorPage({ onChainChanged }) {
                                                         className="text-gray-400 hover:text-emerald-500 px-1 rounded hover:bg-emerald-500/10" title="Переместить после оси…">⇅</button>
                                                 </>
                                             ))}
+                                            {axis.product_type != null && (
+                                                <button onClick={e => { e.stopPropagation(); setRebindAxis(axis); }}
+                                                    className="text-gray-400 hover:text-blue-500 px-1 rounded hover:bg-blue-500/10 opacity-0 group-hover:opacity-100"
+                                                    title="Сделать общей / влить в общую ось">⇄</button>
+                                            )}
                                             <span className="flex gap-1 opacity-0 group-hover:opacity-100">
                                             <button onClick={e => { e.stopPropagation(); setModal(axis); }}
                                                 className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50" title="Редактировать">✎</button>
@@ -976,10 +983,10 @@ export default function ParameterEditorPage({ onChainChanged }) {
                 <Modal title="Редактировать ось" onClose={() => setModal(null)}>
                     <AxisForm
                         productTypeId={mode === 'global' ? null : typeId}
-                        isGlobal={mode === 'global'}
+                        isGlobal={mode === 'global' || !!modal.is_shared}
                         axis={modal}
                         onSave={updated => setAxes(ax =>
-                            ax.map(a => a.id === updated.id ? updated : a).sort((a, b) => a.order - b.order)
+                            ax.map(a => a.id === updated.id ? { ...a, ...updated, ...(a.is_shared && { order: a.order }) } : a).sort((a, b) => a.order - b.order)
                         )}
                         onClose={() => setModal(null)} />
                 </Modal>
@@ -991,6 +998,41 @@ export default function ParameterEditorPage({ onChainChanged }) {
                     op={chainOp.op} axis={chainOp.axis} direction={chainOp.direction}
                     onClose={() => setChainOp(null)}
                     onApplied={reloadAxes} />
+            )}
+            {depsAxis && (
+                <Modal title="Ось нельзя удалить" subtitle={depsAxis.axis.name} onClose={() => setDepsAxis(null)}
+                    footer={
+                        <div className="flex flex-wrap gap-2 justify-end">
+                            <button onClick={() => setDepsAxis(null)}
+                                className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm px-4 py-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800">
+                                Закрыть
+                            </button>
+                            <button onClick={() => handleDeactivateAxis(depsAxis.axis)}
+                                className="border border-amber-500/50 text-amber-600 text-sm px-4 py-2 rounded-lg hover:bg-amber-500/10">
+                                Деактивировать
+                            </button>
+                            {depsAxis.axis.product_type != null && (
+                                <button onClick={() => { setRebindAxis(depsAxis.axis); setDepsAxis(null); }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg transition-colors">
+                                    Перенести в общую ось
+                                </button>
+                            )}
+                        </div>
+                    }>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                        У оси есть зависимости, удаление уничтожило бы их. Перенесите ось в общую или деактивируйте её.
+                    </p>
+                    <ul className="text-sm space-y-1">
+                        {depsAxis.dependencies.map(d => (
+                            <li key={d.model} className="flex justify-between text-gray-700 dark:text-gray-300">
+                                <span>{d.label}</span><span className="text-gray-400">{d.count}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </Modal>
+            )}
+            {rebindAxis && (
+                <AxisRebindModal axis={rebindAxis} onClose={() => setRebindAxis(null)} onChanged={reloadAxes} />
             )}
             {checkOpen && (
                 <ChainCheckModal typeId={typeId}

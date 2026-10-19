@@ -21,9 +21,6 @@ const routeFetch = (overrides = {}) => (url, opts = {}) => {
   if (url.includes('/parameter-axes/') && (method === 'POST' || method === 'PATCH')) {
     return Promise.resolve((overrides.saveAxis || (() => resp({ id: 99, order: 0 })))());
   }
-  if (url.includes('/force-delete/') && method === 'DELETE') {
-    return Promise.resolve((overrides.forceDelete || (() => resp({ success: true })))());
-  }
   if (url.includes('/parameter-axes/') && method === 'DELETE') {
     return Promise.resolve((overrides.deleteAxis || (() => resp({}, true)))());
   }
@@ -63,7 +60,7 @@ describe('ParameterEditorPage — режимы и загрузка осей', ()
     await screen.findByText('Выберите тип продукции');
 
     await selectProductType(user);
-    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining('/parameter-axes/?product_type=1')));
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining('/parameter-axes/?product_type=1&include_shared=1')));
 
     const names = (await screen.findAllByText(/Дизайн|Мощность/)).map(n => n.textContent);
     expect(names).toEqual(['Дизайн', 'Мощность']);
@@ -248,44 +245,48 @@ describe('ParameterEditorPage — удаление оси', () => {
     expect(screen.queryByText(/«Дизайн»/)).not.toBeInTheDocument();
   });
 
-  it('конфликт (не ok): подтверждение в модалке запускает force-delete', async () => {
-    apiFetch.mockImplementation(routeFetch({
-      deleteAxis: () => resp({ error: 'conflict' }, false),
-      forceDelete: () => resp({ success: true }),
-    }));
+  const depsConflict = () => resp({
+    error: { code: 'AXIS_HAS_DEPENDENCIES', dependencies: [{ model: 'catalog.ParameterValue', label: 'Значения параметров', count: 10 }] },
+  }, false);
+
+  it('AXIS_HAS_DEPENDENCIES: показывает зависимости, force-delete не вызывается, ось остаётся', async () => {
+    apiFetch.mockImplementation(routeFetch({ deleteAxis: depsConflict }));
     const user = await gotoTyped();
     await user.click(screen.getAllByTitle('Удалить')[0]);
-    await user.click(await screen.findByText('Подтвердить'));
+
+    expect(await screen.findByText('Значения параметров')).toBeInTheDocument();
+    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/force-delete/'), expect.anything());
+    expect(screen.getAllByText('Дизайн').length).toBeGreaterThan(0);
+  });
+
+  it('AXIS_HAS_DEPENDENCIES: «Деактивировать» шлёт PATCH is_active=false', async () => {
+    apiFetch.mockImplementation(routeFetch({ deleteAxis: depsConflict }));
+    const user = await gotoTyped();
+    await user.click(screen.getAllByTitle('Удалить')[0]);
+    await user.click(await screen.findByText('Деактивировать'));
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/force-delete/'), expect.objectContaining({ method: 'DELETE' })
+      expect.stringContaining('/parameter-axes/10/'),
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ is_active: false }) })
     ));
-    await waitFor(() => expect(screen.queryByText('Дизайн')).not.toBeInTheDocument());
   });
+});
 
-  it('конфликт: отказ в модалке не отправляет force-delete', async () => {
-    apiFetch.mockImplementation(routeFetch({ deleteAxis: () => resp({ error: 'conflict' }, false) }));
-    const user = await gotoTyped();
-    apiFetch.mockClear();
-    apiFetch.mockImplementation(routeFetch({ deleteAxis: () => resp({ error: 'conflict' }, false) }));
-    await user.click(screen.getAllByTitle('Удалить')[0]);
-    await user.click(await screen.findByText('Отмена'));
+describe('ParameterEditorPage — общие оси в списке типа', () => {
+  const shared = { id: 30, name: 'Серия', code: 'series', order: 0, axis_type: 'classifier', values_count: 5, product_type: null, is_shared: true };
+  const own = { ...axis1, product_type: 1, is_shared: false };
 
-    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining('/parameter-axes/10/'), expect.objectContaining({ method: 'DELETE' })));
-    expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/force-delete/'), expect.anything());
-    expect(await screen.findByText('Дизайн')).toBeInTheDocument();
-  });
+  it('общая ось подписана «общая», без ⇄ и стрелок порядка; у собственной ⇄ есть', async () => {
+    apiFetch.mockImplementation(routeFetch({ axes: [shared, own] }));
+    const user = userEvent.setup();
+    render(<ParameterEditorPage />);
+    await selectProductType(user);
+    await screen.findByText('Серия');
 
-  it('force-delete неуспешен (success: false) — ось остаётся в списке', async () => {
-    apiFetch.mockImplementation(routeFetch({
-      deleteAxis: () => resp({ error: 'conflict' }, false),
-      forceDelete: () => resp({ success: false }),
-    }));
-    const user = await gotoTyped();
-    await user.click(screen.getAllByTitle('Удалить')[0]);
-    await user.click(await screen.findByText('Подтвердить'));
-    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining('/force-delete/'), expect.anything()));
-    expect(screen.getByText('Дизайн')).toBeInTheDocument();
+    expect(screen.getByText(/общая ·/)).toBeInTheDocument();
+    expect(screen.getAllByTitle('Выше в цепочке')).toHaveLength(1);
+    expect(screen.getAllByTitle('Сделать общей / влить в общую ось')).toHaveLength(1);
   });
 });
 

@@ -10,6 +10,8 @@ const LEVEL_CLS = {
     info: 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-300',
 };
 
+const KIND_LABEL = { rebind: 'Пересвязь оси (собственная → общая)' };
+
 // «Проверить цепочку»: анализ проблем, кнопка «Починить» (op=repair), история операций с отменой.
 export default function ChainCheckModal({ typeId, typeName, onClose, onChanged }) {
     const [report, setReport] = useState(null);
@@ -89,7 +91,7 @@ export default function ChainCheckModal({ typeId, typeName, onClose, onChanged }
                             {ops.map(o => (
                                 <div key={o.id} className="flex items-center gap-2 text-xs bg-neutral-50 dark:bg-neutral-950 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5">
                                     <span className="flex-1 text-gray-700 dark:text-gray-300">
-                                        {fmtDate(o.created_at, true)} · {o.kind} · {o.user_name}
+                                        {fmtDate(o.created_at, true)} · {KIND_LABEL[o.kind] ?? o.kind} ·{o.user_name}
                                         {o.undone_at && <span className="ml-2 text-gray-400">отменена {fmtDate(o.undone_at, true)}{o.undone_by_name && ` (${o.undone_by_name})`}</span>}
                                     </span>
                                     {o.can_undo && (
