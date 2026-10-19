@@ -167,6 +167,9 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
       setTagValues([]);
       setBindingTags([]);
       setBindingTagValues([]);
+      // Цепочка и выделение редактора привязок прошлого типа: иначе панель цепочки показывает его товары
+      bindingGraphRef.current?.resetSelection();
+      handleChainSelection([]);
       selectedTagsTypeIdRef.current = selectedTypeId;  // ← теги (пустые) теперь принадлежат новому типу
       if (cyInstanceRef.current) {
         cyInstanceRef.current.destroy();

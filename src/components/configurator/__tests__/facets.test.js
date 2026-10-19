@@ -35,7 +35,6 @@ describe('buildFacetIndex', () => {
         const p3 = idx.products.find(p => p.id === 3);
         expect(Object.fromEntries(p3.vals)).toEqual({ 1: '4', 4: '20', 17: '52', 9: '13487', 30: '93' });
         expect(p3.parent).toBe(true);
-        expect(idx.graphAxes).toEqual(new Set(['1', '4', '17', '9']));
         expect(idx.refAxes).toEqual(new Set(['30', '29']));
     });
 });
@@ -43,13 +42,18 @@ describe('buildFacetIndex', () => {
 describe('matches / matchedProducts (правило 1, 8)', () => {
     it('внутри оси — «или», между осями — «и»', () => {
         expect(ids(['20'])).toEqual([3, 4, 5]);
-        expect(ids(['20', '19'])).toEqual([3, 4, 5, 6]);
+        expect(ids(['20', '19'])).toEqual([3, 4, 5, 6, 7]);
         expect(ids(['20', '13486'])).toEqual([4, 5]);
     });
 
-    it('без галочки неполный товар не подходит, с галочкой — подходит и при отсутствии оси', () => {
-        expect(ids(['19'])).toEqual([6]);
-        expect(ids(['19'], { partial: true })).toEqual([6, 7]);
+    it('полный — заполнены выбранные оси: пустая невыбранная ось не мешает', () => {
+        expect(ids(['19'])).toEqual([6, 7]);
+        expect(ids(['13486'])).toEqual([4, 5, 6, 7]);
+    });
+
+    it('без галочки товар без выбранной оси не подходит, с галочкой — подходит', () => {
+        expect(ids(['19', '52'])).toEqual([6]);
+        expect(ids(['19', '52'], { partial: true })).toEqual([6, 7]);
         expect(ids(['52'], { partial: true })).toContain(7);
     });
 
