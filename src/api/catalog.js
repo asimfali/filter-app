@@ -80,6 +80,23 @@ export const catalogApi = {
         return { ok: res.ok, status: res.status, data: await res.json() };
     },
 
+    // Пересвязь собственной оси типа: без target_axis_id — «сделать общей», иначе влить в общую.
+    // body: {target_axis_id?, value_map?, delete_source}
+    async axisRebindPlan(axisId, body) {
+        const res = await apiFetch(`${BASE}/parameter-axes/${axisId}/rebind/plan/`, {
+            method: 'POST', body: JSON.stringify(body),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
+    // body — как у plan + plan_hash
+    async axisRebindApply(axisId, body) {
+        const res = await apiFetch(`${BASE}/parameter-axes/${axisId}/rebind/apply/`, {
+            method: 'POST', body: JSON.stringify(body),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json() };
+    },
+
     async detachChain(productIds, chainValueIds) {
         const res = await apiFetch(`${BASE}/products/detach-chain/`, {
             method: 'POST',
