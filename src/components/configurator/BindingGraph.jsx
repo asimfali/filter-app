@@ -40,7 +40,21 @@ const BindingGraph = forwardRef(function BindingGraph({ productTypeId, selectedT
             selectedNodesRef.current = [];
             selectedChainRef.current = [];
             onSelectionChange?.([], []);
-        }
+        },
+        // Classifier-оси, на которых в valueIds больше одного значения: привязка к такой цепочке неоднозначна
+        ambiguousAxes: (valueIds) => {
+            const cy = cyInstanceRef.current;
+            if (!cy) return [];
+            const count = {};
+            valueIds.forEach(id => {
+                const n = cy.getElementById(`value-${id}`);
+                if (!n.length || n.data('is_reference')) return;
+                const axisId = n.data('axis_id');
+                count[axisId] = (count[axisId] || 0) + 1;
+            });
+            return Object.keys(count).filter(a => count[a] > 1)
+                .map(a => cy.getElementById(`axis-${a}`).data('label') || a);
+        },
     }));
 
     useEffect(() => {

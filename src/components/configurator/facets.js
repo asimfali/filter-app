@@ -7,14 +7,11 @@
 
 export function buildFacetIndex({ nodes = [], referenceAxes = [], facetProducts, tagIds = [] }) {
     const axisOf = new Map();       // valueId → axisId (строки)
-    const graphAxes = new Set();    // classifier-оси графа
     const refAxes = new Set();
     const parentsOf = new Map();    // refAxisId → Set(parent valueId)
 
     nodes.filter(n => n.data.type === 'value').forEach(n => {
-        const axis = String(n.data.axis_id);
-        axisOf.set(n.data.id.replace('value-', ''), axis);
-        graphAxes.add(axis);
+        axisOf.set(n.data.id.replace('value-', ''), String(n.data.axis_id));
     });
     referenceAxes.forEach(a => {
         const axis = String(a.axis_id);
@@ -33,7 +30,7 @@ export function buildFacetIndex({ nodes = [], referenceAxes = [], facetProducts,
         return { id, parent: isParent === 1, vals };
     });
 
-    return { axisOf, graphAxes, refAxes, parentsOf, products, tagIds: new Set(tagIds.map(String)) };
+    return { axisOf, refAxes, parentsOf, products, tagIds: new Set(tagIds.map(String)) };
 }
 
 // ── Подбор ────────────────────────────────────────────────────────────────
@@ -60,10 +57,7 @@ const productMatches = (index, p, S, partial, skipAxis) => {
         }
         if (!values.has(v)) return false;
     }
-    if (!partial) {
-        for (const axis of index.graphAxes) if (!p.vals.has(axis)) return false;
-    }
-    return true;
+    return true;   // невыбранные оси не важны: товар без хвоста цепочки (RAL и т.п.) остаётся полным
 };
 
 const matchedBy = (index, S, partial, skipAxis) =>

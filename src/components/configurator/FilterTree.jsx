@@ -167,6 +167,9 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
       setTagValues([]);
       setBindingTags([]);
       setBindingTagValues([]);
+      // Цепочка и выделение редактора привязок прошлого типа: иначе панель цепочки показывает его товары
+      bindingGraphRef.current?.resetSelection();
+      handleChainSelection([]);
       selectedTagsTypeIdRef.current = selectedTypeId;  // ← теги (пустые) теперь принадлежат новому типу
       if (cyInstanceRef.current) {
         cyInstanceRef.current.destroy();
@@ -1344,14 +1347,18 @@ const FilterTreeGraph = ({ onOpenSpecEditor, onOpenSpecPreview, onOpenThread, sa
                 chainValueIds={chainFilters}
                 onPartialDragStart={axes => setDragMissingAxes(axes)}
                 onDrop={async (productIds) => {
-                  // Перепроверяем paths_count перед привязкой
+                  // Перепроверяем paths_count перед привязкой. Он считает сочетания только у полных
+                  // товаров, поэтому отдельно — оси с несколькими значениями (неполный товар получил бы любое)
                   const result = await chainSearch.search(chainFilters);
                   if (!result) return;
 
-                  if (result.paths_count > 1) {
+                  const ambiguous = bindingGraphRef.current?.ambiguousAxes(chainFilters) || [];
+                  if (result.paths_count > 1 || ambiguous.length) {
                     setDropResult({
                       ok: false,
-                      message: `Неоднозначная цепочка (${result.paths_count} путей). Уточните фильтр.`
+                      message: ambiguous.length
+                        ? `Неоднозначная цепочка: несколько значений у осей ${ambiguous.join(', ')}. Уточните фильтр.`
+                        : `Неоднозначная цепочка (${result.paths_count} путей). Уточните фильтр.`
                     });
                     setTimeout(() => setDropResult(null), 4000);
                     return;
