@@ -51,6 +51,23 @@ export function nextAxisOrder(typeAxes, axisType) {
     return { order: last ? last.order + 1 : 0, last };
 }
 
+// Группы списка осей: сначала цепочка (классификационные), затем справочные; пустые группы не выводятся.
+export function groupAxes(axes) {
+    return [
+        { key: 'chain', title: 'Цепочка', axes: axes.filter(a => a.axis_type !== 'reference') },
+        { key: 'reference', title: 'Справочные', axes: axes.filter(a => a.axis_type === 'reference') },
+    ].filter(g => g.axes.length);
+}
+
+// Условие показа справочной оси: «Вид нагрева = W, A» или null, если правило не задано
+// (как reference_parent_rule на бэкенде: нужны и parentParam, и allowedValues).
+export function referenceRuleText(axis, axes) {
+    const { parentParam, parentAxisId, allowedValues } = axis.filter_rules || {};
+    if (!parentParam || !allowedValues?.length) return null;
+    const parent = axes.find(a => (parentAxisId ? a.id === parentAxisId : a.code === parentParam));
+    return `${parent?.name ?? parentParam} = ${allowedValues.join(', ')}`;
+}
+
 function AxisOrderPanel({ axis, onChainChanged }) {
     const [orders, setOrders] = useState([]);
     const [productTypes, setProductTypes] = useState([]);
@@ -903,8 +920,16 @@ export default function ParameterEditorPage({ onChainChanged }) {
                         ) : axes.length === 0 ? (
                             <div className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">Нет осей</div>
                         ) : (
-                            <div className="space-y-1">
-                                {axes.map(axis => (
+                            <div className="space-y-3">
+                                {groupAxes(axes).map(group => (
+                                <div key={group.key}>
+                                <div className="px-1 mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                    {group.title} · {group.axes.length}
+                                </div>
+                                <div className="space-y-1">
+                                {group.axes.map(axis => {
+                                    const rule = axis.axis_type === 'reference' ? referenceRuleText(axis, axes) : null;
+                                    return (
                                     <div key={axis.id}
                                         onClick={() => setSelectedAxis(axis)}
                                         className={`flex items-center justify-between rounded-lg px-3 py-2.5
@@ -918,8 +943,14 @@ export default function ParameterEditorPage({ onChainChanged }) {
                                             <div className="text-xs text-gray-400 dark:text-gray-500">
                                                 {axis.is_shared && <span className="mr-1 text-indigo-500 dark:text-indigo-400">общая ·</span>}
                                                 order: {axis.order} · {axis.values_count ?? '?'} зн.
-                                                {axis.is_active === false && <span className="ml-1 text-amber-500">· не в цепочке</span>}
+                                                {axis.is_active === false && <span className="ml-1 text-amber-500">· {axis.axis_type === 'reference' ? 'неактивна' : 'не в цепочке'}</span>}
                                             </div>
+                                            {axis.axis_type === 'reference' && (
+                                                <div className={`text-xs truncate ${rule ? 'text-gray-500 dark:text-gray-400' : 'text-amber-500'}`}
+                                                    title={rule ? `Показывается, если ${rule}` : 'Правило не задано — ось показывается всегда'}>
+                                                    {rule ? `если ${rule}` : 'без условия'}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-0.5 shrink-0 ml-1">
                                             {mode === 'typed' && !axis.is_shared && axis.axis_type !== 'reference' && (axis.is_active === false ? (
@@ -949,6 +980,10 @@ export default function ParameterEditorPage({ onChainChanged }) {
                                             </span>
                                         </div>
                                     </div>
+                                    );
+                                })}
+                                </div>
+                                </div>
                                 ))}
                             </div>
                         )}
