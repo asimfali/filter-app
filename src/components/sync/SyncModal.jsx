@@ -59,16 +59,24 @@ const MODE_CONFIG = {
         title: 'Rsync медиафайлов',
         btnColor: 'bg-teal-600 hover:bg-teal-700',
         permission: PERM.EXTERNAL_RSYNC_MEDIA,
-        loadItems: () => externalApi.getRsyncFolders(),
-        runItem: (id, opts) => externalApi.rsyncMedia(id, opts?.syncDocuments ?? true),
+        // Папки типов документов; «Все файлы» (id 'all') — не строка, а кнопка «Запустить все» (runAllItemId)
+        loadItems: async () => {
+            const { ok, data } = await externalApi.getRsyncFolders();
+            if (!ok || !data?.success) return { ok, data };
+            return { ok, data: { ...data, data: data.data.filter(f => f.id !== 'all') } };
+        },
+        runItem: (id, opts) => externalApi.rsyncMedia(id, opts?.syncDocuments ?? false),
         isAsync: true,
+        // Документы уходят полным списком (сайт скрывает отсутствующие) — только при «Запустить все»
+        runAllItemId: 'all',
         formatResult: (result) => {
             if (result.success) {
                 const count = result.folders?.length ?? 0;
                 const docsMsg = result.documents_synced
                     ? `, документов: ${result.documents_synced}`
                     : '';
-                return `✓ Синхронизировано папок: ${count}${docsMsg}`;
+                const skipped = result.skipped?.length ? `, пропущено: ${result.skipped.length} (нет каталога)` : '';
+                return `✓ Синхронизировано папок: ${count}${skipped}${docsMsg}`;
             }
             const errs = result.errors?.map(e => `${e.folder}: ${e.error}`).join('; ');
             const docsErr = result.documents_error ? ` | Документы: ${result.documents_error}` : '';
