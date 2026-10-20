@@ -79,16 +79,13 @@ const MODE_CONFIG = {
         title: 'Синхронизировать сайт',
         btnColor: 'bg-emerald-600 hover:bg-emerald-700',
         permission: PERM.EXTERNAL_PUSH_TO_SITE,
-        // "Весь каталог" + по одному пункту на раздел (product_type_slug) —
-        // список разделов из /catalog/product-types/.
+        // По одному пункту на раздел (product_type_slug) — список из /catalog/product-types/.
+        // Полная синхронизация — кнопка «Запустить все» (runAllItemId).
         loadItems: async () => {
             const { ok, data } = await catalogApi.productTypes();
             if (!ok) return { ok, data };
             const types = data.results ?? data;
-            const items = [
-                { id: '', name: 'Весь каталог' },
-                ...(Array.isArray(types) ? types : []).map(t => ({ id: t.slug, name: t.name })),
-            ];
+            const items = (Array.isArray(types) ? types : []).map(t => ({ id: t.slug, name: t.name }));
             return { ok: true, data: { success: true, data: items } };
         },
         runItem: (itemId) => externalApi.pushToSite(null, itemId || null),
@@ -104,8 +101,9 @@ const MODE_CONFIG = {
                 '\n\nВсё равно отправить на сайт?';
         },
         isAsync: true,
-        // «Весь каталог» покрывает все разделы; параллельные прогоны бэкенд отклоняет (ALREADY_RUNNING)
-        runAllFilter: (item) => item.id === '',
+        // «Запустить все» — один прогон по всему каталогу (itemId ''), а не по разделам:
+        // параллельные прогоны бэкенд отклоняет (ALREADY_RUNNING)
+        runAllItemId: '',
         formatResult: (result) => result.success
             ? `✓ Отправлено ${result.pushed} товаров`
             : `✗ Ошибка: ${result.error?.message ?? result.error}`,
@@ -403,7 +401,7 @@ export default function SyncModal({ user, onClose, mode }) {
 
     const runAll = async () => {
         setRunningAll(true);
-        const runItems = config.runAllFilter ? items.filter(config.runAllFilter) : items;
+        const runItems = config.runAllItemId !== undefined ? [{ id: config.runAllItemId }] : items;
         for (let i = 0; i < runItems.length; i++) {
             const isLast = i === runItems.length - 1;
             // Документы синхронизируем только на последнем шаге батча
@@ -444,6 +442,14 @@ export default function SyncModal({ user, onClose, mode }) {
                     <div className="mb-3">
                         {config.extraControls(opts, setOpts)}
                     </div>
+                )}
+
+                {/* Статус «Запустить все» — у него нет строки в списке */}
+                {config.runAllItemId !== undefined && results[config.runAllItemId]?.message && (
+                    <p className={`text-xs mb-3 ${results[config.runAllItemId].ok === true ? 'text-emerald-500' :
+                        results[config.runAllItemId].ok === false ? 'text-red-500' : 'text-gray-400'}`}>
+                        {results[config.runAllItemId].message}
+                    </p>
                 )}
 
                 {/* Список */}

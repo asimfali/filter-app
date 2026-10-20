@@ -320,7 +320,7 @@ describe('SyncModal — push_to_site mode', () => {
       externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
       render(<SyncModal user={user1} mode="push_to_site" onClose={vi.fn()} />);
       await screen.findByText('Завесы');
-      await userEvent.click(screen.getAllByText('Запустить')[1]);
+      await userEvent.click(screen.getAllByText('Запустить')[0]);
     };
 
     it('есть ошибки → подтверждение; «Отмена» не отправляет', async () => {
@@ -350,9 +350,9 @@ describe('SyncModal — push_to_site mode', () => {
     await flush();
   };
 
-  it('loadItems: "Весь каталог" первым пунктом + разделы из catalogApi.productTypes()', async () => {
+  it('loadItems: только разделы из catalogApi.productTypes(), без «Весь каталог»', async () => {
     await setup();
-    expect(screen.getByText('Весь каталог')).toBeInTheDocument();
+    expect(screen.queryByText('Весь каталог')).not.toBeInTheDocument();
     expect(screen.getByText('Завесы')).toBeInTheDocument();
   });
 
@@ -365,25 +365,12 @@ describe('SyncModal — push_to_site mode', () => {
     expect(await screen.findByText('Завесы')).toBeInTheDocument();
   });
 
-  it('запуск "Весь каталог" вызывает pushToSite(null, null)', async () => {
-    await setup();
-    externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
-
-    await act(async () => {
-      fireEvent.click(screen.getAllByText('Запустить')[0]); // "Весь каталог" — первый пункт
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(externalApi.pushToSite).toHaveBeenCalledWith(null, null);
-  });
-
   it('запуск конкретного раздела вызывает pushToSite(null, slug)', async () => {
     await setup();
     externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
 
     await act(async () => {
-      fireEvent.click(screen.getAllByText('Запустить')[1]); // «Завесы»
+      fireEvent.click(screen.getAllByText('Запустить')[0]); // «Завесы»
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -437,7 +424,7 @@ describe('SyncModal — push_to_site mode', () => {
     }));
 
     await act(async () => {
-      fireEvent.click(screen.getAllByText('Запустить')[1]);
+      fireEvent.click(screen.getAllByText('Запустить')[0]);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -447,7 +434,7 @@ describe('SyncModal — push_to_site mode', () => {
     expect(msg).toHaveClass('text-red-500');
   });
 
-  it('"Запустить все" запускает только "Весь каталог", без разделов', async () => {
+  it('"Запустить все" — один вызов pushToSite(null, null), без разделов', async () => {
     await setup([{ id: 1, name: 'Завесы', slug: 'zavesy' }, { id: 2, name: 'Тепловентиляторы', slug: 'tv' }]);
     externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
 
@@ -459,6 +446,26 @@ describe('SyncModal — push_to_site mode', () => {
 
     expect(externalApi.pushToSite).toHaveBeenCalledTimes(1);
     expect(externalApi.pushToSite).toHaveBeenCalledWith(null, null);
+  });
+
+  it('"Запустить все": preflight срабатывает (подтверждение по всем разделам), «Отмена» не отправляет', async () => {
+    catalogApi.chainSummary.mockResolvedValue({ ok: true, data: [{ id: 1, name: 'Завесы', slug: 'zavesy', errors: [{ code: 'x', message: 'Дыра в цепочке' }] }] });
+    await setup();
+    await userEvent.click(screen.getByText('Запустить все'));
+    expect(await screen.findByText(/Дыра в цепочке/)).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Отмена'));
+    expect(externalApi.pushToSite).not.toHaveBeenCalled();
+  });
+
+  it('"Запустить все": «Подтвердить» отправляет pushToSite(null, null), статус виден в окне', async () => {
+    catalogApi.chainSummary.mockResolvedValue({ ok: true, data: [{ id: 1, name: 'Завесы', slug: 'zavesy', errors: [{ code: 'x', message: 'Дыра в цепочке' }] }] });
+    externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+    await setup();
+    await userEvent.click(screen.getByText('Запустить все'));
+    await userEvent.click(await screen.findByText('Подтвердить'));
+    await waitFor(() => expect(externalApi.pushToSite).toHaveBeenCalledTimes(1));
+    expect(externalApi.pushToSite).toHaveBeenCalledWith(null, null);
+    expect(await screen.findByText('Выполняется...')).toBeInTheDocument();
   });
 });
 
