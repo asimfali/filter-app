@@ -212,18 +212,50 @@ describe('SyncModal — generic async (mode="prices")', () => {
 });
 
 describe('SyncModal — rsync "Запустить все"', () => {
-  it('запускает все папки, документы — только на последнем шаге', async () => {
-    externalApi.getRsyncFolders.mockResolvedValue(respOk({ success: true, data: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }] }));
+  const setup = async () => {
+    externalApi.getRsyncFolders.mockResolvedValue(respOk({ success: true, data: [{ id: 'all', name: 'Все файлы' }, { id: 'a', name: 'A' }, { id: 'b', name: 'B' }] }));
     externalApi.rsyncMedia.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
     render(<SyncModal user={userWith('external.rsync_media')} mode="rsync" onClose={vi.fn()} />);
     await flush();
+  };
 
+  it('в списке нет «Все файлы», только папки', async () => {
+    await setup();
+    expect(screen.queryByText('Все файлы')).not.toBeInTheDocument();
+    expect(screen.getByText('A')).toBeInTheDocument();
+  });
+
+  it('один прогон rsyncMedia("all", true), без отдельных папок', async () => {
+    await setup();
     await act(async () => {
       fireEvent.click(screen.getByText('Запустить все'));
       for (let i = 0; i < 6; i++) await Promise.resolve();
     });
+    expect(externalApi.rsyncMedia.mock.calls).toEqual([['all', true]]);
+  });
 
-    expect(externalApi.rsyncMedia.mock.calls).toEqual([['a', false], ['b', true]]);
+  it('запуск одной папки не отправляет документы: rsyncMedia(id, false)', async () => {
+    await setup();
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('Запустить')[0]);
+      for (let i = 0; i < 6; i++) await Promise.resolve();
+    });
+    expect(externalApi.rsyncMedia.mock.calls).toEqual([['a', false]]);
+  });
+
+  it('formatResult показывает пропущенные папки', async () => {
+    vi.useFakeTimers();
+    await setup();
+    externalApi.taskStatus.mockResolvedValue(respOk({
+      success: true,
+      data: { ready: true, result: { success: true, folders: [], skipped: ['a', 'b'] } },
+    }));
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('Запустить')[0]);
+      for (let i = 0; i < 6; i++) await Promise.resolve();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(screen.getByText('✓ Синхронизировано папок: 0, пропущено: 2 (нет каталога)')).toBeInTheDocument();
   });
 });
 
