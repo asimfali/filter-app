@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ParameterEditorPage, { nextAxisOrder } from '../ParameterEditorPage';
+import ParameterEditorPage, { nextAxisOrder, groupAxes, referenceRuleText } from '../ParameterEditorPage';
 import { apiFetch } from '../../api/auth';
 
 vi.mock('../../api/auth', () => ({ apiFetch: vi.fn() }));
@@ -287,6 +287,40 @@ describe('ParameterEditorPage — общие оси в списке типа', (
     expect(screen.getByText(/общая ·/)).toBeInTheDocument();
     expect(screen.getAllByTitle('Выше в цепочке')).toHaveLength(1);
     expect(screen.getAllByTitle('Сделать общей / влить в общую ось')).toHaveLength(1);
+  });
+});
+
+describe('ParameterEditorPage — справочные оси в списке', () => {
+  const heating = { id: 4, name: 'Вид нагрева', code: 'heating', order: 0, axis_type: 'classifier', values_count: 3 };
+  const nozzles = { id: 30, name: 'Диаметр патрубков', code: 'diam_nozzles', order: 5, axis_type: 'reference', values_count: 4,
+    filter_rules: { parentParam: 'heating', parentAxisId: 4, allowedValues: ['W'] } };
+  const passport = { id: 6, name: 'Паспорт', code: 'passport', order: 6, axis_type: 'reference', values_count: 0, filter_rules: {} };
+
+  it('groupAxes: цепочка, затем справочные; пустая группа не выводится', () => {
+    expect(groupAxes([nozzles, heating]).map(g => [g.key, g.axes.map(a => a.id)])).toEqual([['chain', [4]], ['reference', [30]]]);
+    expect(groupAxes([heating]).map(g => g.key)).toEqual(['chain']);
+  });
+
+  it('referenceRuleText: имя родителя по parentAxisId, по code для старых правил, null без правила', () => {
+    expect(referenceRuleText(nozzles, [heating])).toBe('Вид нагрева = W');
+    expect(referenceRuleText({ filter_rules: { parentParam: 'heating', allowedValues: ['W', 'A'] } }, [heating])).toBe('Вид нагрева = W, A');
+    expect(referenceRuleText(nozzles, [])).toBe('heating = W');
+    expect(referenceRuleText(passport, [heating])).toBeNull();
+    expect(referenceRuleText({ filter_rules: { parentParam: 'heating', allowedValues: [] } }, [heating])).toBeNull();
+  });
+
+  it('справочные оси — отдельной группой с условием показа, без стрелок цепочки', async () => {
+    apiFetch.mockImplementation(routeFetch({ axes: [passport, nozzles, heating] }));
+    const user = userEvent.setup();
+    render(<ParameterEditorPage />);
+    await selectProductType(user);
+    await screen.findByText('Диаметр патрубков');
+
+    expect(screen.getByText('Цепочка · 1')).toBeInTheDocument();
+    expect(screen.getByText('Справочные · 2')).toBeInTheDocument();
+    expect(screen.getByText('если Вид нагрева = W')).toBeInTheDocument();
+    expect(screen.getByText('без условия')).toBeInTheDocument();
+    expect(screen.getAllByTitle('Выше в цепочке')).toHaveLength(1);
   });
 });
 
