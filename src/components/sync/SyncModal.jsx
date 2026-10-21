@@ -156,7 +156,10 @@ const MODE_CONFIG = {
             ok: true,
             data: {
                 success: true,
-                data: [{ id: 'zavesy', name: 'Воздушные завесы' }],
+                data: [
+                    { id: 'zavesy', name: 'Воздушные завесы' },
+                    { id: 'ventilyatory', name: 'Вентиляторы' },
+                ],
             },
         }),
         isAsync: true,
@@ -183,6 +186,37 @@ const MODE_CONFIG = {
             : `✗ ${result.error}`,
     },
 };
+
+const UNMATCHED_LABEL = {
+    not_found: 'Не найдено',
+    ambiguous: 'Неоднозначно',
+    unparsed: 'Не разобрано',
+};
+
+function ExtractApplySummary({ r }) {
+    const stats = [
+        ['найдено', r.matched], ['не найдено', r.not_found], ['неоднозначно', r.ambiguous],
+        ['не разобрано', r.unparsed], ['создано', r.created], ['обновлено', r.updated],
+        ['без изменений', r.unchanged], ['ручные сохранены', r.manual_kept],
+    ].filter(([, v]) => v !== undefined && v !== null);
+    const examples = Object.entries(r.unmatched_examples || {}).filter(([, names]) => names?.length);
+    return (
+        <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+            <p>
+                {r.dry_run && <span className="text-amber-500">dry run · </span>}
+                {stats.map(([k, v]) => `${k} ${v}`).join(' · ')}
+            </p>
+            {examples.map(([reason, names]) => (
+                <details key={reason}>
+                    <summary className="cursor-pointer">{UNMATCHED_LABEL[reason] || reason} ({names.length})</summary>
+                    <ul className="pl-4 list-disc">
+                        {names.map(n => <li key={n}>{n}</li>)}
+                    </ul>
+                </details>
+            ))}
+        </div>
+    );
+}
 
 // ─── Компонент ────────────────────────────────────────────────────────────
 
@@ -360,6 +394,7 @@ export default function SyncModal({ user, onClose, mode }) {
                 return;
             }
             const { selectionApi } = await import('../../api/selection');
+            setApplyResults(prev => { const n = { ...prev }; delete n[itemId]; return n; });
             ({ ok, data } = await selectionApi.extractUpload(itemId, file));
 
         } else if (mode === 'dxf_import') {
@@ -403,6 +438,27 @@ export default function SyncModal({ user, onClose, mode }) {
             setResults(prev => ({
                 ...prev,
                 [itemId]: { loading: false, ok: true, message: config.formatResult(data) },
+            }));
+        }
+    };
+
+    // Extract: dry run / применение. Ошибки (403 FORBIDDEN, 400 VALIDATION_ERROR) — в строку результата.
+    const runExtractApply = async (itemId, taskId, dryRun) => {
+        if (!dryRun) {
+            const last = applyResults[itemId];
+            const summary = last?.dry_run
+                ? `Последний dry run: найдено ${last.matched}, создать ${last.created}, обновить ${last.updated}.`
+                : 'Dry run не выполнялся.';
+            if (!(await askConfirm(`Записать характеристики в товары (массовая запись)?\n${summary}`))) return;
+        }
+        const { selectionApi } = await import('../../api/selection');
+        const { data } = await selectionApi.extractApply(taskId, dryRun);
+        if (data?.success) {
+            setApplyResults(prev => ({ ...prev, [itemId]: { ...data.data, dry_run: dryRun } }));
+        } else {
+            setResults(prev => ({
+                ...prev,
+                [itemId]: { ...prev[itemId], message: `✗ ${data?.error?.message || 'Ошибка'}`, applyFailed: true },
             }));
         }
     };
@@ -535,14 +591,10 @@ export default function SyncModal({ user, onClose, mode }) {
                                                 </button>
                                             </div>
                                         )}
-                                        {state?.ok && state?.taskId && !applyResults[item.id] && (
+                                        {state?.ok && state?.taskId && !(applyResults[item.id] && !applyResults[item.id].dry_run) && (
                                             <div className="flex gap-1.5">
                                                 <button
-                                                    onClick={async () => {
-                                                        const { selectionApi } = await import('../../api/selection');
-                                                        const { data } = await selectionApi.extractApply(state.taskId, true);
-                                                        if (data.success) setApplyResults(prev => ({ ...prev, [item.id]: { ...data.data, dry_run: true } }));
-                                                    }}
+                                                    onClick={() => runExtractApply(item.id, state.taskId, true)}
                                                     className="flex-1 px-2 py-1 text-xs rounded
                                                             bg-neutral-200 dark:bg-neutral-700
                                                             text-gray-700 dark:text-gray-300
@@ -550,11 +602,7 @@ export default function SyncModal({ user, onClose, mode }) {
                                                     Dry run
                                                 </button>
                                                 <button
-                                                    onClick={async () => {
-                                                        const { selectionApi } = await import('../../api/selection');
-                                                        const { data } = await selectionApi.extractApply(state.taskId, false);
-                                                        if (data.success) setApplyResults(prev => ({ ...prev, [item.id]: data.data }));
-                                                    }}
+                                                    onClick={() => runExtractApply(item.id, state.taskId, false)}
                                                     className="flex-1 px-2 py-1 text-xs rounded
                                                             bg-emerald-600 hover:bg-emerald-700
                                                             text-white transition-colors">
@@ -562,12 +610,7 @@ export default function SyncModal({ user, onClose, mode }) {
                                                 </button>
                                             </div>
                                         )}
-                                        {applyResults[item.id] && (
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                {applyResults[item.id].dry_run && <span className="text-amber-500">dry run · </span>}
-                                                найдено {applyResults[item.id].matched} · создано {applyResults[item.id].created} · обновлено {applyResults[item.id].updated}
-                                            </p>
-                                        )}
+                                        {applyResults[item.id] && <ExtractApplySummary r={applyResults[item.id]} />}
                                     </>
                                 )}
 
