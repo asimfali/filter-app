@@ -58,18 +58,24 @@ export const externalApi = {
         return { ok: res.ok, data };
     },
     
-    syncCatalog: async (configId, fullSync = false) => {
+    syncCatalog: async (configId) => {
         const res = await fetch(`${API_BASE}/sync-catalog/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${tokenStorage.getAccess()}`,
             },
-            body: JSON.stringify({ config_id: configId, full_sync: fullSync }),
+            body: JSON.stringify({ config_id: configId }),
         });
         const data = await res.json();
         return { ok: res.ok, data };
     },
+
+    // Товары типа, которых нет в 1С (celery-задача, статус — taskStatus), и снятие их с активных
+    missingProducts: (productType) =>
+        gs1Request('POST', `${API_BASE}/missing-products/`, { product_type: productType }),
+    deactivateProducts: (productType, productIds) =>
+        gs1Request('POST', `${API_BASE}/deactivate-products/`, { product_type: productType, product_ids: productIds }),
 
     rsyncMedia: async (mediaType = 'all', syncDocuments = true) => {
         const res = await fetch(`${API_BASE}/rsync-media/`, {

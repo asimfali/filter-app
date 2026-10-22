@@ -7,6 +7,7 @@ import { selectionApi } from '../../api/selection';
 import { IconLink, IconClock } from '../common/Icons';
 import Modal from '../common/Modal';
 import ConfirmModal from '../common/ConfirmModal';
+import MissingProductsPanel from './MissingProductsPanel';
 
 // ─── Конфигурация режимов ─────────────────────────────────────────────────
 
@@ -479,7 +480,7 @@ export default function SyncModal({ user, onClose, mode }) {
     const anyLoading = Object.values(results).some(r => r.loading);
 
     return (
-        <Modal title={config.title} onClose={onClose} maxWidth="sm" scrollBody closeOnBackdropClick
+        <Modal title={config.title} onClose={onClose} maxWidth={mode === 'catalog' ? 'md' : 'sm'} scrollBody closeOnBackdropClick
             footer={
                 <div className="flex gap-2">
                     <button
@@ -719,6 +720,7 @@ export default function SyncModal({ user, onClose, mode }) {
                         );
                     })}
                 </div>
+                {mode === 'catalog' && <MissingProductsPanel configs={items} />}
             {confirmState && (
                 <ConfirmModal message={<span className="whitespace-pre-line">{confirmState.message}</span>}
                     onConfirm={() => { confirmState.resolve(true); setConfirmState(null); }}
