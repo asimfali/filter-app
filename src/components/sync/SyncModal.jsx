@@ -65,9 +65,9 @@ const MODE_CONFIG = {
             if (!ok || !data?.success) return { ok, data };
             return { ok, data: { ...data, data: data.data.filter(f => f.id !== 'all') } };
         },
-        runItem: (id, opts) => externalApi.rsyncMedia(id, opts?.syncDocuments ?? false),
+        runItem: (id, opts) => externalApi.rsyncMedia(id, opts?.syncDocuments ?? true),
         isAsync: true,
-        // Документы уходят полным списком (сайт скрывает отсутствующие) — только при «Запустить все»
+        // Документы уходят полным списком при любом запуске (бэкенд шлёт все публичные); false — только промежуточные шаги «Запустить все»
         runAllItemId: 'all',
         formatResult: (result) => {
             if (result.success) {
