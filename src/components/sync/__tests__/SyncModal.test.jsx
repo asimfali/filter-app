@@ -234,13 +234,13 @@ describe('SyncModal — rsync "Запустить все"', () => {
     expect(externalApi.rsyncMedia.mock.calls).toEqual([['all', true]]);
   });
 
-  it('запуск одной папки не отправляет документы: rsyncMedia(id, false)', async () => {
+  it('запуск одной папки отправляет документы: rsyncMedia(id, true)', async () => {
     await setup();
     await act(async () => {
       fireEvent.click(screen.getAllByText('Запустить')[0]);
       for (let i = 0; i < 6; i++) await Promise.resolve();
     });
-    expect(externalApi.rsyncMedia.mock.calls).toEqual([['a', false]]);
+    expect(externalApi.rsyncMedia.mock.calls).toEqual([['a', true]]);
   });
 
   it('formatResult показывает пропущенные папки', async () => {
