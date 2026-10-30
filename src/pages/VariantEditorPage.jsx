@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { catalogApi } from '../api/catalog';
+import { externalApi } from '../api/external';
 import { useAuth } from '../contexts/AuthContext';
+import { can, PERM } from '../utils/permissions';
 import SmartSelect from '../components/common/SmartSelect';
+import Modal from '../components/common/Modal';
+import ModalFooter from '../components/common/ModalFooter';
 import { useModals } from '../hooks/useModals';
 
 // ─── Хук пагинированного списка ───────────────────────────────────────────
@@ -176,6 +180,9 @@ function useFlash() {
 export default function VariantEditorPage({ onBack }) {
     const [productTypes, setProductTypes] = useState([]);
     const [filling, setFilling] = useState(false);
+    const { user } = useAuth();
+    const [autoPreview, setAutoPreview] = useState(null);
+    const [autoBusy, setAutoBusy] = useState(false);
     const { showConfirm, modals } = useModals();
     useEffect(() => {
         catalogApi.productTypes().then(({ ok, data }) => {
@@ -211,6 +218,30 @@ export default function VariantEditorPage({ onBack }) {
         setVariants([]);
         free.changeProductType(id);
         parents.changeProductType(id);
+    };
+
+    const runAutoMatch = async (dryRun) => {
+        setAutoBusy(true);
+        const { ok, data } = await externalApi.applyVariantRules(
+            Number(globalTypeId), false, { dry_run: dryRun, only_free: true }
+        );
+        setAutoBusy(false);
+        const res = data?.data;
+        if (!ok || !data?.success || res?.errors?.length || (dryRun && !res?.pairs)) {
+            flash(data?.error || res?.errors?.[0] || 'Ошибка автоподбора', false);
+            return;
+        }
+        if (dryRun) {
+            if (!res.linked) { flash('Подходящих правил/совпадений нет', false); return; }
+            setAutoPreview(res);
+            return;
+        }
+        setAutoPreview(null);
+        flash(`✓ Привязано: ${res.linked}`);
+        setSelected(new Set());
+        parents.load();
+        free.load();
+        if (selectedParent) loadVariants(selectedParent);
     };
 
     const handleFillExternalNames = () => {
@@ -353,6 +384,16 @@ export default function VariantEditorPage({ onBack }) {
                             {filling ? 'Обновление...' : 'Заполнить имена'}
                         </button>
                     )}
+                    {globalTypeId && can(user, PERM.EXTERNAL_MANAGE_VARIANTS) && (
+                        <button
+                            onClick={() => runAutoMatch(true)}
+                            disabled={autoBusy}
+                            className="px-3 py-1.5 text-sm font-medium rounded-lg
+                   bg-blue-600 hover:bg-blue-700 text-white
+                   disabled:opacity-40 transition-colors">
+                            {autoBusy && !autoPreview ? 'Подбор...' : 'Автоподбор'}
+                        </button>
+                    )}
                 </div>
                 {msg && (
                     <span className={`text-xs px-3 py-1.5 rounded-lg ${msg.ok
@@ -446,6 +487,7 @@ export default function VariantEditorPage({ onBack }) {
                         </p>
                         <SmartSelect
                             endpoint="/api/v1/catalog/variants/parents/search/"
+                            limit={50}
                             onSelect={selectParent}
                             onClear={() => {
                                 setSelectedParent(null);
@@ -607,6 +649,36 @@ export default function VariantEditorPage({ onBack }) {
                 </Panel>
             </div>
             {modals}
+            {autoPreview && (
+                <Modal
+                    title="Автоподбор исполнений"
+                    subtitle={`Будет привязано ${autoPreview.linked} исполнений (из ${autoPreview.total})`}
+                    onClose={() => setAutoPreview(null)}
+                    maxWidth="2xl"
+                    scrollBody
+                    footer={
+                        <ModalFooter
+                            onClose={() => setAutoPreview(null)}
+                            onConfirm={() => runAutoMatch(false)}
+                            loading={autoBusy}
+                            confirmLabel="Применить"
+                        />
+                    }
+                >
+                    <ul className="text-sm space-y-1">
+                        {autoPreview.pairs.map(p => (
+                            <li key={p.id} className="text-gray-900 dark:text-white">
+                                {p.name} <span className="text-gray-400">→</span> {p.parent_name}
+                            </li>
+                        ))}
+                    </ul>
+                    {autoPreview.linked > autoPreview.pairs.length && (
+                        <p className="text-xs text-gray-400 mt-2">
+                            Показаны первые {autoPreview.pairs.length}
+                        </p>
+                    )}
+                </Modal>
+            )}
         </div>
     );
 }

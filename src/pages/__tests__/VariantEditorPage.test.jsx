@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import VariantEditorPage from '../VariantEditorPage';
 import { catalogApi } from '../../api/catalog';
+import { externalApi } from '../../api/external';
+import { useAuth } from '../../contexts/AuthContext';
 
 vi.mock('../../api/catalog', () => ({
   catalogApi: {
@@ -15,6 +17,8 @@ vi.mock('../../api/catalog', () => ({
     variantSetExternalName: vi.fn(),
   },
 }));
+vi.mock('../../api/external', () => ({ externalApi: { applyVariantRules: vi.fn() } }));
+vi.mock('../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../../components/common/SmartSelect', () => ({
   default: ({ placeholder, onSelect, onClear, value }) => (
     <div>
@@ -38,6 +42,7 @@ const free2 = { id: 201, name: 'Изделие 2' };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useAuth.mockReturnValue({ user: { permissions: ['external.manage_variants'] } });
   catalogApi.productTypes.mockResolvedValue({ ok: true, data: [pt1, pt2] });
   catalogApi.variantParents.mockResolvedValue(listOk([], 0));
   catalogApi.variantFreeProducts.mockResolvedValue(listOk([], 0));
@@ -433,5 +438,45 @@ describe('VariantEditorPage — сохранение external name', () => {
 
     await waitFor(() => expect(catalogApi.variantSetExternalName).toHaveBeenCalledWith(100, 'Новое имя'));
     expect(await screen.findByText('✓ Название сохранено')).toBeInTheDocument();
+  });
+});
+
+describe('VariantEditorPage — автоподбор', () => {
+  const setup = async () => {
+    catalogApi.variantParents.mockImplementation(routeVariantParents({
+      parentsItems: [parent1], parentsTotal: 1, variants: [],
+    }));
+    const user = userEvent.setup();
+    render(<VariantEditorPage onBack={vi.fn()} />);
+    await screen.findByText('Родитель А');
+    await user.selectOptions(screen.getByRole('combobox'), '1');
+    return user;
+  };
+
+  it('без права кнопка не показывается', async () => {
+    useAuth.mockReturnValue({ user: { permissions: [] } });
+    await setup();
+    expect(screen.queryByText('Автоподбор')).not.toBeInTheDocument();
+  });
+
+  it('предпросмотр → применить', async () => {
+    externalApi.applyVariantRules
+      .mockResolvedValueOnce(ok({ success: true, data: { total: 5, linked: 2, errors: [], pairs: [{ id: 1, name: 'ВЦ14-1', parent_id: 9, parent_name: 'ВЦ 14' }] } }))
+      .mockResolvedValueOnce(ok({ success: true, data: { total: 5, linked: 2, errors: [] } }));
+    const user = await setup();
+    await user.click(screen.getByText('Автоподбор'));
+    expect(await screen.findByText('Будет привязано 2 исполнений (из 5)')).toBeInTheDocument();
+    expect(externalApi.applyVariantRules).toHaveBeenCalledWith(1, false, { dry_run: true, only_free: true });
+    await user.click(screen.getByText('Применить'));
+    expect(await screen.findByText('✓ Привязано: 2')).toBeInTheDocument();
+    expect(externalApi.applyVariantRules).toHaveBeenLastCalledWith(1, false, { dry_run: false, only_free: true });
+  });
+
+  it('linked == 0 — сообщение без модалки', async () => {
+    externalApi.applyVariantRules.mockResolvedValue(ok({ success: true, data: { total: 5, linked: 0, errors: [], pairs: [] } }));
+    const user = await setup();
+    await user.click(screen.getByText('Автоподбор'));
+    expect(await screen.findByText('Подходящих правил/совпадений нет')).toBeInTheDocument();
+    expect(screen.queryByText('Применить')).not.toBeInTheDocument();
   });
 });
