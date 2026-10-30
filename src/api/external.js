@@ -105,7 +105,7 @@ export const externalApi = {
         const data = await res.json();
         return { ok: res.ok, data };
     },
-    applyVariantRules: async (productTypeId, resetFirst = false) => {
+    applyVariantRules: async (productTypeId, resetFirst = false, extra = {}) => {
         const res = await fetch(`${API_BASE}/apply-variant-rules/`, {
             method: 'POST',
             headers: {
@@ -115,6 +115,7 @@ export const externalApi = {
             body: JSON.stringify({
                 product_type_id: productTypeId,
                 reset_first: resetFirst,
+                ...extra,
             }),
         });
         const data = await res.json();
