@@ -32,6 +32,7 @@ vi.mock('../../../api/selection', () => ({
     extractUpload: vi.fn(),
     extractApply: vi.fn(),
     extractStatus: vi.fn(),
+    extractConfigs: vi.fn(),
     dxfImportUpload: vi.fn(),
     dxfImportStatus: vi.fn(),
     dxfCheckExists: vi.fn(),
@@ -505,6 +506,10 @@ describe('SyncModal — extract mode (PDF)', () => {
   const user1 = userWith('pdf.spec.write');
 
   const setupWithItem = async () => {
+    selectionApi.extractConfigs.mockResolvedValue(respOk({
+      success: true,
+      data: [{ slug: 'zavesy', name: 'Воздушные завесы', strategy: 'words' }],
+    }));
     render(<SyncModal user={user1} mode="extract" onClose={vi.fn()} />);
     await screen.findByText('Воздушные завесы');
   };
