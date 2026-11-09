@@ -153,16 +153,14 @@ const MODE_CONFIG = {
         title: 'Импорт характеристик из PDF',
         btnColor: 'bg-blue-600 hover:bg-blue-700',
         permission: PERM.PDF_SPEC_WRITE,
-        loadItems: async () => ({
-            ok: true,
-            data: {
-                success: true,
-                data: [
-                    { id: 'zavesy', name: 'Воздушные завесы' },
-                    { id: 'ventilyatory', name: 'Вентиляторы' },
-                ],
-            },
-        }),
+        loadItems: async () => {
+            const { ok, data } = await selectionApi.extractConfigs();
+            if (!ok) return { ok, data };
+            return {
+                ok,
+                data: { success: true, data: (data.data || []).map((c) => ({ id: c.slug, name: c.name })) },
+            };
+        },
         isAsync: true,
         formatResult: (result) => `✓ Найдено: ${result.items_found} моделей`,
     },

@@ -46,6 +46,11 @@ export const selectionApi = {
         return { ok: res.ok, data: await res.json() };
     },
 
+    async extractConfigs() {
+        const res = await apiFetch(`${BASE}/extract/configs/`);
+        return { ok: res.ok, data: await res.json() };
+    },
+
     async extractStatus(taskId) {
         const res = await apiFetch(`${BASE}/extract/${taskId}/status/`);
         return { ok: res.ok, data: await res.json() };
