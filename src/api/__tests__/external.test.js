@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { externalApi } from '../external';
 import { apiFetch } from '../auth';
 
@@ -7,6 +7,36 @@ vi.mock('../auth', () => ({ apiFetch: vi.fn(), tokenStorage: { getAccess: () => 
 const respond = (status, body) => apiFetch.mockResolvedValue({ ok: status < 400, status, json: async () => body });
 
 beforeEach(() => vi.clearAllMocks());
+afterEach(() => vi.unstubAllGlobals());
+
+// pushToSite ходит напрямую через fetch (не apiFetch) — подменяем глобальный fetch
+const stubFetchOk = () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+};
+
+describe('externalApi — pushToSite', () => {
+    it('без флага полный прогон: тело {}', async () => {
+        const fetchMock = stubFetchOk();
+        await externalApi.pushToSite();
+        expect(fetchMock.mock.calls[0][1].body).toBe('{}');
+    });
+
+    it('deactivateAll=true на полном прогоне добавляет deactivate_all', async () => {
+        const fetchMock = stubFetchOk();
+        await externalApi.pushToSite(null, null, { deactivateAll: true });
+        expect(fetchMock.mock.calls[0][1].body).toBe('{"deactivate_all":true}');
+    });
+
+    it('deactivate_all не подмешивается к разделу и точечному пушу', async () => {
+        const fetchMock = stubFetchOk();
+        await externalApi.pushToSite(null, 'zavesy', { deactivateAll: true });
+        await externalApi.pushToSite([1, 2], null, { deactivateAll: true });
+        expect(fetchMock.mock.calls[0][1].body).toBe('{"product_type_slug":"zavesy"}');
+        expect(fetchMock.mock.calls[1][1].body).toBe('{"product_ids":[1,2]}');
+    });
+});
 
 describe('externalApi — ГС1', () => {
     it('getGs1Items: пропускает пустые параметры и кодирует остальные', async () => {

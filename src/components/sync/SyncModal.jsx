@@ -97,17 +97,53 @@ const MODE_CONFIG = {
             const items = (Array.isArray(types) ? types : []).map(t => ({ id: t.slug, name: t.name }));
             return { ok: true, data: { success: true, data: items } };
         },
-        runItem: (itemId) => externalApi.pushToSite(null, itemId || null),
-        // Ошибки цепочки осей по разделам: пусто — можно отправлять, иначе спрашиваем подтверждение
-        preflight: async (itemId) => {
-            const { ok, data } = await catalogApi.chainSummary();
-            const list = ok ? (Array.isArray(data) ? data : data?.data) : null;
-            if (!Array.isArray(list)) return null;
-            const bad = list.filter(t => t.errors?.length && (!itemId || t.slug === itemId));
-            if (!bad.length) return null;
-            return 'В цепочках осей есть ошибки:\n' +
-                bad.map(t => `• ${t.name}: ${t.errors.map(e => e.message).join('; ')}`).join('\n') +
-                '\n\nВсё равно отправить на сайт?';
+        // deactivateAll принимается только полным прогоном (itemId ''), у раздела флаг не шлём
+        runItem: (itemId, runOpts) => (!itemId && runOpts?.deactivateAll)
+            ? externalApi.pushToSite(null, null, { deactivateAll: true })
+            : externalApi.pushToSite(null, itemId || null),
+        extraControls: (opts, setOpts) => (
+            <label className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <input
+                    type="checkbox"
+                    checked={!!opts?.deactivateAll}
+                    onChange={e => setOpts(prev => ({ ...prev, deactivateAll: e.target.checked }))}
+                    className="mt-0.5 rounded"
+                />
+                <span>
+                    Разрешить снять с сайта всё, если каталог пуст
+                    <span className="block text-[11px] text-gray-400 dark:text-gray-500">
+                        Только для «Запустить все». Раздел не затрагивает; снятие с сайта необратимо.
+                    </span>
+                </span>
+            </label>
+        ),
+        // Ошибки цепочки осей по разделам: пусто — можно отправлять, иначе спрашиваем подтверждение.
+        // Для полного прогона с deactivateAll отдельно подтверждаем разрушающий флаг.
+        preflight: async (itemId, runOpts) => {
+            const parts = [];
+            if (!itemId && runOpts?.deactivateAll) {
+                parts.push(
+                    'Полный прогон с разрешением снять всё: если в прогоне не окажется ' +
+                    'активных опубликованных товаров, сайт будет очищен. Продолжить?'
+                );
+            }
+            // Ошибка chain-summary не должна отменять разрушающее подтверждение выше
+            let list = null;
+            try {
+                const { ok, data } = await catalogApi.chainSummary();
+                list = ok ? (Array.isArray(data) ? data : data?.data) : null;
+            } catch {
+                list = null;
+            }
+            const bad = Array.isArray(list)
+                ? list.filter(t => t.errors?.length && (!itemId || t.slug === itemId))
+                : [];
+            if (bad.length) {
+                parts.push('В цепочках осей есть ошибки:\n' +
+                    bad.map(t => `• ${t.name}: ${t.errors.map(e => e.message).join('; ')}`).join('\n') +
+                    '\n\nВсё равно отправить на сайт?');
+            }
+            return parts.length ? parts.join('\n\n') : null;
         },
         isAsync: true,
         // «Запустить все» — один прогон по всему каталогу (itemId ''), а не по разделам:
@@ -371,7 +407,7 @@ export default function SyncModal({ user, onClose, mode }) {
         }));
 
         if (config.preflight) {
-            const warn = await config.preflight(itemId).catch(() => null);
+            const warn = await config.preflight(itemId, overrideOpts ?? opts).catch(() => null);
             if (warn && !(await askConfirm(warn))) {
                 setResults(prev => ({
                     ...prev,
@@ -467,8 +503,12 @@ export default function SyncModal({ user, onClose, mode }) {
         const runItems = config.runAllItemId !== undefined ? [{ id: config.runAllItemId }] : items;
         for (let i = 0; i < runItems.length; i++) {
             const isLast = i === runItems.length - 1;
-            // Документы синхронизируем только на последнем шаге батча
-            await runItem(runItems[i].id, mode === 'rsync' ? { syncDocuments: isLast } : undefined);
+            // Документы синхронизируем только на последнем шаге батча;
+            // deactivateAll из чекбокса действует только на полный прогон push_to_site.
+            const runOpts = mode === 'rsync'
+                ? { syncDocuments: isLast }
+                : mode === 'push_to_site' ? { deactivateAll: !!opts.deactivateAll } : undefined;
+            await runItem(runItems[i].id, runOpts);
         }
         setRunningAll(false);
     };

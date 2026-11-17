@@ -143,3 +143,7 @@ input styling per component. Most UI text/labels are Russian; keep new UI copy c
 - Legacy browser support matters: `vite-plugin-legacy` targets down to Chrome 49/Firefox 52/Edge 18
   (see `browserslist` in `package.json` and `vite.config.js`), so avoid relying on very recent JS/CSS syntax
   without checking it's covered by the legacy build's polyfills/transpilation.
+
+## Память проекта
+
+Важные решения и договорённости фиксируй в `docs/DECISIONS.md` — дописывать в конец, существующие записи не менять (файл общий с Claude Code, append-only). Быстро — `/remember <суть>`. Не дублируй туда то, что уже есть в этом файле или в `.claude/CLAUDE.md`; секреты не записывать.
