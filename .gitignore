@@ -16,10 +16,17 @@ project_tree.txt
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+# .idea версионируем частично: run-конфигурации общие (кнопка Play «tmdata dev server»),
+# остальное (.idea/*) — локальное состояние IDE. Перечислить `.idea` целиком нельзя:
+# git не заходит внутрь исключённой папки, и `!` внутри неё уже не сработает.
+.idea/*
+!.idea/runConfigurations/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ТЗ и заметки по локальным задачам — рабочие файлы, не версионируем
+.claude/tasks/
