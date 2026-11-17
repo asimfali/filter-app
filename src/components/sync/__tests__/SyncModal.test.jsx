@@ -500,6 +500,44 @@ describe('SyncModal — push_to_site mode', () => {
     expect(externalApi.pushToSite).toHaveBeenCalledWith(null, null);
     expect(await screen.findByText('Выполняется...')).toBeInTheDocument();
   });
+
+  it('deactivate_all: чекбокс по умолчанию выключен', async () => {
+    await setup();
+    expect(screen.getByRole('checkbox', { name: /Разрешить снять/ })).not.toBeChecked();
+  });
+
+  it('deactivate_all: запуск раздела не шлёт флаг, даже если чекбокс включён', async () => {
+    await setup();
+    catalogApi.chainSummary.mockResolvedValue({ ok: true, data: [] });
+    externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /Разрешить снять/ }));
+
+    await userEvent.click(screen.getAllByText('Запустить')[0]);
+
+    await waitFor(() => expect(externalApi.pushToSite).toHaveBeenCalledWith(null, 'zavesy'));
+  });
+
+  it('deactivate_all: «Запустить все» с чекбоксом спрашивает подтверждение, «Отмена» не отправляет', async () => {
+    await setup();
+    await userEvent.click(screen.getByRole('checkbox', { name: /Разрешить снять/ }));
+    await userEvent.click(screen.getByText('Запустить все'));
+
+    expect(await screen.findByText(/сайт будет очищен/)).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Отмена'));
+    expect(externalApi.pushToSite).not.toHaveBeenCalled();
+  });
+
+  it('deactivate_all: «Запустить все» с подтверждением шлёт pushToSite(null, null, {deactivateAll:true})', async () => {
+    await setup();
+    externalApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /Разрешить снять/ }));
+    await userEvent.click(screen.getByText('Запустить все'));
+    await userEvent.click(await screen.findByText('Подтвердить'));
+
+    await waitFor(() => expect(externalApi.pushToSite).toHaveBeenCalledWith(
+      null, null, { deactivateAll: true },
+    ));
+  });
 });
 
 describe('SyncModal — extract mode (PDF)', () => {

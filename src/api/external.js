@@ -21,10 +21,14 @@ const qs = (params = {}) => {
 };
 
 export const externalApi = {
-    pushToSite: async (productIds = null, productTypeSlug = null) => {
+    // deactivateAll — только для полного прогона (пустой productIds/productTypeSlug):
+    // разрешает сайту снести каталог, если в прогоне не окажется ни одного товара.
+    // false не шлём — дефолт бэкенда и так «не гасить пустой каталог».
+    pushToSite: async (productIds = null, productTypeSlug = null, { deactivateAll = false } = {}) => {
         const body = productIds
             ? { product_ids: productIds }
             : productTypeSlug ? { product_type_slug: productTypeSlug } : {};
+        if (deactivateAll && !productIds && !productTypeSlug) body.deactivate_all = true;
         const res = await fetch(`${API_BASE}/push-to-site/`, {
             method: 'POST',
             headers: {
