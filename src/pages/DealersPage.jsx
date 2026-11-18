@@ -22,16 +22,22 @@ const matchesSearch = (dealer, search) => {
         .some(value => String(value ?? '').toLowerCase().includes(q));
 };
 
-// Портал пока не включает filter_backends и пагинацию: список приходит массивом
-// целиком, ?search/?is_active он игнорирует. Поэтому фильтруем и режем страницы
-// на клиенте. Когда бэкенд начнёт фильтровать сам, ответ станет {count, results} —
-// тогда эта ветка просто перестанет использоваться (фильтровать уже отфильтрованное
-// не нужно, и мы этого не делаем).
+// Портал сейчас отдаёт список массивом целиком, без filter_backends и пагинации
+// (?search/?is_active игнорируются) — поэтому фильтруем и режем страницы на клиенте.
+// Заявлено, что дальше будет «везде конверт {success, data}», поэтому разворачиваем
+// и его: data может быть массивом или страницей {count, results}.
+const unwrap = (body) => (
+    body && !Array.isArray(body) && typeof body === 'object' && 'success' in body
+        ? body.data
+        : body
+);
+
 const normalize = (body, search, showInactive, page) => {
-    if (!Array.isArray(body)) {
-        return { count: body?.count ?? 0, results: body?.results ?? [] };
+    const data = unwrap(body);
+    if (!Array.isArray(data)) {
+        return { count: data?.count ?? 0, results: data?.results ?? [] };
     }
-    const filtered = body
+    const filtered = data
         .filter(dealer => showInactive || dealer.is_active !== false)
         .filter(dealer => matchesSearch(dealer, search));
     const start = (page - 1) * PAGE_SIZE;
@@ -89,7 +95,7 @@ export default function DealersPage() {
                 pageSize: PAGE_SIZE,
             });
             if (req !== reqRef.current) return;
-            if (ok) setData(normalize(body, search, showInactive, page));
+            if (ok && body?.success !== false) setData(normalize(body, search, showInactive, page));
             else setError(envelopeError(body, status));
         } catch {
             if (req === reqRef.current) setError('Не удалось загрузить дилеров');

@@ -1,8 +1,9 @@
 import { apiFetch } from './auth';
 
-// Реальный контракт портала (apps.dealers): include('api/v1/dealers/') + роутер с
-// префиксом dealers/, поэтому путь двойной. Список отдаётся массивом без конверта
-// (у ViewSet нет пагинации), create/update/revoke/restore — конвертом {success, data}.
+// Реальный контракт портала (apps.dealers@dev): include('api/v1/dealers/') + роутер
+// с префиксом dealers/, поэтому путь двойной. Список сейчас приходит массивом без
+// конверта (у ViewSet нет пагинации), create/update/revoke/restore — конвертом
+// {success, data}; если список тоже начнут отдавать конвертом, страница это поймёт.
 // Права: сейчас бэкенд требует portal.dealers.write на все методы, включая чтение.
 const BASE = '/api/v1/dealers/dealers';
 
