@@ -63,7 +63,7 @@ describe('DealersPage — список', () => {
         expect(screen.getByText('активен')).toBeInTheDocument();
     });
 
-    it('скрывает неактивных без чекбокса, показывает по нему', async () => {
+    it('чекбокс переключает на неактивных: активные уходят из списка', async () => {
         asUser('portal.dealers.write');
         dealersApi.list.mockResolvedValue(listOk([
             dealer(),
@@ -73,11 +73,23 @@ describe('DealersPage — список', () => {
         await screen.findByText('ООО «Тепломаш-Юг»');
         expect(screen.queryByText('ООО «Урал-Тепло»')).not.toBeInTheDocument();
 
-        fireEvent.click(screen.getByRole('checkbox', { name: /Показать неактивных/ }));
+        fireEvent.click(screen.getByRole('checkbox', { name: /Только неактивные/ }));
 
         expect(await screen.findByText('ООО «Урал-Тепло»')).toBeInTheDocument();
         expect(screen.getByText('авторизация отменена')).toBeInTheDocument();
-        await waitFor(() => expect(lastParams().isActive).toBeNull());
+        // активный дилер в этом режиме не показывается
+        await waitFor(() => expect(screen.queryByText('ООО «Тепломаш-Юг»')).not.toBeInTheDocument());
+        expect(lastParams().isActive).toBe(false);
+    });
+
+    it('в режиме «Только неактивные» без снятых авторизаций — свой текст пустого списка', async () => {
+        asUser('portal.dealers.write');
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        fireEvent.click(screen.getByRole('checkbox', { name: /Только неактивные/ }));
+
+        expect(await screen.findByText('Неактивных дилеров нет')).toBeInTheDocument();
     });
 
     it('поиск фильтрует список и уходит в запрос с debounce', async () => {
@@ -208,7 +220,7 @@ describe('DealersPage — отмена и восстановление авто�
         dealersApi.list.mockResolvedValue(listOk([dealer({ is_active: false, note: 'Отмена авторизации: тест' })]));
         dealersApi.restore.mockResolvedValue(ok({}));
         render(<DealersPage />);
-        fireEvent.click(await screen.findByRole('checkbox', { name: /Показать неактивных/ }));
+        fireEvent.click(await screen.findByRole('checkbox', { name: /Только неактивные/ }));
         expect(await screen.findByText('Отмена авторизации: тест')).toBeInTheDocument();
 
         await userEvent.click(screen.getByRole('button', { name: 'Восстановить' }));

@@ -33,13 +33,15 @@ const unwrap = (body) => (
         : body
 );
 
-const normalize = (body, search, showInactive, page) => {
+const normalize = (body, search, onlyInactive, page) => {
     const data = unwrap(body);
     if (!Array.isArray(data)) {
         return { count: data?.count ?? 0, results: data?.results ?? [] };
     }
     const filtered = data
-        .filter(dealer => showInactive || dealer.is_active !== false)
+        // Чекбокс переключает режим: снят — только авторизованные,
+        // стоит — только с отменённой авторизацией (активных не показываем).
+        .filter(dealer => (onlyInactive ? dealer.is_active === false : dealer.is_active !== false))
         .filter(dealer => matchesSearch(dealer, search));
     const start = (page - 1) * PAGE_SIZE;
     return { count: filtered.length, results: filtered.slice(start, start + PAGE_SIZE) };
@@ -62,7 +64,7 @@ export default function DealersPage() {
 
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
-    const [showInactive, setShowInactive] = useState(false);
+    const [onlyInactive, setOnlyInactive] = useState(false);
     const [page, setPage] = useState(1);
     const [data, setData] = useState({ count: 0, results: [] });
     const [loading, setLoading] = useState(false);
@@ -93,19 +95,19 @@ export default function DealersPage() {
         try {
             const { ok, data: body, status } = await dealersApi.list({
                 search,
-                isActive: showInactive ? null : true,
+                isActive: onlyInactive ? false : true,
                 page,
                 pageSize: PAGE_SIZE,
             });
             if (req !== reqRef.current) return;
-            if (ok && body?.success !== false) setData(normalize(body, search, showInactive, page));
+            if (ok && body?.success !== false) setData(normalize(body, search, onlyInactive, page));
             else setError(envelopeError(body, status));
         } catch {
             if (req === reqRef.current) setError('Не удалось загрузить дилеров');
         } finally {
             if (req === reqRef.current) setLoading(false);
         }
-    }, [search, showInactive, page]);
+    }, [search, onlyInactive, page]);
 
     useEffect(() => { if (canView) load(); }, [canView, load]);
 
@@ -178,9 +180,9 @@ export default function DealersPage() {
                         onChange={e => setSearchInput(e.target.value)} />
                 </div>
                 <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                    <input type="checkbox" className="rounded" checked={showInactive}
-                        onChange={e => { setShowInactive(e.target.checked); setPage(1); }} />
-                    Показать неактивных
+                    <input type="checkbox" className="rounded" checked={onlyInactive}
+                        onChange={e => { setOnlyInactive(e.target.checked); setPage(1); }} />
+                    Только неактивные
                 </label>
             </div>
 
@@ -276,7 +278,7 @@ export default function DealersPage() {
                         {!loading && data.results.length === 0 && (
                             <tr>
                                 <td colSpan={9} className="px-3 py-8 text-center text-gray-400">
-                                    Дилеров нет
+                                    {onlyInactive ? 'Неактивных дилеров нет' : 'Дилеров нет'}
                                 </td>
                             </tr>
                         )}
