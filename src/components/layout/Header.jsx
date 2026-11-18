@@ -11,7 +11,7 @@ import {
   IconGrid, IconUsers, IconDocument, IconFlag, IconLifecycle,
   IconThermometer, IconPuzzle, IconClipboard, IconChartBar, IconPdf,
   IconFilter, IconBox, IconFile, IconText, IconSales, IconHelp, IconLink,
-  IconImage,
+  IconImage, IconFactory,
 } from '../common/Icons'
 
 // В проде filter-app-graphs раздаётся тем же nginx'ом на том же origin (/graphs/).
@@ -231,6 +231,7 @@ export default function Header({ currentPage, onNavigate }) {
                 { id: 'design-landings', label: 'Лендинги дизайна', code: PERM.CATALOG_DESIGN_LANDING_WRITE, icon: IconImage },
                 { id: 'series-master', label: 'Мастер серий',      code: PERM.CATALOG_SERIES_MANAGE,      icon: IconBox },
                 { id: 'staff',         label: 'Персонал',          code: PERM.PORTAL_PAGE_STAFF,          icon: IconUsers },
+                { id: 'dealers',       label: 'Дилеры',            code: PERM.PORTAL_PAGE_DEALERS,        icon: IconFactory },
                 { id: 'documents',     label: 'Документы',         code: PERM.PORTAL_PAGE_DOCUMENTS,      icon: IconDocument },
                 { id: 'issues',        label: 'Замечания',         code: PERM.PORTAL_PAGE_ISSUES,         icon: IconFlag },
                 { id: 'plm',           label: 'PLM',               code: PERM.PLM_STAGE_MANAGE,           icon: IconLifecycle },

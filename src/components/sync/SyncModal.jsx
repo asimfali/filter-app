@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { externalApi } from '../../api/external';
 import { catalogApi } from '../../api/catalog';
 import { mediaApi } from '../../api/media';
+import { dealersApi } from '../../api/dealers';
 import { can, PERM } from '../../utils/permissions';
 import { selectionApi } from '../../api/selection';
 import { IconLink, IconClock } from '../common/Icons';
@@ -152,6 +153,26 @@ const MODE_CONFIG = {
         formatResult: (result) => result.success
             ? `✓ Отправлено ${result.pushed} товаров`
             : `✗ Ошибка: ${result.error?.message ?? result.error}`,
+    },
+    dealers_push: {
+        title: 'Синхронизировать дилеров',
+        btnColor: 'bg-emerald-600 hover:bg-emerald-700',
+        // Видимость — по праву страницы «Дилеры»; сам push-to-site бэкенд дополнительно
+        // проверяет portal.dealers.write (HasCatalogPermission на все методы).
+        permission: PERM.PORTAL_PAGE_DEALERS,
+        // Действие одно на весь справочник: полный список активных, бэкенд шлёт сразу
+        loadItems: async () => ({
+            ok: true,
+            data: {
+                success: true,
+                data: [{ id: 'dealers', name: 'Все активные дилеры' }],
+            },
+        }),
+        runItem: () => dealersApi.pushToSite(),
+        // не-async: сюда приходит конверт {success, data}; итог действия — в data
+        formatResult: (result) => result.success
+            ? `✓ Отправлено дилеров: ${result.data?.total ?? 0}`
+            : `✗ ${result.error ?? 'Ошибка'}`,
     },
     fan_charts: {
         title: 'Синхронизировать графики',
@@ -458,7 +479,12 @@ export default function SyncModal({ user, onClose, mode }) {
         if (!ok || !data.success) {
             setResults(prev => ({
                 ...prev,
-                [itemId]: { loading: false, ok: false, message: data?.error?.message || 'Ошибка' },
+                [itemId]: {
+                    loading: false,
+                    ok: false,
+                    // конверт портала → error.message; DRF-ответ → detail
+                    message: data?.error?.message || data?.detail || 'Ошибка',
+                },
             }));
             return;
         }
