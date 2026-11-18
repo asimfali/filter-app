@@ -6,6 +6,7 @@ import { inputCls } from '../utils/styles';
 import { envelopeError } from '../utils';
 import { useModals } from '../hooks/useModals';
 import DealerFormModal from '../components/dealers/DealerFormModal';
+import DealerImportModal from '../components/dealers/DealerImportModal';
 
 const PAGE_SIZE = 50;
 
@@ -45,6 +46,7 @@ const normalize = (body, search, showInactive, page) => {
 };
 
 const primaryActionCls = 'px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors';
+const secondaryActionCls = 'px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors';
 const linkBtnCls = 'text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50';
 const dangerBtnCls = 'text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-50';
 
@@ -66,6 +68,7 @@ export default function DealersPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [form, setForm] = useState(null); // null — модалка закрыта; иначе { dealer } (null = создание)
+    const [importOpen, setImportOpen] = useState(false);
     const [busyId, setBusyId] = useState(null);
     const reqRef = useRef(0);
     const committedSearchRef = useRef('');
@@ -158,9 +161,14 @@ export default function DealersPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Дилеры</h1>
                 {canWrite && (
-                    <button onClick={() => setForm({ dealer: null })} className={primaryActionCls}>
-                        Добавить дилера
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setImportOpen(true)} className={secondaryActionCls}>
+                            Импорт из xlsx
+                        </button>
+                        <button onClick={() => setForm({ dealer: null })} className={primaryActionCls}>
+                            Добавить дилера
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -291,6 +299,12 @@ export default function DealersPage() {
                     dealer={form.dealer}
                     onClose={() => setForm(null)}
                     onSaved={() => { setForm(null); load(); }}
+                />
+            )}
+            {importOpen && (
+                <DealerImportModal
+                    onClose={() => setImportOpen(false)}
+                    onImported={() => load()}
                 />
             )}
             {modals}
