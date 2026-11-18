@@ -183,7 +183,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                 </div>
 
                 {/* Настройки */}
-                <div className="px-4 py-3 space-y-4">
+                <div className="px-4 py-3 space-y-2">
 
                     {/* Сообщение об успехе */}
                     {successMsg && (
