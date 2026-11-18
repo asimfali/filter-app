@@ -101,6 +101,37 @@ describe('DealersPage — список', () => {
         expect(await screen.findByText('Недостаточно прав')).toBeInTheDocument();
     });
 
+    it('конверт {success, data} вокруг списка тоже поддерживается', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue({
+            ok: true, status: 200,
+            data: { success: true, data: [dealer()] },
+        });
+        render(<DealersPage />);
+        expect(await screen.findByText('ООО «Тепломаш-Юг»')).toBeInTheDocument();
+    });
+
+    it('конверт со страницей {count, results} — серверная пагинация без клиентской нарезки', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue({
+            ok: true, status: 200,
+            data: { success: true, data: { count: 120, results: [dealer()] } },
+        });
+        render(<DealersPage />);
+        expect(await screen.findByText('ООО «Тепломаш-Юг»')).toBeInTheDocument();
+        expect(screen.getByText(/Стр\. 1 из 3/)).toBeInTheDocument();
+    });
+
+    it('success:false с кодом 200 — показывает ошибку, а не пустой список', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue({
+            ok: true, status: 200,
+            data: { success: false, error: { code: 'denied', message: 'Нет доступа к справочнику' } },
+        });
+        render(<DealersPage />);
+        expect(await screen.findByText('Нет доступа к справочнику')).toBeInTheDocument();
+    });
+
     it('пагинация на клиенте, пока бэкенд не режет страницы', async () => {
         asUser('portal.dealers.write');
         const rows = Array.from({ length: 120 }, (_, i) => dealer({ id: i + 1, inn: `77010000${i}` }));

@@ -183,7 +183,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                 </div>
 
                 {/* Настройки */}
-                <div className="px-4 py-3 space-y-4">
+                <div className="px-4 py-3 space-y-2">
 
                     {/* Сообщение об успехе */}
                     {successMsg && (
@@ -201,60 +201,62 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                       uppercase tracking-wide mb-2">
                                 Внешний сайт
                             </p>
-                            {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
-                                <button
-                                    onClick={() => setSyncModal('push_to_site')}
-                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                            <div className="space-y-2">
+                                {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
+                                    <button
+                                        onClick={() => setSyncModal('push_to_site')}
+                                        className="w-full px-3 py-2 text-sm font-medium rounded-lg
                        bg-emerald-600 hover:bg-emerald-700
                        text-white transition-colors">
-                                    Синхронизировать сайт
-                                </button>
-                            )}
-                            {can(user, PERM.PORTAL_PAGE_DEALERS) && (
-                                <button
-                                    onClick={() => setSyncModal('dealers_push')}
-                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                                        Синхронизировать сайт
+                                    </button>
+                                )}
+                                {can(user, PERM.PORTAL_PAGE_DEALERS) && (
+                                    <button
+                                        onClick={() => setSyncModal('dealers_push')}
+                                        className="w-full px-3 py-2 text-sm font-medium rounded-lg
                        bg-emerald-700 hover:bg-emerald-800
                        text-white transition-colors">
-                                    Синхронизировать дилеров
-                                </button>
-                            )}
-                            {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
-                                <button
-                                    onClick={() => setSyncModal('fan_charts')}
-                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                                        Синхронизировать дилеров
+                                    </button>
+                                )}
+                                {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
+                                    <button
+                                        onClick={() => setSyncModal('fan_charts')}
+                                        className="w-full px-3 py-2 text-sm font-medium rounded-lg
                    bg-indigo-600 hover:bg-indigo-700
                    text-white transition-colors">
-                                    Синхронизировать графики
-                                </button>
-                            )}
-                            {can(user, PERM.EXTERNAL_MANAGE_VARIANTS) && (
-                                <button
-                                    onClick={() => setSyncModal('variants')}
-                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                                        Синхронизировать графики
+                                    </button>
+                                )}
+                                {can(user, PERM.EXTERNAL_MANAGE_VARIANTS) && (
+                                    <button
+                                        onClick={() => setSyncModal('variants')}
+                                        className="w-full px-3 py-2 text-sm font-medium rounded-lg
                    bg-amber-600 hover:bg-amber-700
                    text-white transition-colors">
-                                    <IconLink className="w-4 h-4 inline mr-1 align-middle" /> Группировка исполнений
-                                </button>
-                            )}
-                            {can(user, PERM.EXTERNAL_RSYNC_MEDIA) && (
-                                <button
-                                    onClick={() => setSyncModal('rsync')}
-                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                                        <IconLink className="w-4 h-4 inline mr-1 align-middle" /> Группировка исполнений
+                                    </button>
+                                )}
+                                {can(user, PERM.EXTERNAL_RSYNC_MEDIA) && (
+                                    <button
+                                        onClick={() => setSyncModal('rsync')}
+                                        className="w-full px-3 py-2 text-sm font-medium rounded-lg
                    bg-teal-600 hover:bg-teal-700
                    text-white transition-colors">
-                                    Rsync медиафайлов
-                                </button>
-                            )}
-                            {can(user, PERM.PORTAL_S3_UPLOAD) && (
-                                <button
-                                    onClick={() => setSyncModal('s3_media')}
-                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                                        Rsync медиафайлов
+                                    </button>
+                                )}
+                                {can(user, PERM.PORTAL_S3_UPLOAD) && (
+                                    <button
+                                        onClick={() => setSyncModal('s3_media')}
+                                        className="w-full px-3 py-2 text-sm font-medium rounded-lg
                    bg-sky-600 hover:bg-sky-700
                    text-white transition-colors">
-                                    Медиа → S3
-                                </button>
-                            )}
+                                        Медиа → S3
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
 
