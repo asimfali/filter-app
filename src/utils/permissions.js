@@ -52,6 +52,9 @@ export const PERM = {
 
     // portal
     PORTAL_CHART_WRITE: 'portal.chart.write',
+    // Справочник дилеров: бэкенд (apps.dealers) требует это право на все методы,
+    // включая чтение — отдельного dealers.view пока нет.
+    PORTAL_DEALERS_WRITE: 'portal.dealers.write',
     PORTAL_DOCUMENTS_DELETE: 'portal.documents.delete',
     PORTAL_DOCUMENTS_REGISTRY_EDIT: 'portal.documents.registry.edit',
     PORTAL_DOCUMENTS_REGISTRY_VIEW: 'portal.documents.registry.view',
@@ -60,6 +63,7 @@ export const PERM = {
     PORTAL_HEAT_EXCHANGER_VIEW: 'portal.heat_exchanger.view',
     PORTAL_HEAT_EXCHANGER_WRITE: 'portal.heat_exchanger.write',
     PORTAL_PAGE_BINDING: 'portal.page.binding',
+    PORTAL_PAGE_DEALERS: 'portal.page.dealers',
     PORTAL_PAGE_DOCUMENTS: 'portal.page.documents',
     PORTAL_PAGE_ISSUES: 'portal.page.issues',
     PORTAL_PAGE_PARAMETERS: 'portal.page.parameters',

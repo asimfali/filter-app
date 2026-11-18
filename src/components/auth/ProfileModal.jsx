@@ -195,19 +195,30 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                     )}
 
                     {/* Синхронизация с внешним сайтом */}
-                    {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
+                    {(can(user, PERM.EXTERNAL_PUSH_TO_SITE) || can(user, PERM.PORTAL_PAGE_DEALERS)) && (
                         <div>
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400
                       uppercase tracking-wide mb-2">
                                 Внешний сайт
                             </p>
-                            <button
-                                onClick={() => setSyncModal('push_to_site')}
-                                className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                            {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
+                                <button
+                                    onClick={() => setSyncModal('push_to_site')}
+                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
                        bg-emerald-600 hover:bg-emerald-700
                        text-white transition-colors">
-                                Синхронизировать сайт
-                            </button>
+                                    Синхронизировать сайт
+                                </button>
+                            )}
+                            {can(user, PERM.PORTAL_PAGE_DEALERS) && (
+                                <button
+                                    onClick={() => setSyncModal('dealers_push')}
+                                    className="w-full px-3 py-2 text-sm font-medium rounded-lg
+                       bg-emerald-700 hover:bg-emerald-800
+                       text-white transition-colors">
+                                    Синхронизировать дилеров
+                                </button>
+                            )}
                             {can(user, PERM.EXTERNAL_PUSH_TO_SITE) && (
                                 <button
                                     onClick={() => setSyncModal('fan_charts')}

@@ -6,6 +6,7 @@ import { externalApi } from '../../../api/external';
 import { catalogApi } from '../../../api/catalog';
 import { selectionApi } from '../../../api/selection';
 import { mediaApi } from '../../../api/media';
+import { dealersApi } from '../../../api/dealers';
 
 vi.mock('../../../api/external', () => ({
   externalApi: {
@@ -38,6 +39,7 @@ vi.mock('../../../api/selection', () => ({
     dxfCheckExists: vi.fn(),
   },
 }));
+vi.mock('../../../api/dealers', () => ({ dealersApi: { pushToSite: vi.fn() } }));
 
 const userWith = (...perms) => ({ id: 1, permissions: perms });
 const respOk = (data) => ({ ok: true, data });
@@ -537,6 +539,48 @@ describe('SyncModal — push_to_site mode', () => {
     await waitFor(() => expect(externalApi.pushToSite).toHaveBeenCalledWith(
       null, null, { deactivateAll: true },
     ));
+  });
+});
+
+describe('SyncModal — дилеры', () => {
+  const user1 = userWith('portal.page.dealers');
+
+  it('один пункт «Все активные дилеры», запуск шлёт pushToSite и показывает итог', async () => {
+    dealersApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { success: true, total: 3 } }));
+    render(<SyncModal user={user1} mode="dealers_push" onClose={vi.fn()} />);
+
+    expect(await screen.findByText('Все активные дилеры')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Запустить' }));
+
+    await waitFor(() => expect(dealersApi.pushToSite).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('✓ Отправлено дилеров: 3')).toBeInTheDocument();
+  });
+
+  it('«Запустить все» — единственный прогон pushToSite', async () => {
+    dealersApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { success: true, total: 0 } }));
+    render(<SyncModal user={user1} mode="dealers_push" onClose={vi.fn()} />);
+    await screen.findByText('Все активные дилеры');
+
+    fireEvent.click(screen.getByText('Запустить все'));
+
+    await waitFor(() => expect(dealersApi.pushToSite).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('✓ Отправлено дилеров: 0')).toBeInTheDocument();
+  });
+
+  it('ошибка 403 показывается в строке результата', async () => {
+    dealersApi.pushToSite.mockResolvedValue({ ok: false, status: 403, data: { detail: 'Недостаточно прав' } });
+    render(<SyncModal user={user1} mode="dealers_push" onClose={vi.fn()} />);
+    await screen.findByText('Все активные дилеры');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Запустить' }));
+
+    expect(await screen.findByText('Недостаточно прав')).toBeInTheDocument();
+  });
+  it('без portal.page.dealers модалка не рендерится', async () => {
+    const { container } = render(<SyncModal user={userWith()} mode="dealers_push" onClose={vi.fn()} />);
+    await flush();
+    expect(container).toBeEmptyDOMElement();
+    expect(dealersApi.pushToSite).not.toHaveBeenCalled();
   });
 });
 
