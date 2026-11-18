@@ -118,11 +118,12 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
             <div className="mt-14 mr-4 w-80 bg-white dark:bg-neutral-900
                             rounded-xl shadow-2xl
                             border border-gray-200 dark:border-gray-700
+                            max-h-[calc(100vh-4.5rem)] flex flex-col
                             overflow-hidden"
                 onClick={e => e.stopPropagation()}>
 
                 {/* Шапка */}
-                <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-800
+                <div className="px-4 py-4 shrink-0 border-b border-gray-100 dark:border-gray-800
                                 flex items-center gap-3">
                     {/* Аватарка */}
                     <div className="relative shrink-0">
@@ -182,8 +183,8 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                     </div>
                 </div>
 
-                {/* Настройки */}
-                <div className="px-4 py-3 space-y-2">
+                {/* Настройки — прокручиваются, если не влезают в экран (720p и ниже) */}
+                <div className="px-4 py-3 space-y-2 flex-1 min-h-0 overflow-y-auto">
 
                     {/* Сообщение об успехе */}
                     {successMsg && (
@@ -475,7 +476,7 @@ export default function ProfileModal({ user, onClose, onUpdated }) {
                 </div>
 
                 {/* Футер */}
-                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+                <div className="px-4 py-3 shrink-0 border-t border-gray-100 dark:border-gray-800">
                     <button
                         onClick={onClose}
                         className="w-full text-center text-xs text-gray-400

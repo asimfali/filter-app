@@ -14,6 +14,8 @@ vi.mock('../../api/dealers', () => ({
         update: vi.fn(),
         revoke: vi.fn(),
         restore: vi.fn(),
+        importXlsx: vi.fn(),
+        importStatus: vi.fn(),
     },
 }));
 
@@ -319,5 +321,110 @@ describe('DealersPage — форма дилера', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Создать' }));
 
         expect(await screen.findByText('Внутренняя ошибка')).toBeInTheDocument();
+    });
+});
+
+describe('DealersPage — импорт из xlsx', () => {
+    const openImport = async () => {
+        await userEvent.click(await screen.findByRole('button', { name: 'Импорт из xlsx' }));
+        const input = document.querySelector('input[type="file"]');
+        await userEvent.upload(input, new File(['xlsx'], 'dealers.xlsx'));
+        await userEvent.click(screen.getByRole('button', { name: 'Импортировать' }));
+    };
+
+    const started = () => ({
+        ok: true, status: 201,
+        data: { success: true, data: { task_id: 12 } },
+    });
+    const finished = (over = {}) => ({
+        ok: true, status: 200,
+        data: {
+            success: true,
+            data: {
+                task_id: 12,
+                status: 'COMPLETED',
+                rows_total: 418,
+                created: 5,
+                updated: 396,
+                revoked: 17,
+                errors: [],
+                result: { errors_count: 0 },
+                ...over,
+            },
+        },
+    });
+
+    it('без права записи кнопки импорта нет', async () => {
+        asUser('portal.page.dealers');
+        render(<DealersPage />);
+        expect(screen.queryByRole('button', { name: 'Импорт из xlsx' })).not.toBeInTheDocument();
+    });
+
+    it('файл уходит на портал, статус опрашивается, итог показывается, список перезагружается', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.importXlsx.mockResolvedValue(started());
+        dealersApi.importStatus.mockResolvedValue(finished());
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        const file = new File(['xlsx'], 'dealers.xlsx');
+        await userEvent.click(screen.getByRole('button', { name: 'Импорт из xlsx' }));
+        expect(screen.getByText('Импорт дилеров из xlsx')).toBeInTheDocument();
+        await userEvent.upload(document.querySelector('input[type="file"]'), file);
+        await userEvent.click(screen.getByRole('button', { name: 'Импортировать' }));
+
+        expect(dealersApi.importXlsx).toHaveBeenCalledWith(file);
+        expect(await screen.findByText('Строк в файле')).toBeInTheDocument();
+        expect(dealersApi.importStatus).toHaveBeenCalledWith(12);
+        expect(screen.getByText('418')).toBeInTheDocument();
+        expect(screen.getByText('396')).toBeInTheDocument();
+        expect(screen.getByText('17')).toBeInTheDocument();
+        expect(screen.getByText(/Все строки применены без ошибок/)).toBeInTheDocument();
+        // импорт закончился — список перезапрошен (первый вызов был при монтировании)
+        await waitFor(() => expect(dealersApi.list).toHaveBeenCalledTimes(2));
+    });
+
+    it('битые строки показываются таблицей, импорт при этом успешен', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.importXlsx.mockResolvedValue(started());
+        dealersApi.importStatus.mockResolvedValue(finished({
+            rows_total: 3, created: 0, updated: 1, revoked: 0,
+            errors: [{ row: 7, inn: '9999999999', error: 'Не удалось восстановить код дилера' }],
+            result: { errors_count: 1 },
+        }));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+        await openImport();
+
+        expect(await screen.findByText('Строки с ошибками (1) — остальные применены')).toBeInTheDocument();
+        expect(screen.getByText('Не удалось восстановить код дилера')).toBeInTheDocument();
+        expect(screen.getByText('9999999999')).toBeInTheDocument();
+    });
+
+    it('FAILED показывает причину из result.error', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.importXlsx.mockResolvedValue(started());
+        dealersApi.importStatus.mockResolvedValue(finished({
+            status: 'FAILED', result: { error: 'Нет листа «Лист1»' },
+        }));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+        await openImport();
+
+        expect(await screen.findByText('Нет листа «Лист1»')).toBeInTheDocument();
+    });
+
+    it('ошибка загрузки файла показывается текстом конверта и не запускает опрос', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.importXlsx.mockResolvedValue({
+            ok: false, status: 400,
+            data: { success: false, error: { code: 'VALIDATION_ERROR', message: 'Ожидался файл .xlsx' } },
+        });
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+        await openImport();
+
+        expect(await screen.findByText('Ожидался файл .xlsx')).toBeInTheDocument();
+        expect(dealersApi.importStatus).not.toHaveBeenCalled();
     });
 });
