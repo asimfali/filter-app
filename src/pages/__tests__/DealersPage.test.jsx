@@ -53,17 +53,18 @@ describe('DealersPage — список', () => {
         expect(dealersApi.list).not.toHaveBeenCalled();
     });
 
-    it('по умолчанию просит только активных и рисует строку', async () => {
+    it('по умолчанию просит справочник целиком и рисует только активных', async () => {
         asUser('portal.dealers.write');
         render(<DealersPage />);
         expect(await screen.findByText('ООО «Тепломаш-Юг»')).toBeInTheDocument();
-        expect(lastParams()).toEqual({ search: '', isActive: true, page: 1, pageSize: 50 });
+        // справочник запрашивается целиком: фильтр, поиск и страницы — на клиенте
+        expect(lastParams()).toEqual({});
         expect(screen.getByText('7701234567')).toBeInTheDocument();
         expect(screen.getByText('D00012')).toBeInTheDocument();
         expect(screen.getByText('активен')).toBeInTheDocument();
     });
 
-    it('чекбокс переключает на неактивных: активные уходят из списка', async () => {
+    it('сегмент «Неактивные» переключает список: активные уходят', async () => {
         asUser('portal.dealers.write');
         dealersApi.list.mockResolvedValue(listOk([
             dealer(),
@@ -73,21 +74,35 @@ describe('DealersPage — список', () => {
         await screen.findByText('ООО «Тепломаш-Юг»');
         expect(screen.queryByText('ООО «Урал-Тепло»')).not.toBeInTheDocument();
 
-        fireEvent.click(screen.getByRole('checkbox', { name: /Только неактивные/ }));
+        fireEvent.click(screen.getByRole('button', { name: /^Неактивные/ }));
 
         expect(await screen.findByText('ООО «Урал-Тепло»')).toBeInTheDocument();
         expect(screen.getByText('авторизация отменена')).toBeInTheDocument();
         // активный дилер в этом режиме не показывается
         await waitFor(() => expect(screen.queryByText('ООО «Тепломаш-Юг»')).not.toBeInTheDocument());
-        expect(lastParams().isActive).toBe(false);
     });
 
-    it('в режиме «Только неактивные» без снятых авторизаций — свой текст пустого списка', async () => {
+    it('сегмент «Все» показывает и активных, и неактивных', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer(),
+            dealer({ id: 2, inn: '5900000001', code: 'D00003', name: 'ООО «Урал-Тепло»', is_active: false }),
+        ]));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        fireEvent.click(screen.getByRole('button', { name: /^Все/ }));
+
+        expect(await screen.findByText('ООО «Урал-Тепло»')).toBeInTheDocument();
+        expect(screen.getByText('ООО «Тепломаш-Юг»')).toBeInTheDocument();
+    });
+
+    it('в режиме «Неактивные» без снятых авторизаций — свой текст пустого списка', async () => {
         asUser('portal.dealers.write');
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        fireEvent.click(screen.getByRole('checkbox', { name: /Только неактивные/ }));
+        fireEvent.click(screen.getByRole('button', { name: /^Неактивные/ }));
 
         expect(await screen.findByText('Неактивных дилеров нет')).toBeInTheDocument();
     });
@@ -103,7 +118,8 @@ describe('DealersPage — список', () => {
 
         fireEvent.change(screen.getByPlaceholderText(/ИНН, код, название/), { target: { value: ' D00003 ' } });
 
-        await waitFor(() => expect(lastParams().search).toBe('D00003'));
+        // поиск идёт по клиентскому списку, но дебаунс всё равно перезапрашивает справочник
+        await waitFor(() => expect(dealersApi.list).toHaveBeenCalledTimes(2));
         await waitFor(() => expect(screen.queryByText('ООО «Тепломаш-Юг»')).not.toBeInTheDocument());
         expect(screen.getByText('ООО «Урал-Тепло»')).toBeInTheDocument();
     });
@@ -156,8 +172,74 @@ describe('DealersPage — список', () => {
         expect(screen.getAllByRole('row').length).toBe(51); // шапка + 50 строк
 
         fireEvent.click(screen.getByRole('button', { name: '→' }));
-        await waitFor(() => expect(lastParams().page).toBe(2));
         expect(await screen.findByText(/Стр\. 2 из 3/)).toBeInTheDocument();
+    });
+});
+
+describe('DealersPage — панель со счётчиками', () => {
+    it('показывает всего / активных / неактивных по всему справочнику', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer(),
+            dealer({ id: 2, inn: '5900000001', code: 'D00003', name: 'ООО «Урал-Тепло»', is_active: false }),
+            dealer({ id: 3, inn: '5900000002', code: 'D00004', name: 'ООО «Север-Тепло»' }),
+        ]));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        expect(screen.getByRole('button', { name: 'Все 3' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Активные 2' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Неактивные 1' })).toBeInTheDocument();
+        // по умолчанию выбран сегмент «Активные»
+        expect(screen.getByRole('button', { name: 'Активные 2' })).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('счётчики не зависят от поиска: ищем одного, цифры остаются по всему справочнику', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer(),
+            dealer({ id: 2, inn: '5900000001', code: 'D00003', name: 'ООО «Урал-Тепло»' }),
+        ]));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        fireEvent.change(screen.getByPlaceholderText(/ИНН, код, название/), { target: { value: 'D00003' } });
+        await waitFor(() => expect(screen.queryByText('ООО «Тепломаш-Юг»')).not.toBeInTheDocument());
+
+        expect(screen.getByRole('button', { name: 'Все 2' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Активные 2' })).toBeInTheDocument();
+    });
+});
+
+describe('DealersPage — сортировка по свежести', () => {
+    const names = () => screen.getAllByRole('row').slice(1).map(row => row.textContent);
+
+    it('по умолчанию свежие сверху, дилеры без даты — в конце', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer({ id: 1, inn: '7701000001', name: 'СТАРЫЙ', letter_sent_at: '2024-01-10' }),
+            dealer({ id: 2, inn: '7701000002', name: 'БЕЗ-ДАТЫ', letter_sent_at: null }),
+            dealer({ id: 3, inn: '7701000003', name: 'СВЕЖИЙ', letter_sent_at: '2026-05-20' }),
+            dealer({ id: 4, inn: '7701000004', name: 'СРЕДНИЙ', letter_sent_at: '2025-09-01' }),
+        ]));
+        render(<DealersPage />);
+        await screen.findByText('СВЕЖИЙ');
+
+        const order = names().map(text => ['СВЕЖИЙ', 'СРЕДНИЙ', 'СТАРЫЙ', 'БЕЗ-ДАТЫ'].find(n => text.includes(n)));
+        expect(order).toEqual(['СВЕЖИЙ', 'СРЕДНИЙ', 'СТАРЫЙ', 'БЕЗ-ДАТЫ']);
+    });
+
+    it('дата записи (created_at/updated_at) важнее даты письма', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer({ id: 1, inn: '7701000001', name: 'ПО-ПИСЬМУ', letter_sent_at: '2026-05-20', created_at: '2024-01-01' }),
+            dealer({ id: 2, inn: '7701000002', name: 'ПО-ЗАПИСИ', letter_sent_at: '2024-01-01', created_at: '2026-05-20' }),
+        ]));
+        render(<DealersPage />);
+        await screen.findByText('ПО-ЗАПИСИ');
+
+        const order = names().map(text => ['ПО-ЗАПИСИ', 'ПО-ПИСЬМУ'].find(n => text.includes(n)));
+        expect(order).toEqual(['ПО-ЗАПИСИ', 'ПО-ПИСЬМУ']);
     });
 });
 
@@ -169,6 +251,49 @@ describe('DealersPage — права на запись', () => {
         expect(screen.getByRole('button', { name: 'Добавить дилера' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Редактировать' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Отменить авторизацию' })).toBeInTheDocument();
+    });
+});
+
+describe('DealersPage — адаптивная строка', () => {
+    it('в строке видны все поля дилера, включая юр. адрес и сайт', async () => {
+        asUser('portal.dealers.write');
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        expect(screen.getByText('7701234567')).toBeInTheDocument();
+        expect(screen.getByText('D00012')).toBeInTheDocument();
+        expect(screen.getByText('г. Москва, ул. Тестовая, 1')).toBeInTheDocument();
+        expect(screen.getByText('Иванов И. И.')).toBeInTheDocument();
+        expect(screen.getByText('+7 900 000-00-00')).toBeInTheDocument();
+        expect(screen.getByText('dealer@example.ru')).toBeInTheDocument();
+        expect(screen.getByText('teplomash-yug.ru')).toBeInTheDocument();
+    });
+
+    it('действия — только иконки, название остаётся в title и aria-label', async () => {
+        asUser('portal.dealers.write');
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        const edit = screen.getByRole('button', { name: 'Редактировать' });
+        const revoke = screen.getByRole('button', { name: 'Отменить авторизацию' });
+        // текстовых подписей в кнопках нет — колонка не занимает место
+        expect(edit.textContent).toBe('');
+        expect(revoke.textContent).toBe('');
+        expect(edit.querySelector('svg')).not.toBeNull();
+        expect(revoke.querySelector('svg')).not.toBeNull();
+        expect(edit).toHaveAttribute('title', 'Редактировать');
+        expect(revoke).toHaveAttribute('title', 'Отменить авторизацию');
+    });
+
+    it('неактивный дилер: иконка восстановления вместо отмены', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([dealer({ is_active: false })]));
+        render(<DealersPage />);
+        fireEvent.click(await screen.findByRole('button', { name: /^Неактивные/ }));
+
+        const restore = await screen.findByRole('button', { name: 'Восстановить' });
+        expect(restore.textContent).toBe('');
+        expect(screen.queryByRole('button', { name: 'Отменить авторизацию' })).not.toBeInTheDocument();
     });
 });
 
@@ -220,7 +345,7 @@ describe('DealersPage — отмена и восстановление авто�
         dealersApi.list.mockResolvedValue(listOk([dealer({ is_active: false, note: 'Отмена авторизации: тест' })]));
         dealersApi.restore.mockResolvedValue(ok({}));
         render(<DealersPage />);
-        fireEvent.click(await screen.findByRole('checkbox', { name: /Только неактивные/ }));
+        fireEvent.click(await screen.findByRole('button', { name: /^Неактивные/ }));
         expect(await screen.findByText('Отмена авторизации: тест')).toBeInTheDocument();
 
         await userEvent.click(screen.getByRole('button', { name: 'Восстановить' }));
