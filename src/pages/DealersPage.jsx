@@ -267,7 +267,9 @@ export default function DealersPage() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto space-y-4">
+        // Страница — широкая таблица: в max-w-7xl (1280) двенадцать колонок не влезают,
+        // и правые (в т.ч. вторая галочка публикации) уезжали под липкую колонку действий
+        <div className="max-w-[1600px] mx-auto space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Дилеры</h1>
                 {canWrite && (
@@ -330,23 +332,23 @@ export default function DealersPage() {
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-x-auto">
-                <table className="w-full text-sm block lg:table lg:table-fixed lg:min-w-[1400px]">
+                <table className="w-full text-sm block lg:table lg:table-fixed lg:min-w-[1330px]">
                     <thead className="hidden lg:table-header-group">
                         <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                            <th className={`${thCls} lg:w-[110px]`}>ИНН</th>
-                            <th className={`${thCls} lg:w-[70px]`}>Код</th>
+                            <th className={`${thCls} lg:w-[105px]`}>ИНН</th>
+                            <th className={`${thCls} lg:w-[65px]`}>Код</th>
                             <th className={thCls}>Название</th>
-                            <th className={`${thCls} lg:w-[130px]`}>Группа</th>
-                            <th className={`${thCls} lg:w-[140px]`}>Статус</th>
-                            <th className={`${thCls} lg:w-[110px] whitespace-nowrap`}>Письмо</th>
-                            <th className={`${thCls} lg:w-[110px]`}>Директор</th>
+                            <th className={`${thCls} lg:w-[125px]`}>Группа</th>
+                            <th className={`${thCls} lg:w-[135px]`}>Статус</th>
+                            <th className={`${thCls} lg:w-[105px] whitespace-nowrap`}>Письмо</th>
+                            <th className={`${thCls} lg:w-[115px]`}>Директор</th>
                             <th className={`${thCls} lg:w-[115px]`}>Телефон</th>
-                            <th className={`${thCls} lg:w-[155px]`}>E-mail</th>
+                            <th className={`${thCls} lg:w-[150px]`}>E-mail</th>
                             {/* Названия — как verbose_name полей в админке портала, чтобы
                                 один и тот же рубильник назывался одинаково везде */}
-                            <th className={`${thCls} lg:w-[110px]`}>Показывать на сайте</th>
-                            <th className={`${thCls} lg:w-[120px]`}>Публиковать контакты</th>
-                            <th className={`${thCls} lg:w-[90px] lg:sticky lg:right-0 lg:z-10 lg:bg-white lg:dark:bg-neutral-900
+                            <th className={`${thCls} lg:w-[100px]`}>Показывать на сайте</th>
+                            <th className={`${thCls} lg:w-[110px]`}>Публиковать контакты</th>
+                            <th className={`${thCls} lg:w-[85px] lg:sticky lg:right-0 lg:z-10 lg:bg-white lg:dark:bg-neutral-900
                                 lg:border-l lg:border-gray-100 lg:dark:border-gray-800`} />
                         </tr>
                     </thead>
@@ -386,7 +388,8 @@ export default function DealersPage() {
                                     <td className={cellCls}>
                                         <CellLabel>Группа</CellLabel>
                                         <div className="min-w-0 flex-1 lg:flex-none">
-                                            <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap
+                                            {/* без nowrap: «Сервисный центр» переносится в 125px */}
+                                            <span className="inline-block text-xs px-2 py-0.5 rounded-full
                                                 bg-neutral-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-300">
                                                 {dealer.group_label || dealer.group || '—'}
                                             </span>
