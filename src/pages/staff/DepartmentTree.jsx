@@ -24,6 +24,13 @@ export default function DepartmentTree({ departments, level = 0, onEdit, onAdd }
                                 <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
                                     {dept.code}
                                 </span>
+                                {dept.is_published && (
+                                    <span className="ml-2 text-[10px] bg-emerald-50 dark:bg-emerald-900/30
+                                                     text-emerald-600 dark:text-emerald-400
+                                                     px-1.5 py-0.5 rounded-full" title="Публикуется на сайте">
+                                        на сайте
+                                    </span>
+                                )}
                                 {dept.members_count > 0 && (
                                     <span className="ml-2 text-xs bg-blue-50 dark:bg-blue-900/30
                                                      text-blue-600 dark:text-blue-400
