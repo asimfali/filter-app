@@ -84,3 +84,22 @@
   `vite 6.4.1 → 6.4.6`, `rollup 4.57 → 4.68`, `postcss 8.5.6 → 8.5.33` и транзитивные (lock).
   Остались 4 high в `npm audit --omit=dev` — цепочка `picomatch` (ReDoS) без выпущенного фикса;
   `npm audit fix` предлагает откатить vite на 6.2.7, это хуже (там свои CVE), поэтому ждём патч.
+
+## 2026-11-18 — npm 11.19: `allowScripts` и EPERM на `rollup` при установке под запущенным dev-сервером
+
+- Контекст: npm 11.19 блокирует install-скрипты зависимостей по умолчанию и после `npm install`
+  пишет `2 packages have install scripts not yet covered by allowScripts` (`core-js`, `esbuild`),
+  а в `cleanup` — `EPERM ... unlink node_modules\@rollup\.rollup-win32-x64-msvc-9v1pgPzx\rollup.win32-x64-msvc.node`.
+- Решение: в `package.json` добавлено поле `allowScripts`: `esbuild@0.25.12: true` (postinstall —
+  проверка/починка бинарника, нужен), `core-js: false` (postinstall только печатает рекламу).
+  Ставить через CLI, не руками: `npm install-scripts approve esbuild`, `npm install-scripts deny core-js`;
+  проверка — `npm install-scripts ls` → «No packages with unreviewed install scripts».
+- Следствия: esbuild работает и с пропущенным postinstall — бинарник приходит из optional-зависимости
+  `@esbuild/win32-x64`, `npm run build` зелёный, так что `npm ci` на npm ≥ 11.16 в деплое не сломается.
+  Запись `esbuild@0.25.12` запинена: после апгрейда esbuild npm попросит подтвердить версию заново.
+  EPERM в `cleanup` — не сбой установки: запущенный `vite` держал отображённый `rollup.win32-x64-msvc.node`,
+  npm отодвинул старый каталог в `.rollup-...-<temp>` и не смог удалить замапленный файл. Лечится
+  остановкой dev-сервера и `Remove-Item node_modules\@rollup\.rollup-* -Recurse -Force`; повторный
+  `npm install` под живым dev-сервером повторит то же самое с новым временным каталогом.
+  `npm audit` без улучшений: 9 high, всё замыкается на `picomatch@4.0.7` (ReDoS GHSA-fc5q-39xc-vjpf),
+  в registry свежее тоже 4.0.7 — фикс не выпущен, `npm audit fix --force` по-прежнему делать нельзя.
