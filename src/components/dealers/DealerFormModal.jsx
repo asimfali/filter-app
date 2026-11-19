@@ -8,6 +8,7 @@ import { dealersApi } from '../../api/dealers';
 const EMPTY = {
     inn: '',
     name: '',
+    group: 'dealer',
     legal_address: '',
     phones: '',
     director: '',
@@ -19,6 +20,7 @@ const EMPTY = {
 const fromDealer = (dealer) => ({
     inn: dealer.inn ?? '',
     name: dealer.name ?? '',
+    group: dealer.group ?? 'dealer',
     legal_address: dealer.legal_address ?? '',
     phones: dealer.phones ?? '',
     director: dealer.director ?? '',
@@ -29,7 +31,7 @@ const fromDealer = (dealer) => ({
 
 // Разбор ошибок полей: конверт портала {"success": false, "error": {"fields": {...}}}
 // или обычный DRF-ответ {"inn": ["..."], ...}
-const FIELDS = ['inn', 'name', 'legal_address', 'phones', 'director', 'website', 'email', 'letter_sent_at', 'code'];
+const FIELDS = ['inn', 'name', 'group', 'legal_address', 'phones', 'director', 'website', 'email', 'letter_sent_at', 'code'];
 const fieldErrors = (body) => {
     const raw = body?.error?.fields ?? body;
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
@@ -44,9 +46,9 @@ const fieldErrors = (body) => {
 const labelCls = 'block text-xs text-gray-500 dark:text-gray-400 mb-1';
 const errCls = 'mt-1 text-xs text-red-500 dark:text-red-400';
 
-// Справочник дилеров: ИНН, реквизиты, дата письма. Код D##### генерирует портал,
-// поэтому во фронте он только отображается (и только в режиме редактирования).
-export default function DealerFormModal({ dealer, onClose, onSaved }) {
+// Справочник дилеров: ИНН, группа контрагента, реквизиты, дата письма. Код D#####
+// генерирует портал, поэтому во фронте он только отображается (и только в режиме редактирования).
+export default function DealerFormModal({ dealer, groups = [], onClose, onSaved }) {
     const isEdit = Boolean(dealer);
     const [form, setForm] = useState(() => (isEdit ? fromDealer(dealer) : { ...EMPTY }));
     const [saving, setSaving] = useState(false);
@@ -77,6 +79,7 @@ export default function DealerFormModal({ dealer, onClose, onSaved }) {
         const payload = {
             inn: form.inn.trim(),
             name: form.name.trim(),
+            group: form.group,
             legal_address: form.legal_address.trim(),
             phones: form.phones.trim(),
             director: form.director.trim(),
@@ -106,18 +109,32 @@ export default function DealerFormModal({ dealer, onClose, onSaved }) {
         }
     };
 
-    const field = (key, label, { required, wide, ...rest } = {}) => (
+    // options — тогда вместо input рисуем select (группа: значения и подписи с портала)
+    const field = (key, label, { required, wide, options, ...rest } = {}) => (
         <div className={wide ? 'md:col-span-2' : ''}>
             <label className={labelCls} htmlFor={`dealer-${key}`}>
                 {label}{required ? ' *' : ''}
             </label>
-            <input
-                id={`dealer-${key}`}
-                className={inputCls}
-                value={form[key]}
-                onChange={e => set(key, e.target.value)}
-                {...rest}
-            />
+            {options ? (
+                <select
+                    id={`dealer-${key}`}
+                    className={inputCls}
+                    value={form[key]}
+                    onChange={e => set(key, e.target.value)}
+                >
+                    {options.map(({ value, label: optionLabel }) => (
+                        <option key={value} value={value}>{optionLabel}</option>
+                    ))}
+                </select>
+            ) : (
+                <input
+                    id={`dealer-${key}`}
+                    className={inputCls}
+                    value={form[key]}
+                    onChange={e => set(key, e.target.value)}
+                    {...rest}
+                />
+            )}
             {fields[key] && <p className={errCls}>{fields[key]}</p>}
         </div>
     );
@@ -155,6 +172,7 @@ export default function DealerFormModal({ dealer, onClose, onSaved }) {
                     </p>
                 </div>
                 {field('name', 'Название', { required: true, wide: true })}
+                {field('group', 'Группа', { options: groups })}
                 {field('legal_address', 'Юридический адрес', { wide: true })}
                 {field('director', 'Директор')}
                 {field('phones', 'Телефоны', { placeholder: 'через запятую' })}

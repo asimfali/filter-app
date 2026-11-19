@@ -37,6 +37,24 @@ describe('dealersApi.list', () => {
         const res = await dealersApi.list();
         expect(res).toEqual({ ok: false, status: 403, data: { detail: 'Недостаточно прав' } });
     });
+
+    it('group уходит в query, пустое значение — нет', async () => {
+        respond(200, []);
+        await dealersApi.list({ group: 'branch' });
+        expect(apiFetch).toHaveBeenLastCalledWith('/api/v1/dealers/?group=branch');
+        await dealersApi.list({ group: '' });
+        expect(apiFetch).toHaveBeenLastCalledWith('/api/v1/dealers/');
+    });
+});
+
+describe('dealersApi.groups', () => {
+    it('GET /groups/ — значения и подписи идут с портала', async () => {
+        respond(200, { success: true, data: [{ value: 'dealer', label: 'Дилер' }] });
+        const res = await dealersApi.groups();
+
+        expect(apiFetch).toHaveBeenCalledWith('/api/v1/dealers/groups/');
+        expect(res.data.data).toEqual([{ value: 'dealer', label: 'Дилер' }]);
+    });
 });
 
 describe('dealersApi — запись', () => {
