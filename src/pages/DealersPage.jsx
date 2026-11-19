@@ -7,7 +7,7 @@ import { envelopeError } from '../utils';
 import { useModals } from '../hooks/useModals';
 import DealerFormModal from '../components/dealers/DealerFormModal';
 import DealerImportModal from '../components/dealers/DealerImportModal';
-import { IconPencil, IconBan, IconUndo, IconLock } from '../components/common/Icons';
+import { IconPencil, IconBan, IconUndo } from '../components/common/Icons';
 
 const PAGE_SIZE = 50;
 
@@ -209,30 +209,36 @@ export default function DealersPage() {
         results: prev.results.map(item => (item.id === id ? { ...item, ...patch } : item)),
     }));
 
-    // Галочка «показывать на сайте» — PATCH по одному полю. Ставим её сразу
-    // (оптимистично), при ошибке откатываем и показываем текст портала.
-    // Правит запись целиком (уходит ли она в выгрузку сайта), а не отдельный блок
-    // контактов: тем флагом (contacts_published) управляют в форме дилера.
-    const togglePublished = async (dealer, next) => {
-        // Портал ещё не отдаёт флаг — PATCH по неизвестному полю молча ничего не сделал бы,
+    // Галочки публикации — PATCH по одному полю. Ставим сразу (оптимистично), при ошибке
+    // откатываем и показываем текст портала. Названия и поля — как в админке портала:
+    // is_published («Показывать на сайте») — рубильник записи целиком,
+    // contacts_published («Публиковать контакты») — телефоны/e-mail/сайт внутри неё.
+    const toggleFlag = async (dealer, field, next, fallbackError) => {
+        // Старый портал флаг не отдаёт — PATCH по неизвестному полю молча ничего не сделал бы,
         // а галочка соврала бы. Такую запись не трогаем вовсе.
-        if (!('is_published' in dealer)) return;
+        if (!(field in dealer)) return;
         setBusyId(dealer.id);
         setError('');
-        patchRow(dealer.id, { is_published: next });
+        patchRow(dealer.id, { [field]: next });
         try {
-            const { ok, data: body, status } = await dealersApi.update(dealer.id, { is_published: next });
+            const { ok, data: body, status } = await dealersApi.update(dealer.id, { [field]: next });
             if (!ok || body?.success === false) {
-                patchRow(dealer.id, { is_published: !next });
+                patchRow(dealer.id, { [field]: !next });
                 setError(envelopeError(body, status));
             }
         } catch {
-            patchRow(dealer.id, { is_published: !next });
-            setError('Не удалось изменить публикацию записи на сайте');
+            patchRow(dealer.id, { [field]: !next });
+            setError(fallbackError);
         } finally {
             setBusyId(null);
         }
     };
+
+    const togglePublished = (dealer, next) =>
+        toggleFlag(dealer, 'is_published', next, 'Не удалось изменить публикацию записи на сайте');
+
+    const toggleContacts = (dealer, next) =>
+        toggleFlag(dealer, 'contacts_published', next, 'Не удалось изменить публикацию контактов');
 
     const askRevoke = (dealer) => {
         showConfirm(
@@ -324,7 +330,7 @@ export default function DealersPage() {
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-x-auto">
-                <table className="w-full text-sm block lg:table lg:table-fixed lg:min-w-[1290px]">
+                <table className="w-full text-sm block lg:table lg:table-fixed lg:min-w-[1400px]">
                     <thead className="hidden lg:table-header-group">
                         <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                             <th className={`${thCls} lg:w-[110px]`}>ИНН</th>
@@ -333,11 +339,13 @@ export default function DealersPage() {
                             <th className={`${thCls} lg:w-[130px]`}>Группа</th>
                             <th className={`${thCls} lg:w-[140px]`}>Статус</th>
                             <th className={`${thCls} lg:w-[110px] whitespace-nowrap`}>Письмо</th>
-                            <th className={`${thCls} lg:w-[120px]`}>Директор</th>
-                            <th className={`${thCls} lg:w-[120px]`}>Телефон</th>
-                            <th className={`${thCls} lg:w-[160px]`}>E-mail</th>
-                            <th className={`${thCls} lg:w-[100px]`}
-                                title="Публиковать контакты на сайте">Публикация</th>
+                            <th className={`${thCls} lg:w-[110px]`}>Директор</th>
+                            <th className={`${thCls} lg:w-[115px]`}>Телефон</th>
+                            <th className={`${thCls} lg:w-[155px]`}>E-mail</th>
+                            {/* Названия — как verbose_name полей в админке портала, чтобы
+                                один и тот же рубильник назывался одинаково везде */}
+                            <th className={`${thCls} lg:w-[110px]`}>Показывать на сайте</th>
+                            <th className={`${thCls} lg:w-[120px]`}>Публиковать контакты</th>
                             <th className={`${thCls} lg:w-[90px] lg:sticky lg:right-0 lg:z-10 lg:bg-white lg:dark:bg-neutral-900
                                 lg:border-l lg:border-gray-100 lg:dark:border-gray-800`} />
                         </tr>
@@ -427,18 +435,8 @@ export default function DealersPage() {
                                     <td className={cellCls}>
                                         <CellLabel>E-mail</CellLabel>
                                         <div className="min-w-0 flex-1 lg:flex-none">
-                                            <div className="flex items-center gap-1 min-w-0">
-                                                <span className="truncate" title={dealer.email || ''}>
-                                                    {dealer.email || '—'}
-                                                </span>
-                                                {/* Контакты скрыты на сайте — отметка, чтобы состояние
-                                                    было видно без второй галочки в таблице */}
-                                                {dealer.contacts_published === false && (
-                                                    <span className="shrink-0 text-gray-400 dark:text-gray-500"
-                                                        title="Контакты не публикуются на сайте">
-                                                        <IconLock className="w-3 h-3" />
-                                                    </span>
-                                                )}
+                                            <div className="truncate" title={dealer.email || ''}>
+                                                {dealer.email || '—'}
                                             </div>
                                             {dealer.website && (
                                                 <div className="text-[11px] text-gray-400 dark:text-gray-500
@@ -449,7 +447,7 @@ export default function DealersPage() {
                                         </div>
                                     </td>
                                     <td className={cellCls}>
-                                        <CellLabel>Публикация</CellLabel>
+                                        <CellLabel>Показывать на сайте</CellLabel>
                                         <input type="checkbox" className="rounded"
                                             checked={dealer.is_published === true}
                                             disabled={!active || !publishSupported || busyId === dealer.id}
@@ -460,6 +458,17 @@ export default function DealersPage() {
                                                 : active
                                                     ? 'Показывать запись на сайте (карта «Сеть присутствия» и проверка дилера)'
                                                     : 'Сначала восстановите авторизацию: сайт получает только активных дилеров'} />
+                                    </td>
+                                    <td className={cellCls}>
+                                        <CellLabel>Публиковать контакты</CellLabel>
+                                        <input type="checkbox" className="rounded"
+                                            checked={dealer.contacts_published === true}
+                                            disabled={!active || busyId === dealer.id}
+                                            onChange={e => toggleContacts(dealer, e.target.checked)}
+                                            aria-label={`Публиковать контакты: ${dealer.name}`}
+                                            title={active
+                                                ? 'Показывать на сайте телефоны, e-mail и сайт записи'
+                                                : 'Сначала восстановите авторизацию: сайт получает только активных дилеров'} />
                                     </td>
                                     <td className={`${cellCls} justify-end lg:text-right
                                         lg:sticky lg:right-0 lg:z-10 lg:bg-white lg:dark:bg-neutral-900
@@ -494,7 +503,7 @@ export default function DealersPage() {
                         })}
                         {!loading && data.results.length === 0 && (
                             <tr>
-                                <td colSpan={11} className="px-3 py-8 text-center text-gray-400">
+                                <td colSpan={12} className="px-3 py-8 text-center text-gray-400">
                                     {filter === 'inactive' ? 'Неактивных дилеров нет' : 'Дилеров нет'}
                                 </td>
                             </tr>

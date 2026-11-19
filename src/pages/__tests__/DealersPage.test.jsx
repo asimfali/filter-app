@@ -466,32 +466,49 @@ describe('DealersPage — публикация записи на сайте', ()
         expect(dealersApi.update).not.toHaveBeenCalled();
     });
 
-    it('у неактивного дилера галочка недоступна: сайт получает только активных', async () => {
+    it('у неактивного дилера обе галочки недоступны: сайт получает только активных', async () => {
         asUser('portal.dealers.write');
         dealersApi.list.mockResolvedValue(listOk([dealer({ is_active: false })]));
         render(<DealersPage />);
         fireEvent.click(await screen.findByRole('button', { name: /^Неактивные/ }));
 
         expect(await screen.findByRole('checkbox', { name: /Показывать на сайте/ })).toBeDisabled();
+        expect(screen.getByRole('checkbox', { name: /Публиковать контакты:/ })).toBeDisabled();
         expect(dealersApi.update).not.toHaveBeenCalled();
     });
 
-    it('скрытые контакты помечены замком у e-mail', async () => {
+    it('вторая галочка — контакты: своё состояние и свой PATCH', async () => {
         asUser('portal.dealers.write');
-        dealersApi.list.mockResolvedValue(listOk([dealer({ contacts_published: false })]));
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer({ is_published: true, contacts_published: false }),
+        ]));
+        dealersApi.update.mockResolvedValue(ok({}));
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        expect(screen.getByTitle('Контакты не публикуются на сайте')).toBeInTheDocument();
+        const contacts = screen.getByRole('checkbox', { name: 'Публиковать контакты: ООО «Тепломаш-Юг»' });
+        expect(contacts).not.toBeChecked();
+        expect(box()).toBeChecked();
+
+        fireEvent.click(contacts);
+
+        expect(contacts).toBeChecked();
+        await waitFor(() => expect(dealersApi.update).toHaveBeenCalledWith(1, { contacts_published: true }));
+        // публикацию записи не трогали
+        expect(dealersApi.update).toHaveBeenCalledTimes(1);
     });
 
-    it('опубликованные контакты замка не показывают', async () => {
+    it('галочки независимы: снятие публикации записи не снимает контакты', async () => {
         asUser('portal.dealers.write');
-        dealersApi.list.mockResolvedValue(listOk([dealer({ contacts_published: true })]));
+        dealersApi.list.mockResolvedValue(listOk([dealer({ is_published: true, contacts_published: true })]));
+        dealersApi.update.mockResolvedValue(ok({}));
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        expect(screen.queryByTitle('Контакты не публикуются на сайте')).not.toBeInTheDocument();
+        fireEvent.click(box());
+
+        await waitFor(() => expect(dealersApi.update).toHaveBeenCalledWith(1, { is_published: false }));
+        expect(screen.getByRole('checkbox', { name: 'Публиковать контакты: ООО «Тепломаш-Юг»' })).toBeChecked();
     });
 });
 
