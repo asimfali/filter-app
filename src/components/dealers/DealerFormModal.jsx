@@ -15,6 +15,7 @@ const EMPTY = {
     website: '',
     email: '',
     letter_sent_at: '',
+    contacts_published: false,
 };
 
 const fromDealer = (dealer) => ({
@@ -27,6 +28,7 @@ const fromDealer = (dealer) => ({
     website: dealer.website ?? '',
     email: dealer.email ?? '',
     letter_sent_at: dealer.letter_sent_at ? String(dealer.letter_sent_at).slice(0, 10) : '',
+    contacts_published: dealer.contacts_published === true,
 });
 
 // Разбор ошибок полей: конверт портала {"success": false, "error": {"fields": {...}}}
@@ -86,6 +88,7 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
             website: form.website.trim(),
             email: form.email.trim(),
             letter_sent_at: form.letter_sent_at || null,
+            contacts_published: form.contacts_published,
         };
 
         try {
@@ -179,6 +182,23 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
                 {field('website', 'Сайт')}
                 {field('email', 'E-mail', { type: 'email' })}
                 {field('letter_sent_at', 'Дата письма', { type: 'date' })}
+                {/* Публикация контактов: телефоны/e-mail/сайт уходят на сайт только при
+                    включённой галочке; снятая галочка данные не стирает */}
+                <label className="md:col-span-2 flex items-start gap-2 text-sm
+                    text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" className="mt-0.5 rounded"
+                        aria-label="Публиковать контакты"
+                        checked={form.contacts_published}
+                        onChange={e => set('contacts_published', e.target.checked)} />
+                    <span>
+                        Публиковать контакты
+                        <span className="block text-[11px] text-gray-400 dark:text-gray-500">
+                            Телефоны, e-mail и сайт уходят на сайт только при включённой галочке.
+                            Снятая галочка данные не стирает — контакты просто перестают
+                            отдаваться наружу.
+                        </span>
+                    </span>
+                </label>
             </div>
 
             {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}

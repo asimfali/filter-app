@@ -202,6 +202,33 @@ export default function DealersPage() {
         }
     };
 
+    // Точечное обновление строки в уже загруженном списке — без перезагрузки:
+    // иначе после PATCH список пересортируется по свежести и галочка уедет из-под курсора.
+    const patchRow = (id, patch) => setData(prev => ({
+        ...prev,
+        results: prev.results.map(item => (item.id === id ? { ...item, ...patch } : item)),
+    }));
+
+    // Галочка «публиковать контакты» — PATCH по одному полю. Ставим её сразу
+    // (оптимистично), при ошибке откатываем и показываем текст портала.
+    const toggleContacts = async (dealer, next) => {
+        setBusyId(dealer.id);
+        setError('');
+        patchRow(dealer.id, { contacts_published: next });
+        try {
+            const { ok, data: body, status } = await dealersApi.update(dealer.id, { contacts_published: next });
+            if (!ok || body?.success === false) {
+                patchRow(dealer.id, { contacts_published: !next });
+                setError(envelopeError(body, status));
+            }
+        } catch {
+            patchRow(dealer.id, { contacts_published: !next });
+            setError('Не удалось изменить публикацию контактов');
+        } finally {
+            setBusyId(null);
+        }
+    };
+
     const askRevoke = (dealer) => {
         showConfirm(
             `Отменить авторизацию дилера «${dealer.name}» (ИНН ${dealer.inn})? ` +
@@ -292,7 +319,7 @@ export default function DealersPage() {
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-x-auto">
-                <table className="w-full text-sm block lg:table lg:table-fixed lg:min-w-[1210px]">
+                <table className="w-full text-sm block lg:table lg:table-fixed lg:min-w-[1290px]">
                     <thead className="hidden lg:table-header-group">
                         <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                             <th className={`${thCls} lg:w-[110px]`}>ИНН</th>
@@ -301,9 +328,11 @@ export default function DealersPage() {
                             <th className={`${thCls} lg:w-[130px]`}>Группа</th>
                             <th className={`${thCls} lg:w-[140px]`}>Статус</th>
                             <th className={`${thCls} lg:w-[110px] whitespace-nowrap`}>Письмо</th>
-                            <th className={`${thCls} lg:w-[130px]`}>Директор</th>
-                            <th className={`${thCls} lg:w-[130px]`}>Телефон</th>
-                            <th className={`${thCls} lg:w-[170px]`}>E-mail</th>
+                            <th className={`${thCls} lg:w-[120px]`}>Директор</th>
+                            <th className={`${thCls} lg:w-[120px]`}>Телефон</th>
+                            <th className={`${thCls} lg:w-[160px]`}>E-mail</th>
+                            <th className={`${thCls} lg:w-[100px]`}
+                                title="Публиковать контакты на сайте">Публикация</th>
                             <th className={`${thCls} lg:w-[90px] lg:sticky lg:right-0 lg:z-10 lg:bg-white lg:dark:bg-neutral-900
                                 lg:border-l lg:border-gray-100 lg:dark:border-gray-800`} />
                         </tr>
@@ -401,6 +430,17 @@ export default function DealersPage() {
                                             )}
                                         </div>
                                     </td>
+                                    <td className={cellCls}>
+                                        <CellLabel>Публикация</CellLabel>
+                                        <input type="checkbox" className="rounded"
+                                            checked={dealer.contacts_published === true}
+                                            disabled={!active || busyId === dealer.id}
+                                            onChange={e => toggleContacts(dealer, e.target.checked)}
+                                            aria-label={`Публиковать контакты: ${dealer.name}`}
+                                            title={active
+                                                ? 'Публиковать контакты (телефоны, e-mail, сайт) на сайте'
+                                                : 'Сначала восстановите авторизацию: сайт получает только активных дилеров'} />
+                                    </td>
                                     <td className={`${cellCls} justify-end lg:text-right
                                         lg:sticky lg:right-0 lg:z-10 lg:bg-white lg:dark:bg-neutral-900
                                         lg:border-l lg:border-gray-100 lg:dark:border-gray-800`}>
@@ -434,7 +474,7 @@ export default function DealersPage() {
                         })}
                         {!loading && data.results.length === 0 && (
                             <tr>
-                                <td colSpan={10} className="px-3 py-8 text-center text-gray-400">
+                                <td colSpan={11} className="px-3 py-8 text-center text-gray-400">
                                     {filter === 'inactive' ? 'Неактивных дилеров нет' : 'Дилеров нет'}
                                 </td>
                             </tr>
