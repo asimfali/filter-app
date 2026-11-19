@@ -16,6 +16,7 @@ const EMPTY = {
     email: '',
     letter_sent_at: '',
     contacts_published: false,
+    is_published: true,
 };
 
 const fromDealer = (dealer) => ({
@@ -29,6 +30,8 @@ const fromDealer = (dealer) => ({
     email: dealer.email ?? '',
     letter_sent_at: dealer.letter_sent_at ? String(dealer.letter_sent_at).slice(0, 10) : '',
     contacts_published: dealer.contacts_published === true,
+    // Старый портал флаг не отдаёт — считаем запись опубликованной, как оно и было
+    is_published: dealer.is_published !== false,
 });
 
 // Разбор ошибок полей: конверт портала {"success": false, "error": {"fields": {...}}}
@@ -89,6 +92,7 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
             email: form.email.trim(),
             letter_sent_at: form.letter_sent_at || null,
             contacts_published: form.contacts_published,
+            is_published: form.is_published,
         };
 
         try {
@@ -182,23 +186,39 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
                 {field('website', 'Сайт')}
                 {field('email', 'E-mail', { type: 'email' })}
                 {field('letter_sent_at', 'Дата письма', { type: 'date' })}
-                {/* Публикация контактов: телефоны/e-mail/сайт уходят на сайт только при
-                    включённой галочке; снятая галочка данные не стирает */}
-                <label className="md:col-span-2 flex items-start gap-2 text-sm
-                    text-gray-700 dark:text-gray-300">
-                    <input type="checkbox" className="mt-0.5 rounded"
-                        aria-label="Публиковать контакты"
-                        checked={form.contacts_published}
-                        onChange={e => set('contacts_published', e.target.checked)} />
-                    <span>
-                        Публиковать контакты
-                        <span className="block text-[11px] text-gray-400 dark:text-gray-500">
-                            Телефоны, e-mail и сайт уходят на сайт только при включённой галочке.
-                            Снятая галочка данные не стирает — контакты просто перестают
-                            отдаваться наружу.
+                {/* Два уровня публикации: запись целиком уходит на сайт по is_published
+                    (карта «Сеть присутствия» + проверка дилера), а телефоны/e-mail/сайт —
+                    только при contacts_published. Снятая галочка данные не стирает. */}
+                <div className="md:col-span-2 space-y-2 pt-1">
+                    <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" className="mt-0.5 rounded"
+                            aria-label="Показывать на сайте"
+                            checked={form.is_published}
+                            onChange={e => set('is_published', e.target.checked)} />
+                        <span>
+                            Показывать запись на сайте
+                            <span className="block text-[11px] text-gray-400 dark:text-gray-500">
+                                Запись уходит в выгрузку для сайта: карта «Сеть присутствия» и
+                                проверка авторизации дилера. Снятая галочка убирает дилера с сайта
+                                целиком, данные на портале остаются.
+                            </span>
                         </span>
-                    </span>
-                </label>
+                    </label>
+                    <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" className="mt-0.5 rounded"
+                            aria-label="Публиковать контакты"
+                            checked={form.contacts_published}
+                            onChange={e => set('contacts_published', e.target.checked)} />
+                        <span>
+                            Публиковать контакты
+                            <span className="block text-[11px] text-gray-400 dark:text-gray-500">
+                                Телефоны, e-mail и сайт показываются на сайте только при этой
+                                галочке — даже если запись опубликована. Снятая галочка данные
+                                не стирает.
+                            </span>
+                        </span>
+                    </label>
+                </div>
             </div>
 
             {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}

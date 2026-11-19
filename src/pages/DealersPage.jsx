@@ -7,7 +7,7 @@ import { envelopeError } from '../utils';
 import { useModals } from '../hooks/useModals';
 import DealerFormModal from '../components/dealers/DealerFormModal';
 import DealerImportModal from '../components/dealers/DealerImportModal';
-import { IconPencil, IconBan, IconUndo } from '../components/common/Icons';
+import { IconPencil, IconBan, IconUndo, IconLock } from '../components/common/Icons';
 
 const PAGE_SIZE = 50;
 
@@ -209,21 +209,26 @@ export default function DealersPage() {
         results: prev.results.map(item => (item.id === id ? { ...item, ...patch } : item)),
     }));
 
-    // Галочка «публиковать контакты» — PATCH по одному полю. Ставим её сразу
+    // Галочка «показывать на сайте» — PATCH по одному полю. Ставим её сразу
     // (оптимистично), при ошибке откатываем и показываем текст портала.
-    const toggleContacts = async (dealer, next) => {
+    // Правит запись целиком (уходит ли она в выгрузку сайта), а не отдельный блок
+    // контактов: тем флагом (contacts_published) управляют в форме дилера.
+    const togglePublished = async (dealer, next) => {
+        // Портал ещё не отдаёт флаг — PATCH по неизвестному полю молча ничего не сделал бы,
+        // а галочка соврала бы. Такую запись не трогаем вовсе.
+        if (!('is_published' in dealer)) return;
         setBusyId(dealer.id);
         setError('');
-        patchRow(dealer.id, { contacts_published: next });
+        patchRow(dealer.id, { is_published: next });
         try {
-            const { ok, data: body, status } = await dealersApi.update(dealer.id, { contacts_published: next });
+            const { ok, data: body, status } = await dealersApi.update(dealer.id, { is_published: next });
             if (!ok || body?.success === false) {
-                patchRow(dealer.id, { contacts_published: !next });
+                patchRow(dealer.id, { is_published: !next });
                 setError(envelopeError(body, status));
             }
         } catch {
-            patchRow(dealer.id, { contacts_published: !next });
-            setError('Не удалось изменить публикацию контактов');
+            patchRow(dealer.id, { is_published: !next });
+            setError('Не удалось изменить публикацию записи на сайте');
         } finally {
             setBusyId(null);
         }
@@ -340,6 +345,9 @@ export default function DealersPage() {
                     <tbody className={`block lg:table-row-group ${loading ? 'opacity-50' : ''}`}>
                         {data.results.map(dealer => {
                             const active = dealer.is_active !== false;
+                            // Флаг публикации записи портал пока не отдаёт — галочку не врём,
+                            // а держим выключенной, пока поле не появится в ответе списка
+                            const publishSupported = 'is_published' in dealer;
                             return (
                                 <tr key={dealer.id}
                                     className={`block lg:table-row px-4 py-2 lg:p-0 border-b last:border-0
@@ -419,8 +427,18 @@ export default function DealersPage() {
                                     <td className={cellCls}>
                                         <CellLabel>E-mail</CellLabel>
                                         <div className="min-w-0 flex-1 lg:flex-none">
-                                            <div className="truncate" title={dealer.email || ''}>
-                                                {dealer.email || '—'}
+                                            <div className="flex items-center gap-1 min-w-0">
+                                                <span className="truncate" title={dealer.email || ''}>
+                                                    {dealer.email || '—'}
+                                                </span>
+                                                {/* Контакты скрыты на сайте — отметка, чтобы состояние
+                                                    было видно без второй галочки в таблице */}
+                                                {dealer.contacts_published === false && (
+                                                    <span className="shrink-0 text-gray-400 dark:text-gray-500"
+                                                        title="Контакты не публикуются на сайте">
+                                                        <IconLock className="w-3 h-3" />
+                                                    </span>
+                                                )}
                                             </div>
                                             {dealer.website && (
                                                 <div className="text-[11px] text-gray-400 dark:text-gray-500
@@ -433,13 +451,15 @@ export default function DealersPage() {
                                     <td className={cellCls}>
                                         <CellLabel>Публикация</CellLabel>
                                         <input type="checkbox" className="rounded"
-                                            checked={dealer.contacts_published === true}
-                                            disabled={!active || busyId === dealer.id}
-                                            onChange={e => toggleContacts(dealer, e.target.checked)}
-                                            aria-label={`Публиковать контакты: ${dealer.name}`}
-                                            title={active
-                                                ? 'Публиковать контакты (телефоны, e-mail, сайт) на сайте'
-                                                : 'Сначала восстановите авторизацию: сайт получает только активных дилеров'} />
+                                            checked={dealer.is_published === true}
+                                            disabled={!active || !publishSupported || busyId === dealer.id}
+                                            onChange={e => togglePublished(dealer, e.target.checked)}
+                                            aria-label={`Показывать на сайте: ${dealer.name}`}
+                                            title={!publishSupported
+                                                ? 'Портал пока не отдаёт флаг публикации записи'
+                                                : active
+                                                    ? 'Показывать запись на сайте (карта «Сеть присутствия» и проверка дилера)'
+                                                    : 'Сначала восстановите авторизацию: сайт получает только активных дилеров'} />
                                     </td>
                                     <td className={`${cellCls} justify-end lg:text-right
                                         lg:sticky lg:right-0 lg:z-10 lg:bg-white lg:dark:bg-neutral-900
