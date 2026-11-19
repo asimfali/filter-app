@@ -1,9 +1,9 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents when working with code in this repository.
 
-Project-specific workflow rules (DRY discipline, diff-only edits, no multiple-choice questions) live in
-`.claude/CLAUDE.md` — read it, it is not repeated here.
+Project-specific workflow rules (DRY discipline, diff-only edits, no multiple-choice questions) live in the
+«Workflow сессии и стандарты кода» section at the end of this file — read it, it is not repeated here.
 
 ## What this is
 
@@ -21,7 +21,7 @@ npm run build       # vite build -> dist/
 npm run lint        # eslint .
 npm run preview     # preview the production build
 
-# Tests — Vitest + Testing Library (see .claude/skills/frontend-tests/SKILL.md for conventions)
+# Tests — Vitest + Testing Library (see .agents/skills/frontend-tests/SKILL.md for conventions)
 npm test                                             # whole suite (vitest run)
 npm run test:watch                                   # watch mode
 npx vitest run src/utils/__tests__/permissions.test.js
@@ -44,7 +44,7 @@ Never run these unless the user explicitly asks to deploy — they push to share
   (`authority`, `catalog`, `external_api`, `media_library`, `bom`, `plm`, `selection`, `sales`, `issues`).
   Источник permission-кодов (`RBACService`), формата ответа (`{"success": ..., "data"/"error": ...}`) и
   WebSocket-протокола `apps.issues` (Channels/Daphne, порт 8001), который потребляет `useIssuesSocket.js`.
-  Его собственный `CLAUDE.md`/`.claude/CLAUDE.md` документируют backend-инварианты и ссылаются на этот
+  Его собственный `AGENTS.md` документирует backend-инварианты и ссылается на этот
   репозиторий (`~/develop/filter-app`) так же, только-на-чтение, в обратную сторону.
 
 ## Architecture
@@ -146,4 +146,57 @@ input styling per component. Most UI text/labels are Russian; keep new UI copy c
 
 ## Память проекта
 
-Важные решения и договорённости фиксируй в `docs/DECISIONS.md` — дописывать в конец, существующие записи не менять (файл общий с Claude Code, append-only). Быстро — `/remember <суть>`. Не дублируй туда то, что уже есть в этом файле или в `.claude/CLAUDE.md`; секреты не записывать.
+Важные решения и договорённости фиксируй в `docs/DECISIONS.md` — дописывать в конец, существующие записи не менять (файл общий для нескольких агентов, append-only). Не дублируй туда то, что уже есть в этом файле; секреты не записывать.
+
+---
+
+## Workflow сессии и стандарты кода
+
+### DRY (жёстко)
+
+Перед созданием компонента/хука/api-метода — grep по проекту на похожее имя и назначение.
+Если аналог есть — расширить его, не дублировать, и сказать пользователю, что расширяешь
+(например: переиспользовать `SmartSelect`/`Dropdown`/`Modal` из `src/components/common/`,
+`inputCls` из `src/utils/styles.js`, `apiFetch`/`parseError` вместо новой обвязки над `fetch`).
+Перед новым api-модулем — проверить, нет ли уже подходящего в `src/api/`.
+Не переписывать файл целиком, если меняется один метод/JSX-блок — только diff.
+
+### Перед коммитом (обязательно)
+
+1. Переиспользование — см. DRY выше: сначала grep по похожему имени/назначению, потом код.
+2. Тесты: `npx vitest run <изменённые *.test.jsx>` точечно по затронутым файлам; `npm test`
+   (весь сьют) — если менялся общий код (хук/утилита/API-слой, используемые в нескольких местах)
+   или это финальный коммит батча из нескольких файлов.
+3. `npm run lint` — новых ошибок сверх текущего фона быть не должно (в проекте не используется
+   PropTypes — `react/prop-types` заведомо шумит на каждый компонент, это не блокер; но
+   `no-unused-vars` и подобные реальные ошибки — блокер).
+4. `npm run build` — обязательно при переносе/переименовании/удалении файлов: ловит битые
+   import-пути и протухшие `vi.mock('...старый путь...')` в тестах, которые сами тесты могут
+   молча не заметить (мок на несуществующий путь просто не подменяет реальный компонент).
+5. Коммитить только когда 2–4 зелёные.
+
+### Принципы
+
+- Минимум кода: только новое или diff изменений, без бойлерплейта.
+- Без диалогов с выбором внутри ответа: вопрос задать текстом — ответ придёт сам.
+- Рабочий проект: боевой код, не "пример реализации".
+- Баг — исправить. Лучший подход — предложить с коротким обоснованием и реализовать.
+
+### Стандарты кода (frontend)
+
+- JavaScript + JSX (не TypeScript) — проект не типизирован, `.jsx`/`.js` везде.
+- Tailwind для стилей, без отдельных CSS-файлов (кроме `App.css`/`index.css` — не трогать без нужды).
+- Существующие компоненты (`src/components/common/`) переиспользовать — спросить, если структура неизвестна.
+- UI-текст на русском — держать новый текст в том же стиле.
+- Права — только через `can(user, code)`/`canAny(user, codes)` из `src/utils/permissions.js`, никогда не хардкодить роли.
+
+### Чего не делать
+
+- Не копировать обратно код, который уже есть в контексте.
+- Не предлагать смену стека.
+- Не писать полный файл, если нужно изменить один метод/блок — только diff.
+- Не задавать вопрос с вариантами ответа — выбрать лучший и обосновать.
+
+### Тесты
+
+См. `.agents/skills/frontend-tests/SKILL.md` — стек и конвенции.
