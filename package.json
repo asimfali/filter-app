@@ -57,5 +57,9 @@
     "firefox >= 52",
     "edge >= 18",
     "not ie 11"
-  ]
+  ],
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "core-js": false
+  }
 }
