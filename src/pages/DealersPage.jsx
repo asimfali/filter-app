@@ -24,11 +24,11 @@ const matchesSearch = (dealer, search) => {
         .some(value => String(value ?? '').toLowerCase().includes(q));
 };
 
-// Портал отдаёт список массивом целиком: filter_backends и пагинации у ViewSet нет
-// (в settings нет DEFAULT_FILTER_BACKENDS/DEFAULT_PAGINATION_CLASS), поэтому статус,
-// поиск, сортировку и страницы режем на клиенте. Заявлено, что дальше будет «везде
-// конверт {success, data}», поэтому разворачиваем и его: data может быть массивом
-// или страницей {count, results}.
+// Портал отдаёт список массивом целиком: пагинации у ViewSet нет, серверные фильтры
+// (?group/?search/?is_active) есть, но счётчикам в шапке нужны все записи сразу,
+// поэтому статус, группа, поиск, сортировку и страницы режем на клиенте. Заявлено,
+// что дальше будет «везде конверт {success, data}», поэтому разворачиваем и его:
+// data может быть массивом или страницей {count, results}.
 const unwrap = (body) => (
     body && !Array.isArray(body) && typeof body === 'object' && 'success' in body
         ? body.data
@@ -58,7 +58,10 @@ const matchesStatus = (dealer, filter) => {
     return true;
 };
 
-const buildView = (body, { search, filter, page }) => {
+// Группа контрагента: пусто в фильтре — все группы (в т.ч. дилеры, у которых поля ещё нет)
+const matchesGroup = (dealer, group) => !group || dealer.group === group;
+
+const buildView = (body, { search, filter, group, page }) => {
     const data = unwrap(body);
     // Серверная страница: разбивку по статусам из неё не посчитать — панель покажет значения без цифр
     if (!Array.isArray(data)) {
@@ -71,6 +74,7 @@ const buildView = (body, { search, filter, page }) => {
     };
     const filtered = data
         .filter(dealer => matchesStatus(dealer, filter))
+        .filter(dealer => matchesGroup(dealer, group))
         .filter(dealer => matchesSearch(dealer, search))
         .sort((a, b) => freshTime(b) - freshTime(a));
     const start = (page - 1) * PAGE_SIZE;
@@ -112,6 +116,8 @@ export default function DealersPage() {
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('active'); // all | active | inactive
+    const [groupFilter, setGroupFilter] = useState(''); // '' — все группы, иначе значение из /groups/
+    const [groups, setGroups] = useState([]);       // [{value, label}] с портала — для фильтра и формы
     const [counts, setCounts] = useState(null);     // {total, active, inactive} по всему справочнику
     const [page, setPage] = useState(1);
     const [data, setData] = useState({ count: 0, results: [] });
@@ -141,12 +147,12 @@ export default function DealersPage() {
         setLoading(true);
         setError('');
         try {
-            // Справочник тянем целиком (без search/is_active: портал их пока не применяет,
-            // а счётчики в панели считаются по всем дилерам, не по найденным).
+            // Справочник тянем целиком: счётчики в панели считаются по всем дилерам,
+            // а не по найденным (серверные фильтры портал принимает, но здесь не нужны).
             const { ok, data: body, status } = await dealersApi.list({});
             if (req !== reqRef.current) return;
             if (ok && body?.success !== false) {
-                const view = buildView(body, { search, filter, page });
+                const view = buildView(body, { search, filter, group: groupFilter, page });
                 setData({ count: view.count, results: view.results });
                 setCounts(view.counts);
             } else {
@@ -157,9 +163,23 @@ export default function DealersPage() {
         } finally {
             if (req === reqRef.current) setLoading(false);
         }
-    }, [search, filter, page]);
+    }, [search, filter, groupFilter, page]);
 
     useEffect(() => { if (canView) load(); }, [canView, load]);
+
+    // Группы контрагента нужны и фильтру, и форме — запрашиваем один раз на страницу.
+    // Ошибка справочника групп не блокирует список: фильтр просто останется без вариантов.
+    useEffect(() => {
+        if (!canView) return undefined;
+        let alive = true;
+        dealersApi.groups()
+            .then(({ ok, data: body }) => {
+                const list = unwrap(body);
+                if (alive && ok && Array.isArray(list)) setGroups(list);
+            })
+            .catch(() => {});
+        return () => { alive = false; };
+    }, [canView]);
 
     if (!canView) {
         return <p className="text-sm text-gray-500 dark:text-gray-400">Недостаточно прав для просмотра дилеров</p>;
@@ -254,6 +274,15 @@ export default function DealersPage() {
                         );
                     })}
                 </div>
+                <div className="w-full sm:w-48">
+                    <select className={inputCls} aria-label="Фильтр по группе" value={groupFilter}
+                        onChange={e => { setGroupFilter(e.target.value); setPage(1); }}>
+                        <option value="">Все группы</option>
+                        {groups.map(({ value, label }) => (
+                            <option key={value} value={value}>{label}</option>
+                        ))}
+                    </select>
+                </div>
                 <div className="w-full sm:w-72 sm:ml-auto">
                     <input className={inputCls} value={searchInput} placeholder="ИНН, код, название…"
                         onChange={e => setSearchInput(e.target.value)} />
@@ -263,12 +292,13 @@ export default function DealersPage() {
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-x-auto">
-                <table className="w-full text-sm block lg:table lg:table-fixed lg:min-w-[1080px]">
+                <table className="w-full text-sm block lg:table lg:table-fixed lg:min-w-[1210px]">
                     <thead className="hidden lg:table-header-group">
                         <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                             <th className={`${thCls} lg:w-[110px]`}>ИНН</th>
                             <th className={`${thCls} lg:w-[70px]`}>Код</th>
                             <th className={thCls}>Название</th>
+                            <th className={`${thCls} lg:w-[130px]`}>Группа</th>
                             <th className={`${thCls} lg:w-[140px]`}>Статус</th>
                             <th className={`${thCls} lg:w-[110px] whitespace-nowrap`}>Письмо</th>
                             <th className={`${thCls} lg:w-[130px]`}>Директор</th>
@@ -306,6 +336,15 @@ export default function DealersPage() {
                                                     {dealer.legal_address}
                                                 </div>
                                             )}
+                                        </div>
+                                    </td>
+                                    <td className={cellCls}>
+                                        <CellLabel>Группа</CellLabel>
+                                        <div className="min-w-0 flex-1 lg:flex-none">
+                                            <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap
+                                                bg-neutral-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-300">
+                                                {dealer.group_label || dealer.group || '—'}
+                                            </span>
                                         </div>
                                     </td>
                                     <td className={cellCls}>
@@ -395,7 +434,7 @@ export default function DealersPage() {
                         })}
                         {!loading && data.results.length === 0 && (
                             <tr>
-                                <td colSpan={9} className="px-3 py-8 text-center text-gray-400">
+                                <td colSpan={10} className="px-3 py-8 text-center text-gray-400">
                                     {filter === 'inactive' ? 'Неактивных дилеров нет' : 'Дилеров нет'}
                                 </td>
                             </tr>
@@ -417,6 +456,7 @@ export default function DealersPage() {
             {form && (
                 <DealerFormModal
                     dealer={form.dealer}
+                    groups={groups}
                     onClose={() => setForm(null)}
                     onSaved={() => { setForm(null); load(); }}
                 />

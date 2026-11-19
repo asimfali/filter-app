@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DealersPage from '../DealersPage';
 import { dealersApi } from '../../api/dealers';
@@ -9,6 +9,7 @@ vi.mock('../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../../api/dealers', () => ({
     dealersApi: {
         list: vi.fn(),
+        groups: vi.fn(),
         get: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
@@ -40,9 +41,19 @@ const dealer = (over = {}) => ({
 const asUser = (...perms) => useAuth.mockReturnValue({ user: { id: 1, permissions: perms } });
 const lastParams = () => dealersApi.list.mock.calls.at(-1)[0];
 
+// Подписи групп приходят с портала — фронт их не хардкодит
+const GROUPS = [
+    { value: 'dealer', label: 'Дилер' },
+    { value: 'branch', label: 'Филиал' },
+    { value: 'distributor', label: 'Дистрибьютор' },
+    { value: 'service_center', label: 'Сервисный центр' },
+];
+const groupsOk = (list = GROUPS) => ({ ok: true, status: 200, data: { success: true, data: list } });
+
 beforeEach(() => {
     vi.clearAllMocks();
     dealersApi.list.mockResolvedValue(listOk([dealer()]));
+    dealersApi.groups.mockResolvedValue(groupsOk());
 });
 
 describe('DealersPage — список', () => {
@@ -51,6 +62,7 @@ describe('DealersPage — список', () => {
         render(<DealersPage />);
         expect(screen.getByText(/Недостаточно прав для просмотра дилеров/)).toBeInTheDocument();
         expect(dealersApi.list).not.toHaveBeenCalled();
+        expect(dealersApi.groups).not.toHaveBeenCalled();
     });
 
     it('по умолчанию просит справочник целиком и рисует только активных', async () => {
@@ -208,6 +220,85 @@ describe('DealersPage — панель со счётчиками', () => {
 
         expect(screen.getByRole('button', { name: 'Все 2' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Активные 2' })).toBeInTheDocument();
+    });
+});
+
+describe('DealersPage — группа контрагента', () => {
+    const rowOf = async (name) => (await screen.findByText(name)).closest('tr');
+
+    it('в строке бейдж с подписью из group_label', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer({ group: 'branch', group_label: 'Филиал' }),
+            dealer({ id: 2, inn: '5900000001', name: 'ООО «Урал-Тепло»', group: 'distributor', group_label: 'Дистрибьютор' }),
+        ]));
+        render(<DealersPage />);
+
+        expect(within(await rowOf('ООО «Тепломаш-Юг»')).getByText('Филиал')).toBeInTheDocument();
+        expect(within(await rowOf('ООО «Урал-Тепло»')).getByText('Дистрибьютор')).toBeInTheDocument();
+    });
+
+    it('фильтр по группе берёт варианты из /groups/ и сужает список', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer({ group: 'dealer', group_label: 'Дилер' }),
+            dealer({ id: 2, inn: '5900000001', name: 'ООО «Урал-Тепло»', group: 'branch', group_label: 'Филиал' }),
+        ]));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        const select = screen.getByLabelText('Фильтр по группе');
+        await waitFor(() => expect(select).toContainElement(
+            screen.getByRole('option', { name: 'Сервисный центр' }),
+        ));
+        expect(screen.getByRole('option', { name: 'Все группы' })).toBeInTheDocument();
+
+        await userEvent.selectOptions(select, 'branch');
+
+        expect(await screen.findByText('ООО «Урал-Тепло»')).toBeInTheDocument();
+        expect(screen.queryByText('ООО «Тепломаш-Юг»')).not.toBeInTheDocument();
+
+        await userEvent.selectOptions(select, '');
+
+        expect(await screen.findByText('ООО «Тепломаш-Юг»')).toBeInTheDocument();
+        expect(screen.getByText('ООО «Урал-Тепло»')).toBeInTheDocument();
+    });
+
+    it('создание: группа по умолчанию «Дилер», выбранная уходит в POST', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.create.mockResolvedValue(ok({ inn: '7709999999', code: 'D10001' }));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        await userEvent.click(screen.getByRole('button', { name: 'Добавить дилера' }));
+        const group = screen.getByLabelText('Группа');
+        expect(group).toHaveValue('dealer');
+
+        await userEvent.type(screen.getByLabelText('ИНН *'), '7709999999');
+        await userEvent.type(screen.getByLabelText('Название *'), 'ООО «Север»');
+        await userEvent.selectOptions(group, 'distributor');
+        await userEvent.click(screen.getByRole('button', { name: 'Создать' }));
+
+        await waitFor(() => expect(dealersApi.create).toHaveBeenCalledTimes(1));
+        expect(dealersApi.create.mock.calls[0][0]).toMatchObject({ group: 'distributor' });
+    });
+
+    it('редактирование: в селекте текущая группа, PATCH её сохраняет', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([dealer({ group: 'service_center', group_label: 'Сервисный центр' })]));
+        dealersApi.update.mockResolvedValue(ok({}));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        await userEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
+        const group = await screen.findByLabelText('Группа');
+        await waitFor(() => expect(group).toHaveValue('service_center'));
+
+        await userEvent.selectOptions(group, 'branch');
+        await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+        await waitFor(() => expect(dealersApi.update).toHaveBeenCalledTimes(1));
+        expect(dealersApi.update.mock.calls[0][1]).toMatchObject({ group: 'branch' });
     });
 });
 
