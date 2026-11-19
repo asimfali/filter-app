@@ -8,7 +8,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 vi.mock('../../../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../../../api/auth', () => ({
   apiFetch: vi.fn(),
-  authApi: { specMatrix: vi.fn(), specToggle: vi.fn() },
+  authApi: { specMatrix: vi.fn(), specToggle: vi.fn(), pushDepartmentsToSite: vi.fn() },
 }));
 
 const withPerms = (...perms) => ({ id: 1, permissions: perms });
@@ -470,10 +470,17 @@ describe('StaffPage — назначение роли', () => {
 
 const deptChild = {
   id: 2, name: 'Группа ПО', code: 'po', description: '', parent: 1, members_count: 1, children: [],
+  phone_internal: '', phone_external: '', email: '', head: null,
+  is_published: false, publish_phone_external: true, publish_phone_internal: false,
+  publish_email: true, publish_head: false,
 };
 const deptRoot = {
   id: 1, name: 'Бюро автоматики', code: 'ba', description: 'Автоматика', parent: null,
   members_count: 3, children: [deptChild],
+  phone_internal: '101', phone_external: '+7 (812) 301-99-40', email: 'ba@teplomash.ru',
+  head: { id: 100, name: 'Иванов Иван', email: 'ivanov@tm.ru', internal_phone: '123' },
+  is_published: true, publish_phone_external: true, publish_phone_internal: false,
+  publish_email: true, publish_head: false,
 };
 
 const perm1 = { id: 501, code: 'catalog.product.read', name: 'Чтение товара', resource_type: 'product' };
@@ -531,6 +538,8 @@ describe('StaffPage — вкладка «Подразделения»', () => {
     expect(screen.getByText('3 чел.')).toBeInTheDocument();
     expect(screen.getByText('Группа ПО')).toBeInTheDocument();
     expect(screen.getByText('1 чел.')).toBeInTheDocument();
+    // бейдж «на сайте» только у опубликованного корня
+    expect(screen.getAllByText('на сайте')).toHaveLength(1);
   });
 
   it('пустой список подразделений показывает заглушку', async () => {
@@ -569,7 +578,15 @@ describe('StaffPage — вкладка «Подразделения»', () => {
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalledWith('/api/v1/auth/departments/', expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ name: 'Новое бюро', code: 'nb', description: '', parent: null }),
+      body: JSON.stringify({
+        name: 'Новое бюро', code: 'nb', description: '', parent: null,
+        phone_internal: '', phone_external: '', email: '', head_id: null,
+        is_published: false,
+        publish_phone_external: true,
+        publish_phone_internal: false,
+        publish_email: true,
+        publish_head: false,
+      }),
     })));
     await waitFor(() => expect(screen.queryByText('Новое корневое подразделение')).not.toBeInTheDocument());
   });
@@ -598,6 +615,20 @@ describe('StaffPage — вкладка «Подразделения»', () => {
     expect(screen.getByText('Характеристики')).toBeInTheDocument();
   });
 
+  it('редактирование подставляет контакты, руководителя и настройки публикации', async () => {
+    const user = await gotoDepartments();
+    await screen.findByText('Бюро автоматики');
+    await user.click(screen.getAllByText('✎')[0]);
+
+    expect(screen.getByDisplayValue('+7 (812) 301-99-40')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('101')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('ba@teplomash.ru')).toBeInTheDocument();
+    // users-list пуст — текущий руководитель остаётся отдельной опцией select
+    expect(screen.getByDisplayValue('Иванов Иван')).toBeInTheDocument();
+    expect(screen.getByLabelText('Показывать подразделение на сайте')).toBeChecked();
+    expect(screen.getByLabelText('Внутренний телефон')).not.toBeChecked();
+  });
+
   it('редактирование отправляет PATCH с id подразделения', async () => {
     const user = await gotoDepartments();
     await screen.findByText('Бюро автоматики');
@@ -611,8 +642,59 @@ describe('StaffPage — вкладка «Подразделения»', () => {
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalledWith('/api/v1/auth/departments/1/', expect.objectContaining({
       method: 'PATCH',
-      body: JSON.stringify({ name: 'Бюро автоматики 2', code: 'ba', description: 'Автоматика', parent: null }),
+      body: JSON.stringify({
+        name: 'Бюро автоматики 2', code: 'ba', description: 'Автоматика', parent: null,
+        phone_internal: '101', phone_external: '+7 (812) 301-99-40', email: 'ba@teplomash.ru',
+        head_id: 100,
+        is_published: true,
+        publish_phone_external: true,
+        publish_phone_internal: false,
+        publish_email: true,
+        publish_head: false,
+      }),
     })));
+  });
+
+  describe('синхронизация с сайтом', () => {
+    const clickSync = async (overrides = {}) => {
+      const user = await gotoDepartments(overrides);
+      await screen.findByText('Бюро автоматики');
+      await user.click(screen.getByText('Синхронизировать с сайтом'));
+      return user;
+    };
+
+    it('после подтверждения запускает push-to-site и показывает ответ бэкенда', async () => {
+      authApi.pushDepartmentsToSite.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { success: true, data: { task_id: 't1', message: 'Отправка подразделений на сайт запущена' } },
+      });
+      const user = await clickSync();
+      expect(screen.getByText(/сейчас 1/)).toBeInTheDocument();
+
+      await user.click(screen.getByText('Подтвердить'));
+      await waitFor(() => expect(authApi.pushDepartmentsToSite).toHaveBeenCalledTimes(1));
+      expect(await screen.findByText('Отправка подразделений на сайт запущена')).toBeInTheDocument();
+    });
+
+    it('пустой снимок предупреждает, что раздел «Отделы» на сайте исчезнет', async () => {
+      const user = await clickSync({ departments: [{ ...deptRoot, is_published: false, children: [] }] });
+      expect(screen.getByText(/раздел «Отделы» на сайте исчезнет/)).toBeInTheDocument();
+
+      await user.click(screen.getByText('Отмена'));
+      expect(authApi.pushDepartmentsToSite).not.toHaveBeenCalled();
+    });
+
+    it('ошибка синхронизации показывается через parseError', async () => {
+      authApi.pushDepartmentsToSite.mockResolvedValue({
+        ok: false,
+        status: 403,
+        data: { detail: 'Недостаточно прав' },
+      });
+      const user = await clickSync();
+      await user.click(screen.getByText('Подтвердить'));
+      expect(await screen.findByText('Недостаточно прав')).toBeInTheDocument();
+    });
   });
 
   describe('вкладка «Права» (DeptPermissionsTab)', () => {

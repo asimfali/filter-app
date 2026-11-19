@@ -130,6 +130,18 @@ export const authApi = {
     return { ok: res.ok, data: await res.json() };
   },
 
+  // Полный снимок активных опубликованных подразделений на внешний сайт.
+  // Бэкенд отвечает сразу: {success: true, data: {task_id, message}} — celery
+  // выполняет отправку асинхронно, статуса у подразделений нет.
+  async pushDepartmentsToSite() {
+    const res = await apiFetch(`${BASE}/departments/push-to-site/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    return { ok: res.ok, status: res.status, data: await res.json() };
+  },
+
   async roles() {
     const res = await apiFetch(`${BASE}/roles/`);
     return { ok: res.ok, data: await res.json() };
