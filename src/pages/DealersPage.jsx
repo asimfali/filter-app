@@ -61,11 +61,21 @@ const matchesStatus = (dealer, filter) => {
 // Группа контрагента: пусто в фильтре — все группы (в т.ч. дилеры, у которых поля ещё нет)
 const matchesGroup = (dealer, group) => !group || dealer.group === group;
 
+// Сводка по флагу для целой выборки — состояние галочки в шапке колонки.
+const flagSummary = (rows, field) => {
+    const total = rows.length;
+    const on = rows.filter(row => row[field] === true).length;
+    return { total, on, all: total > 0 && on === total, none: on === 0 };
+};
+
 const buildView = (body, { search, filter, group, page }) => {
     const data = unwrap(body);
     // Серверная страница: разбивку по статусам из неё не посчитать — панель покажет значения без цифр
     if (!Array.isArray(data)) {
-        return { count: data?.count ?? 0, results: data?.results ?? [], counts: null };
+        return {
+            count: data?.count ?? 0, results: data?.results ?? [],
+            counts: null, ids: [], flags: null,
+        };
     }
     const counts = {
         total: data.length,
@@ -78,7 +88,17 @@ const buildView = (body, { search, filter, group, page }) => {
         .filter(dealer => matchesSearch(dealer, search))
         .sort((a, b) => freshTime(b) - freshTime(a));
     const start = (page - 1) * PAGE_SIZE;
-    return { count: filtered.length, results: filtered.slice(start, start + PAGE_SIZE), counts };
+    return {
+        count: filtered.length,
+        results: filtered.slice(start, start + PAGE_SIZE),
+        counts,
+        // id всей выборки (не только страницы) — для «поставить всем» в шапке
+        ids: filtered.map(dealer => dealer.id),
+        flags: {
+            is_published: flagSummary(filtered, 'is_published'),
+            contacts_published: flagSummary(filtered, 'contacts_published'),
+        },
+    };
 };
 
 const primaryActionCls = 'px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors';
@@ -97,11 +117,27 @@ const restoreBtnCls = `${iconBtnCls} text-emerald-600 hover:text-emerald-700 hov
 // На десктопе раскладка фиксированная (lg:table-fixed) и ширины заданы в шапке:
 // иначе auto-layout раздаёт свободное место пропорционально содержимому и колонка
 // «Статус» разъезжается на пустоту. Всё свободное место забирает «Название».
-const thCls = 'px-3 py-2 font-medium';
+const thCls = 'px-3 py-2 font-medium align-bottom';
 const cellCls = 'flex items-baseline gap-2 py-1 lg:table-cell lg:px-3 lg:py-2 lg:align-top';
 const CellLabel = ({ children }) => (
     <span className="w-24 shrink-0 text-xs text-gray-400 dark:text-gray-500 lg:hidden">{children}</span>
 );
+
+// Сколько PATCH'ей летит параллельно, когда в шапке ставят галочку всей выборке:
+// батч-эндпоинта у портала нет, а 400 последовательных запросов — это минута ожидания.
+const BULK_CHUNK = 6;
+
+// Галочка в шапке колонки: ставит флаг всей выборке. indeterminate — в выборке разнобой.
+const HeaderCheckbox = ({ checked, mixed, disabled, label, onChange }) => {
+    const ref = useRef(null);
+    useEffect(() => {
+        if (ref.current) ref.current.indeterminate = Boolean(mixed) && !disabled;
+    }, [mixed, disabled]);
+    return (
+        <input ref={ref} type="checkbox" className="rounded" checked={checked} disabled={disabled}
+            onChange={e => onChange(e.target.checked)} aria-label={label} title={label} />
+    );
+};
 
 // Справочник дилеров: список с поиском, создание/редактирование и отмена
 // авторизации (revoke → is_active=false, без удаления). Код дилера присваивает портал.
@@ -120,7 +156,8 @@ export default function DealersPage() {
     const [groups, setGroups] = useState([]);       // [{value, label}] с портала — для фильтра и формы
     const [counts, setCounts] = useState(null);     // {total, active, inactive} по всему справочнику
     const [page, setPage] = useState(1);
-    const [data, setData] = useState({ count: 0, results: [] });
+    const [data, setData] = useState({ count: 0, results: [], ids: [], flags: null });
+    const [bulk, setBulk] = useState(null); // { field, done, total } — массовая простановка галочки
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [form, setForm] = useState(null); // null — модалка закрыта; иначе { dealer } (null = создание)
@@ -153,7 +190,12 @@ export default function DealersPage() {
             if (req !== reqRef.current) return;
             if (ok && body?.success !== false) {
                 const view = buildView(body, { search, filter, group: groupFilter, page });
-                setData({ count: view.count, results: view.results });
+                setData({
+                    count: view.count,
+                    results: view.results,
+                    ids: view.ids,
+                    flags: view.flags,
+                });
                 setCounts(view.counts);
             } else {
                 setError(envelopeError(body, status));
@@ -240,6 +282,43 @@ export default function DealersPage() {
     const toggleContacts = (dealer, next) =>
         toggleFlag(dealer, 'contacts_published', next, 'Не удалось изменить публикацию контактов');
 
+    // Галочка в шапке колонки — проставить флаг ВСЕЙ текущей выборке (фильтр + поиск),
+    // а не только видимой странице. Батч-эндпоинта нет: PATCH по записи пачками по BULK_CHUNK,
+    // прогресс — в строке над таблицей, в конце перечитываем список (счётчики и состояние
+    // галочек сходятся сами).
+    const bulkSetFlag = (field, next) => {
+        const ids = data.ids ?? [];
+        if (!ids.length || bulk) return;
+        const title = field === 'is_published' ? '«Показывать на сайте»' : '«Публиковать контакты»';
+        showConfirm(
+            `${next ? 'Поставить' : 'Снять'} ${title} для выбранных записей (${ids.length})? ` +
+            'Действие применяется ко всей выборке по текущему фильтру и поиску, а не только к этой странице.' +
+            (field === 'is_published' && !next
+                ? ' Записи исчезнут с сайта: и с карты, и из проверки авторизации.'
+                : ''),
+            async () => {
+                setError('');
+                setBulk({ field, done: 0, total: ids.length });
+                let failed = 0;
+                try {
+                    for (let i = 0; i < ids.length; i += BULK_CHUNK) {
+                        const chunk = ids.slice(i, i + BULK_CHUNK);
+                        const results = await Promise.all(chunk.map(id => (
+                            dealersApi.update(id, { [field]: next })
+                                .catch(() => ({ ok: false }))
+                        )));
+                        failed += results.filter(r => !r.ok || r.data?.success === false).length;
+                        setBulk({ field, done: Math.min(i + BULK_CHUNK, ids.length), total: ids.length });
+                    }
+                } finally {
+                    setBulk(null);
+                    await load();
+                    if (failed) setError(`Не удалось обновить ${failed} из ${ids.length} записей`);
+                }
+            },
+        );
+    };
+
     const askRevoke = (dealer) => {
         showConfirm(
             `Отменить авторизацию дилера «${dealer.name}» (ИНН ${dealer.inn})? ` +
@@ -267,9 +346,10 @@ export default function DealersPage() {
     };
 
     return (
-        // Страница — широкая таблица: в max-w-7xl (1280) двенадцать колонок не влезают,
-        // и правые (в т.ч. вторая галочка публикации) уезжали под липкую колонку действий
-        <div className="max-w-[1600px] mx-auto space-y-4">
+        // Экран — таблица справочника: во всю ширину, без ограничения контейнера.
+        // Колонки не обрезают текст (переносятся), поэтому «Название», «Директор» и
+        // адрес видны целиком, а двенадцать колонок влезают на любом десктопе.
+        <div className="w-full space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Дилеры</h1>
                 {canWrite && (
@@ -330,25 +410,53 @@ export default function DealersPage() {
             </div>
 
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {bulk && (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Проставляем {bulk.field === 'is_published' ? '«Показывать на сайте»' : '«Публиковать контакты»'}:
+                    {' '}{bulk.done} из {bulk.total}…
+                </p>
+            )}
 
             <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-x-auto">
-                <table className="w-full text-sm block lg:table lg:table-fixed lg:min-w-[1330px]">
+                {/* table-auto + перенос текста: колонки сами забирают нужную ширину,
+                    свободное место уходит туда, где текста больше */}
+                <table className="w-full text-sm block lg:table">
                     <thead className="hidden lg:table-header-group">
                         <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                            <th className={`${thCls} lg:w-[105px]`}>ИНН</th>
-                            <th className={`${thCls} lg:w-[65px]`}>Код</th>
+                            <th className={`${thCls} whitespace-nowrap`}>ИНН</th>
+                            <th className={`${thCls} whitespace-nowrap`}>Код</th>
                             <th className={thCls}>Название</th>
-                            <th className={`${thCls} lg:w-[125px]`}>Группа</th>
-                            <th className={`${thCls} lg:w-[135px]`}>Статус</th>
-                            <th className={`${thCls} lg:w-[105px] whitespace-nowrap`}>Письмо</th>
-                            <th className={`${thCls} lg:w-[115px]`}>Директор</th>
-                            <th className={`${thCls} lg:w-[115px]`}>Телефон</th>
-                            <th className={`${thCls} lg:w-[150px]`}>E-mail</th>
-                            {/* Названия — как verbose_name полей в админке портала, чтобы
-                                один и тот же рубильник назывался одинаково везде */}
-                            <th className={`${thCls} lg:w-[100px]`}>Показывать на сайте</th>
-                            <th className={`${thCls} lg:w-[110px]`}>Публиковать контакты</th>
-                            <th className={`${thCls} lg:w-[85px] lg:sticky lg:right-0 lg:z-10 lg:bg-white lg:dark:bg-neutral-900
+                            <th className={thCls}>Группа</th>
+                            <th className={thCls}>Статус</th>
+                            <th className={`${thCls} whitespace-nowrap`}>Письмо</th>
+                            <th className={thCls}>Директор</th>
+                            <th className={thCls}>Телефон</th>
+                            <th className={thCls}>E-mail</th>
+                            {/* Названия — как verbose_name полей в админке портала; галочка
+                                в шапке ставит флаг всей текущей выборке */}
+                            <th className={thCls}>
+                                <span className="flex items-start gap-1.5">
+                                    <HeaderCheckbox
+                                        checked={data.flags?.is_published.all ?? false}
+                                        mixed={!data.flags?.is_published.all && !data.flags?.is_published.none}
+                                        disabled={Boolean(bulk) || !data.ids?.length}
+                                        onChange={next => bulkSetFlag('is_published', next)}
+                                        label="Поставить «Показывать на сайте» всей выборке" />
+                                    <span>Показывать на сайте</span>
+                                </span>
+                            </th>
+                            <th className={thCls}>
+                                <span className="flex items-start gap-1.5">
+                                    <HeaderCheckbox
+                                        checked={data.flags?.contacts_published.all ?? false}
+                                        mixed={!data.flags?.contacts_published.all && !data.flags?.contacts_published.none}
+                                        disabled={Boolean(bulk) || !data.ids?.length}
+                                        onChange={next => bulkSetFlag('contacts_published', next)}
+                                        label="Поставить «Публиковать контакты» всей выборке" />
+                                    <span>Публиковать контакты</span>
+                                </span>
+                            </th>
+                            <th className={`${thCls} lg:sticky lg:right-0 lg:z-10 lg:bg-white lg:dark:bg-neutral-900
                                 lg:border-l lg:border-gray-100 lg:dark:border-gray-800`} />
                         </tr>
                     </thead>
@@ -365,21 +473,18 @@ export default function DealersPage() {
                                         ${active ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
                                     <td className={cellCls}>
                                         <CellLabel>ИНН</CellLabel>
-                                        <span className="font-mono text-xs whitespace-nowrap">{dealer.inn}</span>
+                                        <span className="whitespace-nowrap">{dealer.inn}</span>
                                     </td>
                                     <td className={cellCls}>
                                         <CellLabel>Код</CellLabel>
-                                        <span className="font-mono text-xs whitespace-nowrap">{dealer.code || '—'}</span>
+                                        <span className="whitespace-nowrap">{dealer.code || '—'}</span>
                                     </td>
                                     <td className={cellCls}>
                                         <CellLabel>Название</CellLabel>
-                                        <div className="min-w-0 flex-1 lg:flex-none">
-                                            <div className="truncate" title={dealer.name}>
-                                                {dealer.name}
-                                            </div>
+                                        <div className="min-w-0 flex-1 break-words">
+                                            <div className="font-medium">{dealer.name}</div>
                                             {dealer.legal_address && (
-                                                <div className="text-[11px] text-gray-400 dark:text-gray-500
-                                                    truncate" title={dealer.legal_address}>
+                                                <div className="text-[11px] text-gray-400 dark:text-gray-500">
                                                     {dealer.legal_address}
                                                 </div>
                                             )}
@@ -387,8 +492,7 @@ export default function DealersPage() {
                                     </td>
                                     <td className={cellCls}>
                                         <CellLabel>Группа</CellLabel>
-                                        <div className="min-w-0 flex-1 lg:flex-none">
-                                            {/* без nowrap: «Сервисный центр» переносится в 125px */}
+                                        <div className="min-w-0 flex-1">
                                             <span className="inline-block text-xs px-2 py-0.5 rounded-full
                                                 bg-neutral-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-300">
                                                 {dealer.group_label || dealer.group || '—'}
@@ -397,7 +501,7 @@ export default function DealersPage() {
                                     </td>
                                     <td className={cellCls}>
                                         <CellLabel>Статус</CellLabel>
-                                        <div className="min-w-0 flex-1 lg:flex-none">
+                                        <div className="min-w-0 flex-1">
                                             {active ? (
                                                 <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap
                                                     bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
@@ -410,8 +514,7 @@ export default function DealersPage() {
                                                 </span>
                                             )}
                                             {dealer.note && (
-                                                <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5
-                                                    truncate" title={dealer.note}>
+                                                <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 break-words">
                                                     {dealer.note}
                                                 </div>
                                             )}
@@ -423,27 +526,18 @@ export default function DealersPage() {
                                     </td>
                                     <td className={cellCls}>
                                         <CellLabel>Директор</CellLabel>
-                                        <div className="min-w-0 flex-1 lg:flex-none truncate"
-                                            title={dealer.director || ''}>
-                                            {dealer.director || '—'}
-                                        </div>
+                                        <div className="min-w-0 flex-1 break-words">{dealer.director || '—'}</div>
                                     </td>
                                     <td className={cellCls}>
                                         <CellLabel>Телефон</CellLabel>
-                                        <div className="min-w-0 flex-1 lg:flex-none truncate"
-                                            title={dealer.phones || ''}>
-                                            {dealer.phones || '—'}
-                                        </div>
+                                        <div className="min-w-0 flex-1 break-words">{dealer.phones || '—'}</div>
                                     </td>
                                     <td className={cellCls}>
                                         <CellLabel>E-mail</CellLabel>
-                                        <div className="min-w-0 flex-1 lg:flex-none">
-                                            <div className="truncate" title={dealer.email || ''}>
-                                                {dealer.email || '—'}
-                                            </div>
+                                        <div className="min-w-0 flex-1 break-all">
+                                            <div>{dealer.email || '—'}</div>
                                             {dealer.website && (
-                                                <div className="text-[11px] text-gray-400 dark:text-gray-500
-                                                    truncate" title={dealer.website}>
+                                                <div className="text-[11px] text-gray-400 dark:text-gray-500">
                                                     {dealer.website}
                                                 </div>
                                             )}
