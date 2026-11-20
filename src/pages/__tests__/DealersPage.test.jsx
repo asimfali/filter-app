@@ -62,7 +62,7 @@ describe('DealersPage — список', () => {
     it('без portal.dealers.write — сообщение и ни одного запроса', () => {
         asUser('portal.page.dealers');
         render(<DealersPage />);
-        expect(screen.getByText(/Недостаточно прав для просмотра дилеров/)).toBeInTheDocument();
+        expect(screen.getByText(/Недостаточно прав для просмотра партнёров/)).toBeInTheDocument();
         expect(dealersApi.list).not.toHaveBeenCalled();
         expect(dealersApi.groups).not.toHaveBeenCalled();
     });
@@ -118,7 +118,7 @@ describe('DealersPage — список', () => {
 
         fireEvent.click(screen.getByRole('button', { name: /^Неактивные/ }));
 
-        expect(await screen.findByText('Неактивных дилеров нет')).toBeInTheDocument();
+        expect(await screen.findByText('Неактивных партнёров нет')).toBeInTheDocument();
     });
 
     it('поиск фильтрует список и уходит в запрос с debounce', async () => {
@@ -130,7 +130,7 @@ describe('DealersPage — список', () => {
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        fireEvent.change(screen.getByPlaceholderText(/ИНН, код, название/), { target: { value: ' D00003 ' } });
+        fireEvent.change(screen.getByPlaceholderText(/ИНН, код авторизации, название/), { target: { value: ' D00003 ' } });
 
         // поиск идёт по клиентскому списку, но дебаунс всё равно перезапрашивает справочник
         await waitFor(() => expect(dealersApi.list).toHaveBeenCalledTimes(2));
@@ -217,7 +217,7 @@ describe('DealersPage — панель со счётчиками', () => {
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        fireEvent.change(screen.getByPlaceholderText(/ИНН, код, название/), { target: { value: 'D00003' } });
+        fireEvent.change(screen.getByPlaceholderText(/ИНН, код авторизации, название/), { target: { value: 'D00003' } });
         await waitFor(() => expect(screen.queryByText('ООО «Тепломаш-Юг»')).not.toBeInTheDocument());
 
         expect(screen.getByRole('button', { name: 'Все 2' })).toBeInTheDocument();
@@ -272,7 +272,7 @@ describe('DealersPage — группа контрагента', () => {
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        await userEvent.click(screen.getByRole('button', { name: 'Добавить дилера' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Добавить партнёра' }));
         const group = screen.getByLabelText('Группа');
         expect(group).toHaveValue('dealer');
 
@@ -341,7 +341,7 @@ describe('DealersPage — права на запись', () => {
         asUser('portal.dealers.write');
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
-        expect(screen.getByRole('button', { name: 'Добавить дилера' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Добавить партнёра' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Редактировать' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Отменить авторизацию' })).toBeInTheDocument();
     });
@@ -637,14 +637,14 @@ describe('DealersPage — отмена и восстановление авто�
 });
 
 describe('DealersPage — форма дилера', () => {
-    it('создание: код не редактируется, POST уходит с полями формы', async () => {
+    it('создание: кода авторизации в форме нет, POST уходит с полями формы', async () => {
         asUser('portal.dealers.write');
         dealersApi.create.mockResolvedValue(ok({ inn: '7709999999', code: 'D10001' }));
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        await userEvent.click(screen.getByRole('button', { name: 'Добавить дилера' }));
-        expect(screen.getByLabelText('Код авторизации')).toBeDisabled();
+        await userEvent.click(screen.getByRole('button', { name: 'Добавить партнёра' }));
+        expect(screen.queryByLabelText('Код авторизации')).not.toBeInTheDocument();
 
         await userEvent.type(screen.getByLabelText('ИНН *'), '7709999999');
         await userEvent.type(screen.getByLabelText('Название *'), 'ООО «Север»');
@@ -665,7 +665,7 @@ describe('DealersPage — форма дилера', () => {
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        await userEvent.click(screen.getByRole('button', { name: 'Добавить дилера' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Добавить партнёра' }));
         await userEvent.click(screen.getByRole('button', { name: 'Создать' }));
 
         expect(await screen.findByText('Укажите ИНН')).toBeInTheDocument();
@@ -678,7 +678,7 @@ describe('DealersPage — форма дилера', () => {
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        await userEvent.click(screen.getByRole('button', { name: 'Добавить дилера' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Добавить партнёра' }));
         await userEvent.type(screen.getByLabelText('ИНН *'), '123');
         await userEvent.type(screen.getByLabelText('Название *'), 'ООО «Север»');
         await userEvent.click(screen.getByRole('button', { name: 'Создать' }));
@@ -687,14 +687,14 @@ describe('DealersPage — форма дилера', () => {
         expect(dealersApi.create).not.toHaveBeenCalled();
     });
 
-    it('редактирование: код показан, ИНН редактируемый, PATCH по id', async () => {
+    it('редактирование: кода в форме нет, ИНН редактируемый, PATCH по id', async () => {
         asUser('portal.dealers.write');
         dealersApi.update.mockResolvedValue(ok({}));
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
         await userEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
-        expect(screen.getByLabelText('Код авторизации')).toHaveValue('D00012');
+        expect(screen.queryByLabelText('Код авторизации')).not.toBeInTheDocument();
         expect(screen.getByLabelText('ИНН *')).not.toBeDisabled();
 
         await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
@@ -740,7 +740,7 @@ describe('DealersPage — форма дилера', () => {
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        await userEvent.click(screen.getByRole('button', { name: 'Добавить дилера' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Добавить партнёра' }));
         await userEvent.type(screen.getByLabelText('ИНН *'), '7701111111');
         await userEvent.type(screen.getByLabelText('Название *'), 'ООО «Дубль»');
         await userEvent.click(screen.getByRole('button', { name: 'Создать' }));
@@ -757,7 +757,7 @@ describe('DealersPage — форма дилера', () => {
         render(<DealersPage />);
         await screen.findByText('ООО «Тепломаш-Юг»');
 
-        await userEvent.click(screen.getByRole('button', { name: 'Добавить дилера' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Добавить партнёра' }));
         await userEvent.type(screen.getByLabelText('ИНН *'), '7701111111');
         await userEvent.type(screen.getByLabelText('Название *'), 'ООО «Дубль»');
         await userEvent.click(screen.getByRole('button', { name: 'Создать' }));
@@ -811,7 +811,7 @@ describe('DealersPage — импорт из xlsx', () => {
 
         const file = new File(['xlsx'], 'dealers.xlsx');
         await userEvent.click(screen.getByRole('button', { name: 'Импорт из xlsx' }));
-        expect(screen.getByText('Импорт дилеров из xlsx')).toBeInTheDocument();
+        expect(screen.getByText('Импорт партнёров из xlsx')).toBeInTheDocument();
         await userEvent.upload(document.querySelector('input[type="file"]'), file);
         await userEvent.click(screen.getByRole('button', { name: 'Импортировать' }));
 

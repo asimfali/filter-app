@@ -547,13 +547,13 @@ describe('SyncModal — дилеры', () => {
   // Портал отвечает только task_id, итог приходит из результата celery-задачи
   const taskReady = (result) => respOk({ success: true, data: { ready: true, result } });
 
-  it('один пункт «Все активные дилеры», запуск шлёт pushToSite и показывает итог из задачи', async () => {
+  it('один пункт «Все активные партнёры», запуск шлёт pushToSite и показывает итог из задачи', async () => {
     vi.useFakeTimers();
     dealersApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
     externalApi.taskStatus.mockResolvedValue(taskReady({ success: true, total: 3 }));
     render(<SyncModal user={user1} mode="dealers_push" onClose={vi.fn()} />);
     await flush();
-    expect(screen.getByText('Все активные дилеры')).toBeInTheDocument();
+    expect(screen.getByText('Все активные партнёры')).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Запустить' }));
@@ -566,7 +566,7 @@ describe('SyncModal — дилеры', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
 
     expect(externalApi.taskStatus).toHaveBeenCalledWith('t1');
-    expect(screen.getByText('✓ Отправлено дилеров: 3')).toBeInTheDocument();
+    expect(screen.getByText('✓ Отправлено партнёров: 3')).toBeInTheDocument();
   });
 
   it('нулевой итог из задачи тоже показывается (и это не «поле не пришло»)', async () => {
@@ -584,7 +584,7 @@ describe('SyncModal — дилеры', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
 
     expect(dealersApi.pushToSite).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('✓ Отправлено дилеров: 0')).toBeInTheDocument();
+    expect(screen.getByText('✓ Отправлено партнёров: 0')).toBeInTheDocument();
   });
 
   it('ошибка задачи (вебхук не ушёл) — красный текст, а не ноль', async () => {
@@ -608,7 +608,7 @@ describe('SyncModal — дилеры', () => {
   it('ошибка 403 показывается в строке результата', async () => {
     dealersApi.pushToSite.mockResolvedValue({ ok: false, status: 403, data: { detail: 'Недостаточно прав' } });
     render(<SyncModal user={user1} mode="dealers_push" onClose={vi.fn()} />);
-    await screen.findByText('Все активные дилеры');
+    await screen.findByText('Все активные партнёры');
 
     await userEvent.click(screen.getByRole('button', { name: 'Запустить' }));
 

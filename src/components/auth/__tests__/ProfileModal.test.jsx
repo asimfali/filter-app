@@ -165,7 +165,7 @@ describe('ProfileModal — кнопки открытия SyncModal / PassportSyn
 
   it.each([
     ['Синхронизировать сайт', 'push_to_site'],
-    ['Синхронизировать дилеров', 'dealers_push'],
+    ['Синхронизировать партнёров', 'dealers_push'],
     ['Синхронизировать графики', 'fan_charts'],
     ['Группировка исполнений', 'variants'],
     ['Rsync медиафайлов', 'rsync'],
@@ -196,14 +196,14 @@ describe('ProfileModal — кнопки открытия SyncModal / PassportSyn
     expect(screen.queryByText('Синхронизировать сайт')).not.toBeInTheDocument();
   });
 
-  it('«Синхронизировать дилеров» видна по portal.page.dealers, даже без external.push_to_site', async () => {
+  it('«Синхронизировать партнёров» видна по portal.page.dealers, даже без external.push_to_site', async () => {
     const user = userEvent.setup();
     await renderProfile({ user: { ...baseUser, permissions: ['portal.page.dealers'] } });
 
-    expect(screen.getByText('Синхронизировать дилеров')).toBeInTheDocument();
+    expect(screen.getByText('Синхронизировать партнёров')).toBeInTheDocument();
     expect(screen.queryByText('Синхронизировать сайт')).not.toBeInTheDocument();
 
-    await user.click(screen.getByText('Синхронизировать дилеров'));
+    await user.click(screen.getByText('Синхронизировать партнёров'));
     expect(screen.getByTestId('sync-modal-stub')).toHaveAttribute('data-mode', 'dealers_push');
   });
 

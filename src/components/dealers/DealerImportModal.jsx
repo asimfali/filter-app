@@ -93,8 +93,8 @@ export default function DealerImportModal({ onClose, onImported }) {
 
     return (
         <Modal
-            title="Импорт дилеров из xlsx"
-            subtitle="Справочник обновляется по ИНН: существующие дилеры правятся, новые создаются"
+            title="Импорт партнёров из xlsx"
+            subtitle="Справочник обновляется по ИНН: существующие партнёры правятся, новые создаются"
             onClose={onClose}
             maxWidth="lg"
             scrollBody
@@ -115,7 +115,7 @@ export default function DealerImportModal({ onClose, onImported }) {
                         file={file}
                         onFile={(f) => { setFile(f); setError(''); }}
                         accept=".xlsx"
-                        hint=".xlsx, выгрузка справочника дилеров"
+                        hint=".xlsx, выгрузка справочника партнёров"
                     />
                 )}
 
@@ -176,7 +176,7 @@ export default function DealerImportModal({ onClose, onImported }) {
 
                 {done && task.status === 'COMPLETED' && errors.length === 0 && (
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                        Все строки применены без ошибок. Список дилеров обновлён.
+                        Все строки применены без ошибок. Список партнёров обновлён.
                     </p>
                 )}
             </div>
