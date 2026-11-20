@@ -1,0 +1,21 @@
+# Единые настройки редактора: чтобы IDE разных разработчиков (и разных
+# агентов) не переформатировали файлы при сохранении — это шум в диффах.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# В Markdown два пробела в конце строки — значимый перенос, не обрезать.
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.{py,cfg,ini}]
+indent_size = 4

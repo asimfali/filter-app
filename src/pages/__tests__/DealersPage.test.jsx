@@ -35,6 +35,8 @@ const dealer = (over = {}) => ({
     email: 'dealer@example.ru',
     letter_sent_at: '2026-02-01',
     is_active: true,
+    contacts_published: false,
+    is_published: true,
     note: '',
     ...over,
 });
@@ -388,6 +390,194 @@ describe('DealersPage — адаптивная строка', () => {
     });
 });
 
+describe('DealersPage — публикация записи на сайте', () => {
+    const box = (name = 'ООО «Тепломаш-Юг»') => screen.getByRole('checkbox', {
+        name: `Показывать на сайте: ${name}`,
+    });
+
+    it('галочка повторяет is_published, а не contacts_published', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            // запись опубликована, контакты скрыты
+            dealer({ is_published: true, contacts_published: false }),
+            dealer({
+                id: 2, inn: '5900000001', code: 'D00003', name: 'ООО «Урал-Тепло»',
+                is_published: false, contacts_published: true,
+            }),
+        ]));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        expect(box()).toBeChecked();
+        expect(box('ООО «Урал-Тепло»')).not.toBeChecked();
+    });
+
+    it('клик ставит галочку сразу и шлёт PATCH по одному полю, список не перезагружается', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([dealer({ is_published: false })]));
+        dealersApi.update.mockResolvedValue(ok({}));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+        expect(dealersApi.list).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(box());
+
+        expect(box()).toBeChecked();
+        await waitFor(() => expect(dealersApi.update).toHaveBeenCalledWith(1, { is_published: true }));
+        expect(dealersApi.list).toHaveBeenCalledTimes(1);
+    });
+
+    it('снятие галочки — PATCH с false', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.update.mockResolvedValue(ok({}));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        fireEvent.click(box());
+
+        expect(box()).not.toBeChecked();
+        await waitFor(() => expect(dealersApi.update).toHaveBeenCalledWith(1, { is_published: false }));
+    });
+
+    it('ошибка портала — галочка откатывается, показывается текст ошибки', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.update.mockResolvedValue({
+            ok: false, status: 400, data: { detail: 'Нет такого дилера' },
+        });
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        fireEvent.click(box());
+
+        expect(await screen.findByText('Нет такого дилера')).toBeInTheDocument();
+        expect(box()).toBeChecked();
+    });
+
+    it('портал не отдаёт is_published — галочка недоступна, PATCH не шлётся', async () => {
+        asUser('portal.dealers.write');
+        const legacyDealer = { ...dealer() };
+        delete legacyDealer.is_published; // старый портал поле не отдаёт
+        dealersApi.list.mockResolvedValue(listOk([legacyDealer]));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        expect(box()).toBeDisabled();
+        fireEvent.click(box());
+        expect(dealersApi.update).not.toHaveBeenCalled();
+    });
+
+    it('у неактивного дилера обе галочки недоступны: сайт получает только активных', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([dealer({ is_active: false })]));
+        render(<DealersPage />);
+        fireEvent.click(await screen.findByRole('button', { name: /^Неактивные/ }));
+
+        expect(await screen.findByRole('checkbox', { name: /^Показывать на сайте:/ })).toBeDisabled();
+        expect(screen.getByRole('checkbox', { name: /^Публиковать контакты:/ })).toBeDisabled();
+        expect(dealersApi.update).not.toHaveBeenCalled();
+    });
+
+    it('вторая галочка — контакты: своё состояние и свой PATCH', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer({ is_published: true, contacts_published: false }),
+        ]));
+        dealersApi.update.mockResolvedValue(ok({}));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        const contacts = screen.getByRole('checkbox', { name: 'Публиковать контакты: ООО «Тепломаш-Юг»' });
+        expect(contacts).not.toBeChecked();
+        expect(box()).toBeChecked();
+
+        fireEvent.click(contacts);
+
+        expect(contacts).toBeChecked();
+        await waitFor(() => expect(dealersApi.update).toHaveBeenCalledWith(1, { contacts_published: true }));
+        // публикацию записи не трогали
+        expect(dealersApi.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('галочки независимы: снятие публикации записи не снимает контакты', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([dealer({ is_published: true, contacts_published: true })]));
+        dealersApi.update.mockResolvedValue(ok({}));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        fireEvent.click(box());
+
+        await waitFor(() => expect(dealersApi.update).toHaveBeenCalledWith(1, { is_published: false }));
+        expect(screen.getByRole('checkbox', { name: 'Публиковать контакты: ООО «Тепломаш-Юг»' })).toBeChecked();
+    });
+});
+
+describe('DealersPage — галочки в шапке (для всей выборки)', () => {
+    const headerBox = (name) => screen.getByRole('checkbox', { name });
+
+    it('шапка отражает выборку: все включены → checked, разнобой → indeterminate', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer({ id: 1, name: 'А' }),
+            dealer({ id: 2, inn: '5900000001', code: 'D00003', name: 'Б' }),
+        ]));
+        render(<DealersPage />);
+        await screen.findByText('А');
+
+        const on = headerBox('Поставить «Показывать на сайте» всей выборке');
+        expect(on).toBeChecked();
+        expect(on.indeterminate).toBe(false);
+    });
+
+    it('разнобой по контактам — indeterminate', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer({ id: 1, name: 'А', contacts_published: true }),
+            dealer({ id: 2, inn: '5900000001', code: 'D00003', name: 'Б', contacts_published: false }),
+        ]));
+        render(<DealersPage />);
+        await screen.findByText('А');
+
+        const mixed = headerBox('Поставить «Публиковать контакты» всей выборке');
+        expect(mixed).not.toBeChecked();
+        expect(mixed.indeterminate).toBe(true);
+    });
+
+    it('снятие в шапке: подтверждение → PATCH по каждой записи выборки → список перечитан', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer({ id: 1, name: 'А' }),
+            dealer({ id: 2, inn: '5900000001', code: 'D00003', name: 'Б' }),
+        ]));
+        dealersApi.update.mockResolvedValue(ok({}));
+        render(<DealersPage />);
+        await screen.findByText('А');
+        expect(dealersApi.list).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(headerBox('Поставить «Показывать на сайте» всей выборке'));
+
+        // массовое действие спрашивает подтверждение и говорит про выборку
+        expect(await screen.findByText(/Записи исчезнут с сайта/)).toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
+
+        await waitFor(() => expect(dealersApi.update).toHaveBeenCalledTimes(2));
+        expect(dealersApi.update).toHaveBeenCalledWith(1, { is_published: false });
+        expect(dealersApi.update).toHaveBeenCalledWith(2, { is_published: false });
+        await waitFor(() => expect(dealersApi.list).toHaveBeenCalledTimes(2));
+    });
+
+    it('«Отмена» в подтверждении ничего не шлёт', async () => {
+        asUser('portal.dealers.write');
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        fireEvent.click(headerBox('Поставить «Публиковать контакты» всей выборке'));
+        await userEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+
+        expect(dealersApi.update).not.toHaveBeenCalled();
+    });
+});
+
 describe('DealersPage — отмена и восстановление авторизации', () => {
     it('отмена: подтверждение → revoke по id → перезагрузка списка', async () => {
         asUser('portal.dealers.write');
@@ -517,6 +707,30 @@ describe('DealersPage — форма дилера', () => {
         });
     });
 
+    it('в форме два флага публикации, оба уходят в PATCH', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.update.mockResolvedValue(ok({}));
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        await userEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
+        const contacts = screen.getByRole('checkbox', { name: 'Публиковать контакты' });
+        const record = screen.getByRole('checkbox', { name: 'Показывать на сайте' });
+        // запись опубликована (как и была), контакты — нет
+        expect(record).toBeChecked();
+        expect(contacts).not.toBeChecked();
+
+        await userEvent.click(contacts);
+        await userEvent.click(record);
+        await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+        await waitFor(() => expect(dealersApi.update).toHaveBeenCalledTimes(1));
+        expect(dealersApi.update.mock.calls[0][1]).toMatchObject({
+            contacts_published: true,
+            is_published: false,
+        });
+    });
+
     it('ошибки полей DRF раскладываются под поля', async () => {
         asUser('portal.dealers.write');
         dealersApi.create.mockResolvedValue({
@@ -586,6 +800,16 @@ describe('DealersPage — импорт из xlsx', () => {
         asUser('portal.page.dealers');
         render(<DealersPage />);
         expect(screen.queryByRole('button', { name: 'Импорт из xlsx' })).not.toBeInTheDocument();
+    });
+
+    it('в форме импорта подсказка про колонку «Группа»', async () => {
+        asUser('portal.dealers.write');
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        await userEvent.click(screen.getByRole('button', { name: 'Импорт из xlsx' }));
+        expect(screen.getByText(/Необязательная колонка «Группа»/)).toBeInTheDocument();
+        expect(screen.getByText(/Пустая ячейка сохраняет текущую группу/)).toBeInTheDocument();
     });
 
     it('файл уходит на портал, статус опрашивается, итог показывается, список перезагружается', async () => {
