@@ -200,3 +200,17 @@ input styling per component. Most UI text/labels are Russian; keep new UI copy c
 ### Тесты
 
 См. `.agents/skills/frontend-tests/SKILL.md` — стек и конвенции.
+
+## Plans and status memory
+
+Long-running plans live in `status/` as markdown with `[ ]`/`[x]` checkboxes — never read them whole. The `status-memory` skill (`.agents/skills/status-memory/`, protocol in `status-memory.md` next to it) returns only what's needed:
+
+```bash
+python scripts/status_summary.py overview      # start here: plans, progress, next open item
+python scripts/status_summary.py next <plan>   # where we stopped
+python scripts/status_summary.py done <plan>   # what was done, and how
+```
+
+- `status/summary.md` is a cache written **only** by the script, and is gitignored.
+- Boundary: `status/` = plans and "what's next"; the decisions journal (if the project has one) = decisions and "why". Don't duplicate one into the other.
+- Don't put specs or sample data in `status/`: anything with `# План:` or a checkbox is treated as a plan. A closed item must be self-contained — `done` prints only its text.
