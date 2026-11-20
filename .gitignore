@@ -33,6 +33,7 @@ project_tree.txt
 
 # Единые правила для агентов и IDE: локальные настройки инструментов, кэш планов.
 .claude/settings.local.json
+.claude/skills/
 CLAUDE.local.md
 AGENTS.local.md
 .dsh/
