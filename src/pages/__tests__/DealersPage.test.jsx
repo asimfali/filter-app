@@ -588,6 +588,16 @@ describe('DealersPage — импорт из xlsx', () => {
         expect(screen.queryByRole('button', { name: 'Импорт из xlsx' })).not.toBeInTheDocument();
     });
 
+    it('в форме импорта подсказка про колонку «Группа»', async () => {
+        asUser('portal.dealers.write');
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        await userEvent.click(screen.getByRole('button', { name: 'Импорт из xlsx' }));
+        expect(screen.getByText(/Необязательная колонка «Группа»/)).toBeInTheDocument();
+        expect(screen.getByText(/Пустая ячейка сохраняет текущую группу/)).toBeInTheDocument();
+    });
+
     it('файл уходит на портал, статус опрашивается, итог показывается, список перезагружается', async () => {
         asUser('portal.dealers.write');
         dealersApi.importXlsx.mockResolvedValue(started());

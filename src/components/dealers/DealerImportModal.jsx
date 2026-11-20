@@ -111,12 +111,21 @@ export default function DealerImportModal({ onClose, onImported }) {
         >
             <div className="space-y-4">
                 {!taskId && !done && (
-                    <FileDropZone
-                        file={file}
-                        onFile={(f) => { setFile(f); setError(''); }}
-                        accept=".xlsx"
-                        hint=".xlsx, выгрузка справочника дилеров"
-                    />
+                    <>
+                        <FileDropZone
+                            file={file}
+                            onFile={(f) => { setFile(f); setError(''); }}
+                            accept=".xlsx"
+                            hint=".xlsx, выгрузка справочника дилеров"
+                        />
+                        {/* Колонку разбирает портал (d1c864e): необязательная, по шапке,
+                            код или подпись; пустая ячейка не сбрасывает уже назначенную группу */}
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                            Необязательная колонка «Группа»: Дилер / Филиал / Дистрибьютор /
+                            Сервисный центр (или dealer/branch/distributor/service_center).
+                            Пустая ячейка сохраняет текущую группу, у новых записей — Дилер.
+                        </p>
+                    </>
                 )}
 
                 {busy && (
