@@ -52,6 +52,14 @@ const STATUS_FILTERS = [
     { key: 'inactive', label: 'Неактивные', countKey: 'inactive' },
 ];
 
+// «Авторизация» есть только у группы dealer: для остальных групп статус называется нейтрально.
+// При выборе «Все группы» (смесь) — прежние «Активные/Неактивные».
+const statusLabelsFor = (group) => (
+    group && group !== 'dealer'
+        ? { active: 'Действующие', inactive: 'Отключённые' }
+        : { active: 'Активные', inactive: 'Неактивные' }
+);
+
 const matchesStatus = (dealer, filter) => {
     if (filter === 'active') return dealer.is_active !== false;
     if (filter === 'inactive') return dealer.is_active === false;
@@ -139,8 +147,8 @@ const HeaderCheckbox = ({ checked, mixed, disabled, label, onChange }) => {
     );
 };
 
-// Справочник дилеров: список с поиском, создание/редактирование и отмена
-// авторизации (revoke → is_active=false, без удаления). Код дилера присваивает портал.
+// Справочник партнёров: список с поиском, создание/редактирование и отмена
+// авторизации (revoke → is_active=false, без удаления). Код авторизации (только у группы dealer) присваивает портал.
 export default function DealersPage() {
     const { user } = useAuth();
     // Отдельного права на чтение у бэкенда нет: apps.dealers проверяет
@@ -164,6 +172,7 @@ export default function DealersPage() {
     const [importOpen, setImportOpen] = useState(false);
     const [busyId, setBusyId] = useState(null);
     const reqRef = useRef(0);
+    const statusLabels = statusLabelsFor(groupFilter);
     const committedSearchRef = useRef('');
 
     // Дебаунс поиска: страницу сбрасываем только когда запрос реально изменился
@@ -201,7 +210,7 @@ export default function DealersPage() {
                 setError(envelopeError(body, status));
             }
         } catch {
-            if (req === reqRef.current) setError('Не удалось загрузить дилеров');
+            if (req === reqRef.current) setError('Не удалось загрузить партнёров');
         } finally {
             if (req === reqRef.current) setLoading(false);
         }
@@ -224,7 +233,7 @@ export default function DealersPage() {
     }, [canView]);
 
     if (!canView) {
-        return <p className="text-sm text-gray-500 dark:text-gray-400">Недостаточно прав для просмотра дилеров</p>;
+        return <p className="text-sm text-gray-500 dark:text-gray-400">Недостаточно прав для просмотра партнёров</p>;
     }
 
     const totalPages = Math.max(1, Math.ceil(data.count / PAGE_SIZE));
@@ -321,8 +330,8 @@ export default function DealersPage() {
 
     const askRevoke = (dealer) => {
         showConfirm(
-            `Отменить авторизацию дилера «${dealer.name}» (ИНН ${dealer.inn})? ` +
-            'Дилер перестанет подтверждаться на сайте. Запись не удаляется — ' +
+            `Отменить авторизацию партнёра «${dealer.name}» (ИНН ${dealer.inn})? ` +
+            'Партнёр перестанет подтверждаться на сайте. Запись не удаляется — ' +
             'она остаётся в справочнике со статусом «авторизация отменена».',
             () => runAction(
                 dealer,
@@ -334,8 +343,8 @@ export default function DealersPage() {
 
     const askRestore = (dealer) => {
         showConfirm(
-            `Восстановить авторизацию дилера «${dealer.name}» (ИНН ${dealer.inn})? ` +
-            'Дилер снова начнёт уходить на сайт и проходить проверку.',
+            `Восстановить авторизацию партнёра «${dealer.name}» (ИНН ${dealer.inn})? ` +
+            'Партнёр снова начнёт уходить на сайт и проходить проверку.',
             () => runAction(
                 dealer,
                 () => dealersApi.restore(dealer.id),
@@ -351,14 +360,14 @@ export default function DealersPage() {
         // адрес видны целиком, а двенадцать колонок влезают на любом десктопе.
         <div className="w-full space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Дилеры</h1>
+                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Партнёры</h1>
                 {canWrite && (
                     <div className="flex items-center gap-2">
                         <button onClick={() => setImportOpen(true)} className={secondaryActionCls}>
                             Импорт из xlsx
                         </button>
                         <button onClick={() => setForm({ dealer: null })} className={primaryActionCls}>
-                            Добавить дилера
+                            Добавить партнёра
                         </button>
                     </div>
                 )}
@@ -368,9 +377,10 @@ export default function DealersPage() {
                 (одновременно фильтр и сводка) + поиск справа */}
             <div className="flex flex-wrap items-center gap-3">
                 <div className="flex flex-wrap items-center gap-1.5" role="group"
-                    aria-label="Фильтр дилеров по статусу">
+                    aria-label="Фильтр партнёров по статусу">
                     <span className="text-xs text-gray-500 dark:text-gray-400 mr-0.5">Показать:</span>
-                    {STATUS_FILTERS.map(({ key, label, countKey }) => {
+                    {STATUS_FILTERS.map(({ key, label: baseLabel, countKey }) => {
+                        const label = statusLabels[key] ?? baseLabel;
                         const selected = filter === key;
                         const value = counts?.[countKey];
                         return (
@@ -404,7 +414,7 @@ export default function DealersPage() {
                     </select>
                 </div>
                 <div className="w-full sm:w-72 sm:ml-auto">
-                    <input className={inputCls} value={searchInput} placeholder="ИНН, код, название…"
+                    <input className={inputCls} value={searchInput} placeholder="ИНН, код авторизации, название…"
                         onChange={e => setSearchInput(e.target.value)} />
                 </div>
             </div>
@@ -424,7 +434,7 @@ export default function DealersPage() {
                     <thead className="hidden lg:table-header-group">
                         <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                             <th className={`${thCls} whitespace-nowrap`}>ИНН</th>
-                            <th className={`${thCls} whitespace-nowrap`}>Код</th>
+                            <th className={thCls}>Код авторизации</th>
                             <th className={thCls}>Название</th>
                             <th className={thCls}>Группа</th>
                             <th className={thCls}>Статус</th>
@@ -476,7 +486,7 @@ export default function DealersPage() {
                                         <span className="whitespace-nowrap">{dealer.inn}</span>
                                     </td>
                                     <td className={cellCls}>
-                                        <CellLabel>Код</CellLabel>
+                                        <CellLabel>Код авторизации</CellLabel>
                                         <span className="whitespace-nowrap">{dealer.code || '—'}</span>
                                     </td>
                                     <td className={cellCls}>
@@ -510,7 +520,7 @@ export default function DealersPage() {
                                             ) : (
                                                 <span className="text-xs px-2 py-0.5 rounded-full
                                                     bg-gray-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-400">
-                                                    авторизация отменена
+                                                    {dealer.group && dealer.group !== 'dealer' ? 'отключён' : 'авторизация отменена'}
                                                 </span>
                                             )}
                                             {dealer.note && (
@@ -553,8 +563,8 @@ export default function DealersPage() {
                                             title={!publishSupported
                                                 ? 'Портал пока не отдаёт флаг публикации записи'
                                                 : active
-                                                    ? 'Показывать запись на сайте (карта «Сеть присутствия» и проверка дилера)'
-                                                    : 'Сначала восстановите авторизацию: сайт получает только активных дилеров'} />
+                                                    ? 'Показывать запись на сайте (карта «Сеть присутствия» и проверка партнёра)'
+                                                    : 'Сначала восстановите авторизацию: сайт получает только активных партнёров'} />
                                     </td>
                                     <td className={cellCls}>
                                         <CellLabel>Публиковать контакты</CellLabel>
@@ -565,7 +575,7 @@ export default function DealersPage() {
                                             aria-label={`Публиковать контакты: ${dealer.name}`}
                                             title={active
                                                 ? 'Показывать на сайте телефоны, e-mail и сайт записи'
-                                                : 'Сначала восстановите авторизацию: сайт получает только активных дилеров'} />
+                                                : 'Сначала восстановите авторизацию: сайт получает только активных партнёров'} />
                                     </td>
                                     <td className={`${cellCls} justify-end lg:text-right
                                         lg:sticky lg:right-0 lg:z-10 lg:bg-white lg:dark:bg-neutral-900
@@ -601,7 +611,7 @@ export default function DealersPage() {
                         {!loading && data.results.length === 0 && (
                             <tr>
                                 <td colSpan={12} className="px-3 py-8 text-center text-gray-400">
-                                    {filter === 'inactive' ? 'Неактивных дилеров нет' : 'Дилеров нет'}
+                                    {filter === 'inactive' ? `${statusLabels.inactive === 'Отключённые' ? 'Отключённых' : 'Неактивных'} партнёров нет` : 'Партнёров нет'}
                                 </td>
                             </tr>
                         )}
