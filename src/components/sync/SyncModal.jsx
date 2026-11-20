@@ -155,9 +155,9 @@ const MODE_CONFIG = {
             : `✗ Ошибка: ${result.error?.message ?? result.error}`,
     },
     dealers_push: {
-        title: 'Синхронизировать дилеров',
+        title: 'Синхронизировать партнёров',
         btnColor: 'bg-emerald-600 hover:bg-emerald-700',
-        // Видимость — по праву страницы «Дилеры»; сам push-to-site бэкенд дополнительно
+        // Видимость — по праву страницы «Партнёры»; сам push-to-site бэкенд дополнительно
         // проверяет portal.dealers.write (HasCatalogPermission на все методы).
         permission: PERM.PORTAL_PAGE_DEALERS,
         // Действие одно на весь справочник: полный список активных, бэкенд шлёт сразу
@@ -165,17 +165,17 @@ const MODE_CONFIG = {
             ok: true,
             data: {
                 success: true,
-                data: [{ id: 'dealers', name: 'Все активные дилеры' }],
+                data: [{ id: 'dealers', name: 'Все активные партнёры' }],
             },
         }),
         runItem: () => dealersApi.pushToSite(),
         // Портал ставит celery-задачу и в ответ кладёт только task_id (плюс текст
         // «отправка запущена»), поэтому счётчик берём из результата задачи —
         // как у графиков. Считать из ответа эндпоинта нечего: total там нет,
-        // и «Отправлено дилеров: 0» было не нулём, а отсутствующим полем.
+        // и «Отправлено партнёров: 0» было не нулём, а отсутствующим полем.
         isAsync: true,
         formatResult: (result) => result.success
-            ? `✓ Отправлено дилеров: ${result.total ?? 0}`
+            ? `✓ Отправлено партнёров: ${result.total ?? 0}`
             : `✗ ${result.error ?? 'Ошибка'}`,
     },
     fan_charts: {

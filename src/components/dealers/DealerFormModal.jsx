@@ -36,7 +36,7 @@ const fromDealer = (dealer) => ({
 
 // Разбор ошибок полей: конверт портала {"success": false, "error": {"fields": {...}}}
 // или обычный DRF-ответ {"inn": ["..."], ...}
-const FIELDS = ['inn', 'name', 'group', 'legal_address', 'phones', 'director', 'website', 'email', 'letter_sent_at', 'code'];
+const FIELDS = ['inn', 'name', 'group', 'legal_address', 'phones', 'director', 'website', 'email', 'letter_sent_at'];
 const fieldErrors = (body) => {
     const raw = body?.error?.fields ?? body;
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
@@ -51,8 +51,8 @@ const fieldErrors = (body) => {
 const labelCls = 'block text-xs text-gray-500 dark:text-gray-400 mb-1';
 const errCls = 'mt-1 text-xs text-red-500 dark:text-red-400';
 
-// Справочник дилеров: ИНН, группа контрагента, реквизиты, дата письма. Код D#####
-// генерирует портал, поэтому во фронте он только отображается (и только в режиме редактирования).
+// Справочник партнёров: ИНН, группа контрагента, реквизиты, дата письма. Код авторизации
+// (только у группы dealer) генерирует портал — в форме его нет, он виден в таблице.
 export default function DealerFormModal({ dealer, groups = [], onClose, onSaved }) {
     const isEdit = Boolean(dealer);
     const [form, setForm] = useState(() => (isEdit ? fromDealer(dealer) : { ...EMPTY }));
@@ -96,7 +96,7 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
         };
 
         try {
-            // Портал правит дилера по id; ИНН редактируемый (unique проверяет бэкенд)
+            // Портал правит партнёра по id; ИНН редактируемый (unique проверяет бэкенд)
             const { ok, data: body, status } = isEdit
                 ? await dealersApi.update(dealer.id, payload)
                 : await dealersApi.create(payload);
@@ -110,7 +110,7 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
             }
             onSaved?.();
         } catch {
-            setError('Не удалось сохранить дилера');
+            setError('Не удалось сохранить партнёра');
         } finally {
             setSaving(false);
         }
@@ -148,8 +148,8 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
 
     return (
         <Modal
-            title={isEdit ? 'Дилер' : 'Новый дилер'}
-            subtitle={isEdit ? form.name : 'Код D##### присвоит портал после сохранения'}
+            title={isEdit ? 'Партнёр' : 'Новый партнёр'}
+            subtitle={isEdit ? form.name : undefined}
             onClose={onClose}
             maxWidth="xl"
             scrollBody
@@ -164,20 +164,6 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
         >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {field('inn', 'ИНН', { required: true, inputMode: 'numeric', placeholder: '0123456789' })}
-                <div>
-                    <label className={labelCls} htmlFor="dealer-code">Код авторизации</label>
-                    <input
-                        id="dealer-code"
-                        className={inputCls}
-                        value={isEdit ? (dealer.code ?? '') : ''}
-                        placeholder={isEdit ? '' : 'присвоит портал'}
-                        disabled
-                        readOnly
-                    />
-                    <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
-                        Генерируется порталом, не редактируется.
-                    </p>
-                </div>
                 {field('name', 'Название', { required: true, wide: true })}
                 {field('group', 'Группа', { options: groups })}
                 {field('legal_address', 'Юридический адрес', { wide: true })}
@@ -187,7 +173,7 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
                 {field('email', 'E-mail', { type: 'email' })}
                 {field('letter_sent_at', 'Дата письма', { type: 'date' })}
                 {/* Два уровня публикации: запись целиком уходит на сайт по is_published
-                    (карта «Сеть присутствия» + проверка дилера), а телефоны/e-mail/сайт —
+                    (карта «Сеть присутствия» + проверка партнёра), а телефоны/e-mail/сайт —
                     только при contacts_published. Снятая галочка данные не стирает. */}
                 <div className="md:col-span-2 space-y-2 pt-1">
                     <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -199,7 +185,7 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
                             Показывать запись на сайте
                             <span className="block text-[11px] text-gray-400 dark:text-gray-500">
                                 Запись уходит в выгрузку для сайта: карта «Сеть присутствия» и
-                                проверка авторизации дилера. Снятая галочка убирает дилера с сайта
+                                проверка авторизации. Снятая галочка убирает партнёра с сайта
                                 целиком, данные на портале остаются.
                             </span>
                         </span>
