@@ -1,0 +1,21 @@
+# Переводы строки: в репозитории всегда LF, на диск — LF.
+# Без этого на машине с core.autocrlf=true правка одной строки показывается
+# как перезапись всего файла, а на машине с autocrlf=false — наоборот.
+# Реально ловили на .md в соседних репозиториях: правка не применялась,
+# потому что файл был CRLF, а шаблон замены — LF.
+* text=auto eol=lf
+
+# Явно бинарные — чтобы git не пытался нормализовать и не считал диффом.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.avif binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary

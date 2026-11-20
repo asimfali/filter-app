@@ -544,27 +544,65 @@ describe('SyncModal — push_to_site mode', () => {
 
 describe('SyncModal — дилеры', () => {
   const user1 = userWith('portal.page.dealers');
+  // Портал отвечает только task_id, итог приходит из результата celery-задачи
+  const taskReady = (result) => respOk({ success: true, data: { ready: true, result } });
 
-  it('один пункт «Все активные дилеры», запуск шлёт pushToSite и показывает итог', async () => {
-    dealersApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { success: true, total: 3 } }));
+  it('один пункт «Все активные дилеры», запуск шлёт pushToSite и показывает итог из задачи', async () => {
+    vi.useFakeTimers();
+    dealersApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't1' } }));
+    externalApi.taskStatus.mockResolvedValue(taskReady({ success: true, total: 3 }));
     render(<SyncModal user={user1} mode="dealers_push" onClose={vi.fn()} />);
+    await flush();
+    expect(screen.getByText('Все активные дилеры')).toBeInTheDocument();
 
-    expect(await screen.findByText('Все активные дилеры')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Запустить' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Запустить' }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(dealersApi.pushToSite).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Выполняется...')).toBeInTheDocument();
 
-    await waitFor(() => expect(dealersApi.pushToSite).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText('✓ Отправлено дилеров: 3')).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+
+    expect(externalApi.taskStatus).toHaveBeenCalledWith('t1');
+    expect(screen.getByText('✓ Отправлено дилеров: 3')).toBeInTheDocument();
   });
 
-  it('«Запустить все» — единственный прогон pushToSite', async () => {
-    dealersApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { success: true, total: 0 } }));
+  it('нулевой итог из задачи тоже показывается (и это не «поле не пришло»)', async () => {
+    vi.useFakeTimers();
+    dealersApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't2' } }));
+    externalApi.taskStatus.mockResolvedValue(taskReady({ success: true, total: 0 }));
     render(<SyncModal user={user1} mode="dealers_push" onClose={vi.fn()} />);
-    await screen.findByText('Все активные дилеры');
+    await flush();
 
-    fireEvent.click(screen.getByText('Запустить все'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Запустить все'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
 
-    await waitFor(() => expect(dealersApi.pushToSite).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText('✓ Отправлено дилеров: 0')).toBeInTheDocument();
+    expect(dealersApi.pushToSite).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('✓ Отправлено дилеров: 0')).toBeInTheDocument();
+  });
+
+  it('ошибка задачи (вебхук не ушёл) — красный текст, а не ноль', async () => {
+    vi.useFakeTimers();
+    dealersApi.pushToSite.mockResolvedValue(respOk({ success: true, data: { task_id: 't3' } }));
+    externalApi.taskStatus.mockResolvedValue(taskReady({ success: false, error: 'Сайт недоступен' }));
+    render(<SyncModal user={user1} mode="dealers_push" onClose={vi.fn()} />);
+    await flush();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Запустить' }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+
+    const msg = screen.getByText('✗ Сайт недоступен');
+    expect(msg).toHaveClass('text-red-500');
   });
 
   it('ошибка 403 показывается в строке результата', async () => {
