@@ -266,6 +266,18 @@ describe('DealersPage — группа контрагента', () => {
         expect(screen.getByText('ООО «Урал-Тепло»')).toBeInTheDocument();
     });
 
+    it('сервисный центр показывается со своим S-кодом', async () => {
+        asUser('portal.dealers.write');
+        dealersApi.list.mockResolvedValue(listOk([
+            dealer({ group: 'service_center', group_label: 'Сервисный центр', code: 'S00007' }),
+        ]));
+        render(<DealersPage />);
+        const row = await rowOf('ООО «Тепломаш-Юг»');
+
+        expect(within(row).getByText('S00007')).toBeInTheDocument();
+        expect(within(row).getByText('Сервисный центр')).toBeInTheDocument();
+    });
+
     it('создание: группа по умолчанию «Дилер», выбранная уходит в POST', async () => {
         asUser('portal.dealers.write');
         dealersApi.create.mockResolvedValue(ok({ inn: '7709999999', code: 'D10001' }));
@@ -660,6 +672,15 @@ describe('DealersPage — форма дилера', () => {
         expect(screen.queryByLabelText('ИНН *')).not.toBeInTheDocument();
     });
 
+    it('в форме подсказка: ИНН уникален только внутри группы', async () => {
+        asUser('portal.dealers.write');
+        render(<DealersPage />);
+        await screen.findByText('ООО «Тепломаш-Юг»');
+
+        await userEvent.click(screen.getByRole('button', { name: 'Добавить партнёра' }));
+        expect(screen.getByText(/ИНН уникален внутри группы/)).toBeInTheDocument();
+    });
+
     it('пустой ИНН и название — ошибки полей, запроса нет', async () => {
         asUser('portal.dealers.write');
         render(<DealersPage />);
@@ -810,6 +831,9 @@ describe('DealersPage — импорт из xlsx', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Импорт из xlsx' }));
         expect(screen.getByText(/Необязательная колонка «Группа»/)).toBeInTheDocument();
         expect(screen.getByText(/Пустая ячейка сохраняет текущую группу/)).toBeInTheDocument();
+        // Группы больше не хардкод: импорт принимает любую группу из БД
+        expect(screen.getByText(/код или название любой группы/)).toBeInTheDocument();
+        expect(screen.queryByText(/Дилер \/ Филиал \/ Дистрибьютор/)).not.toBeInTheDocument();
     });
 
     it('файл уходит на портал, статус опрашивается, итог показывается, список перезагружается', async () => {
