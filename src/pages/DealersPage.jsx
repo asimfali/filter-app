@@ -148,7 +148,7 @@ const HeaderCheckbox = ({ checked, mixed, disabled, label, onChange }) => {
 };
 
 // Справочник партнёров: список с поиском, создание/редактирование и отмена
-// авторизации (revoke → is_active=false, без удаления). Код авторизации (только у группы dealer) присваивает портал.
+// авторизации (revoke → is_active=false, без удаления). Код (D…/S… по префиксу группы) присваивает портал.
 export default function DealersPage() {
     const { user } = useAuth();
     // Отдельного права на чтение у бэкенда нет: apps.dealers проверяет

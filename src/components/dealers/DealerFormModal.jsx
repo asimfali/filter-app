@@ -51,8 +51,8 @@ const fieldErrors = (body) => {
 const labelCls = 'block text-xs text-gray-500 dark:text-gray-400 mb-1';
 const errCls = 'mt-1 text-xs text-red-500 dark:text-red-400';
 
-// Справочник партнёров: ИНН, группа контрагента, реквизиты, дата письма. Код авторизации
-// (только у группы dealer) генерирует портал — в форме его нет, он виден в таблице.
+// Справочник партнёров: ИНН, группа контрагента, реквизиты, дата письма. Код (D…/S… —
+// по префиксу группы) генерирует портал — в форме его нет, он виден в таблице.
 export default function DealerFormModal({ dealer, groups = [], onClose, onSaved }) {
     const isEdit = Boolean(dealer);
     const [form, setForm] = useState(() => (isEdit ? fromDealer(dealer) : { ...EMPTY }));
@@ -96,7 +96,8 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
         };
 
         try {
-            // Портал правит партнёра по id; ИНН редактируемый (unique проверяет бэкенд)
+            // Портал правит партнёра по id; ИНН редактируемый, уникальность внутри
+            // группы проверяет бэкенд (один ИНН может быть и дилером, и сервисным центром)
             const { ok, data: body, status } = isEdit
                 ? await dealersApi.update(dealer.id, payload)
                 : await dealersApi.create(payload);
@@ -117,7 +118,7 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
     };
 
     // options — тогда вместо input рисуем select (группа: значения и подписи с портала)
-    const field = (key, label, { required, wide, options, ...rest } = {}) => (
+    const field = (key, label, { required, wide, options, hint, ...rest } = {}) => (
         <div className={wide ? 'md:col-span-2' : ''}>
             <label className={labelCls} htmlFor={`dealer-${key}`}>
                 {label}{required ? ' *' : ''}
@@ -142,6 +143,7 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
                     {...rest}
                 />
             )}
+            {hint && <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">{hint}</p>}
             {fields[key] && <p className={errCls}>{fields[key]}</p>}
         </div>
     );
@@ -163,7 +165,12 @@ export default function DealerFormModal({ dealer, groups = [], onClose, onSaved 
             )}
         >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {field('inn', 'ИНН', { required: true, inputMode: 'numeric', placeholder: '0123456789' })}
+                {field('inn', 'ИНН', {
+                    required: true,
+                    inputMode: 'numeric',
+                    placeholder: '0123456789',
+                    hint: 'ИНН уникален внутри группы: одна компания может быть и дилером, и сервисным центром',
+                })}
                 {field('name', 'Название', { required: true, wide: true })}
                 {field('group', 'Группа', { options: groups })}
                 {field('legal_address', 'Юридический адрес', { wide: true })}

@@ -23,8 +23,8 @@ const readJson = async (res) => ({ ok: res.ok, status: res.status, data: await r
 export const dealersApi = {
 
     // isActive: true — только авторизованные, false — только снятые, null — все;
-    // group: 'dealer' | 'branch' | 'distributor' | 'service_center' — тип контрагента
-    // (портальный DjangoFilterBackend; значения и подписи — из groups()).
+    // group — слаг группы из groups() (dealer, branch, distributor, service_center —
+    // стартовый набор, дальше группы заводятся в админке портала и приходят оттуда же).
     async list({ search, isActive, group, page, pageSize } = {}) {
         const q = buildQuery({
             search,
