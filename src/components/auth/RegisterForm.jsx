@@ -6,7 +6,7 @@ import { authInputCls } from '../../utils/styles';
 export default function RegisterForm({ onSuccess }) {
   const [form, setForm] = useState({
     email: '', username: '', password: '',
-    first_name: '', last_name: '',
+    first_name: '', last_name: '', patronymic: '',
     department_id: '', role_id: '',
   });
   const [passwordConfirm, setPasswordConfirm] = useState('');
@@ -43,8 +43,11 @@ export default function RegisterForm({ onSuccess }) {
     if (!form.role_id) { setError('Выберите роль'); return; }
 
     setLoading(true);
+    // Отдельного поля отчества в БД нет: склеиваем его с именем в first_name
+    const { patronymic, ...fields } = form;
     const payload = {
-      ...form,
+      ...fields,
+      first_name: [fields.first_name.trim(), patronymic.trim()].filter(Boolean).join(' '),
       username: form.email,  // ← используем email как username
     };
     const result = await authApi.register(payload);
@@ -77,6 +80,13 @@ export default function RegisterForm({ onSuccess }) {
           <input type="text" value={form.last_name} onChange={set('last_name')}
             placeholder="Иванов" autoComplete="family-name" className={authInputCls} />
         </div>
+      </div>
+
+      {/* Отчество — уходит в first_name вместе с именем */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Отчество</label>
+        <input type="text" value={form.patronymic} onChange={set('patronymic')}
+          placeholder="Иванович" autoComplete="additional-name" className={authInputCls} />
       </div>
 
       {/* Email */}
