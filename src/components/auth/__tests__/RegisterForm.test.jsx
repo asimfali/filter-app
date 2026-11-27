@@ -222,6 +222,37 @@ describe('RegisterForm — отправка', () => {
     expect(onSuccess).toHaveBeenCalledWith('new@example.com');
   });
 
+  it('отчество склеивается с именем в first_name, отдельного поля в payload нет', async () => {
+    const user = userEvent.setup();
+    authApi.register.mockResolvedValue({ ok: true, data: {} });
+    const { container } = render(<RegisterForm onSuccess={vi.fn()} />);
+    await waitDicts();
+
+    await user.type(screen.getByPlaceholderText('Иван'), ' Иван ');
+    await user.type(screen.getByPlaceholderText('Иванович'), ' Иванович ');
+    await user.type(screen.getByPlaceholderText('Иванов'), 'Иванов');
+    await fillValid(user, container);
+    await user.click(screen.getByRole('button', { name: /Зарегистрироваться/ }));
+
+    const payload = authApi.register.mock.calls[0][0];
+    expect(payload.first_name).toBe('Иван Иванович');
+    expect(payload.last_name).toBe('Иванов');
+    expect(payload).not.toHaveProperty('patronymic');
+  });
+
+  it('без отчества в first_name остаётся одно имя', async () => {
+    const user = userEvent.setup();
+    authApi.register.mockResolvedValue({ ok: true, data: {} });
+    const { container } = render(<RegisterForm onSuccess={vi.fn()} />);
+    await waitDicts();
+
+    await user.type(screen.getByPlaceholderText('Иван'), 'Иван');
+    await fillValid(user, container);
+    await user.click(screen.getByRole('button', { name: /Зарегистрироваться/ }));
+
+    expect(authApi.register.mock.calls[0][0].first_name).toBe('Иван');
+  });
+
   it('ошибка с {error: {details: {...}}} показывает первый элемент первого массива ошибок', async () => {
     const user = userEvent.setup();
     authApi.register.mockResolvedValue({
